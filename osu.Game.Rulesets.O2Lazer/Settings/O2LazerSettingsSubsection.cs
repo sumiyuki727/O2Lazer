@@ -195,7 +195,6 @@ public partial class O2LazerSettingsSubsection(O2LazerRuleset ruleset) : Ruleset
             new SettingsItemV2(new FormCheckBox
             {
                 Caption = O2LazerStrings.PreviewPlayKeysounds,
-                HintText = O2LazerStrings.PreviewPlayKeysoundsHint,
                 Current = manager.GetBindable<bool>(O2LazerRulesetSetting.PreviewPlayKeysounds),
             }),
             new SettingsItemV2(new FormCheckBox

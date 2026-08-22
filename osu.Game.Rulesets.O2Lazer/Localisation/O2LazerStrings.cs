@@ -181,8 +181,6 @@ public static class O2LazerStrings
 
     public static LocalisableString PreviewPlayKeysounds => get("preview_play_keysounds");
 
-    public static LocalisableString PreviewPlayKeysoundsHint => get("preview_play_keysounds_hint");
-
     public static LocalisableString AutoPlayKeysounds => get("auto_play_keysounds");
 
 
@@ -486,7 +484,6 @@ public static class O2LazerStrings
 
 
 }
-
 
 
 

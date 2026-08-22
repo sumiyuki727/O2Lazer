@@ -24,7 +24,7 @@
   <data name="adjust_visual_offset_automatically" xml:space="preserve"><value>自动调整视觉偏移</value></data>
   <data name="adjust_visual_offset_automatically_tooltip" xml:space="preserve"><value>每次有效的 O2Jam 游玩结束后，自动应用建议的视觉偏移。</value></data>
   
-  <data name="preview_play_keysounds" xml:space="preserve"><value>预览时播放演奏音效</value></data>  <data name="preview_play_keysounds_hint" xml:space="preserve"><value>关闭后选歌预览不加载谱面演奏音效，可明显降低快速拖拽时的卡顿。</value></data>  <data name="auto_play_keysounds" xml:space="preserve"><value>自动播放演奏音效</value></data>
+  <data name="preview_play_keysounds" xml:space="preserve"><value>预览时播放演奏音效</value></data>  <data name="auto_play_keysounds" xml:space="preserve"><value>自动播放演奏音效</value></data>
   <data name="unlock_frame_rate_limit" xml:space="preserve"><value>解除帧率上限</value></data>
   <data name="unlock_frame_rate_limit_hint" xml:space="preserve"><value>在 O2Jam 游玩期间解除 osu! 的 1000 Hz 帧率与输入轮询上限。更大的 GC 和 GPU 压力可能造成额外卡顿，遇到时请关闭此选项。</value></data>
   <data name="fixed_scroll_speed" xml:space="preserve"><value>固定流速</value></data>

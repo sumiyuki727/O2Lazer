@@ -24,7 +24,7 @@
   <data name="adjust_visual_offset_automatically" xml:space="preserve"><value>Adjust visual offset automatically</value></data>
   <data name="adjust_visual_offset_automatically_tooltip" xml:space="preserve"><value>Automatically apply the visual offset suggested by each valid O2Jam play.</value></data>
   
-  <data name="preview_play_keysounds" xml:space="preserve"><value>Play keysounds in preview</value></data>  <data name="preview_play_keysounds_hint" xml:space="preserve"><value>Disabling skips loading keysounds during song-select preview, which can reduce lag when dragging quickly.</value></data>  <data name="auto_play_keysounds" xml:space="preserve"><value>Auto-play keysounds</value></data>
+  <data name="preview_play_keysounds" xml:space="preserve"><value>Play keysounds in preview</value></data>  <data name="auto_play_keysounds" xml:space="preserve"><value>Auto-play keysounds</value></data>
   <data name="unlock_frame_rate_limit" xml:space="preserve"><value>Unlock frame rate limit</value></data>
   <data name="unlock_frame_rate_limit_hint" xml:space="preserve"><value>Remove osu!'s 1000 Hz frame and input polling cap during O2Jam gameplay. Higher GC and GPU pressure may cause extra stutters; disable this option if that happens.</value></data>
   <data name="fixed_scroll_speed" xml:space="preserve"><value>Fixed scroll speed</value></data>
