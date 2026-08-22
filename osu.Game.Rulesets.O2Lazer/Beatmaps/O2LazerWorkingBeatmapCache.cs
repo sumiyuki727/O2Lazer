@@ -37,7 +37,7 @@ internal sealed class O2LazerWorkingBeatmapCache
                 return cached;
 
             if (o2lazerWrapperCache.Count >= max_wrapper_cache)
-                o2lazerWrapperCache.Clear();
+                evictOneWrapper();
         }
 
 
@@ -55,6 +55,15 @@ internal sealed class O2LazerWorkingBeatmapCache
             o2lazerWrapperCache[working.BeatmapInfo.ID] = wrapper;
 
         return wrapper;
+    }
+
+    private void evictOneWrapper()
+    {
+        foreach (var id in o2lazerWrapperCache.Keys)
+        {
+            if (o2lazerWrapperCache.Remove(id))
+                return;
+        }
     }
 
     private TextureStore getOrCreateExternalTextureStore(string basePath)
