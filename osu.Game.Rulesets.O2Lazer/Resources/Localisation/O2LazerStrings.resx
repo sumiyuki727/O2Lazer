@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="layout" xml:space="preserve"><value>Layout</value></data>
+  <data name="ruleset_name" xml:space="preserve"><value>O2Jam</value></data>
+  <data name="o2jam_level" xml:space="preserve"><value>O2Jam level</value></data>
+  <data name="o2jam_level_description" xml:space="preserve"><value>The original difficulty level stored in the OJN chart.</value></data>
+  <data name="timeline" xml:space="preserve"><value>Timeline</value></data>
+  <data name="hit_scatter" xml:space="preserve"><value>Hit Scatter</value></data>
+  <data name="hit_offset" xml:space="preserve"><value>Hit Offset</value></data>
+  <data name="standard_deviation" xml:space="preserve"><value>SD {0:0.0} ms</value></data>
+  <data name="visual_offset" xml:space="preserve"><value>Visual offset</value></data>
+  <data name="o2lazer_visual_offset" xml:space="preserve"><value>O2Jam visual offset</value></data>
+  <data name="offset_milliseconds" xml:space="preserve"><value>{0:N0} ms</value></data>
+  <data name="visual_offset_earlier" xml:space="preserve"><value>{0:N0} ms - notes appear earlier; suited to players who receive more Slow judgements</value></data>
+  <data name="visual_offset_later" xml:space="preserve"><value>{0:N0} ms - notes appear later; suited to players who receive more Fast judgements</value></data>
+  <data name="visual_offset_suggestion_note" xml:space="preserve"><value>Play a few O2Jam charts to receive a suggested visual offset!</value></data>
+  <data name="visual_offset_suggestion_correct" xml:space="preserve"><value>Based on {0} recent plays, your visual offset is set correctly!</value></data>
+  <data name="visual_offset_suggestion_received" xml:space="preserve"><value>Based on {0} recent plays, the suggested visual offset is {1}.</value></data>
+  <data name="apply_suggested_visual_offset" xml:space="preserve"><value>Apply suggested visual offset</value></data>
+  <data name="adjust_visual_offset_automatically" xml:space="preserve"><value>Adjust visual offset automatically</value></data>
+  <data name="adjust_visual_offset_automatically_tooltip" xml:space="preserve"><value>Automatically apply the visual offset suggested by each valid O2Jam play.</value></data>
+  <data name="use_dedicated_preview_audio" xml:space="preserve"><value>Use dedicated preview audio</value></data>
+  <data name="preview_play_keysounds" xml:space="preserve"><value>Play keysounds in preview</value></data>  <data name="preview_play_keysounds_hint" xml:space="preserve"><value>Disabling skips loading keysounds during song-select preview, which can reduce lag when dragging quickly.</value></data>  <data name="auto_play_keysounds" xml:space="preserve"><value>Auto-play keysounds</value></data>
+  <data name="unlock_frame_rate_limit" xml:space="preserve"><value>Unlock frame rate limit</value></data>
+  <data name="unlock_frame_rate_limit_hint" xml:space="preserve"><value>Remove osu!'s 1000 Hz frame and input polling cap during O2Jam gameplay. Higher GC and GPU pressure may cause extra stutters; disable this option if that happens.</value></data>
+  <data name="fixed_scroll_speed" xml:space="preserve"><value>Fixed scroll speed</value></data>
+  <data name="scroll_speed_tooltip_with_o2jam_grade" xml:space="preserve"><value>{0} · O2Jam {1}</value></data>
+  <data name="import_path" xml:space="preserve"><value>Import path</value></data>
+  <data name="import_path_hint" xml:space="preserve"><value>Folder used by the last O2Jam import. Click to choose a different folder; beatmaps from the selected folder are read into the library automatically.</value></data>
+  <data name="import_path_placeholder" xml:space="preserve"><value>Click to choose an import path</value></data>
+  <data name="refresh_beatmaps" xml:space="preserve"><value>Refresh beatmaps</value></data>
+  <data name="refresh_beatmaps_tooltip" xml:space="preserve"><value>Re-imports charts from the current import path so newly added files appear in the library.</value></data>
+  <data name="delete_all_imported_files" xml:space="preserve"><value>Delete all imported O2Jam beatmaps</value></data>
+  <data name="settings_group_import" xml:space="preserve"><value>Import</value></data>
+  <data name="settings_group_scroll_speed" xml:space="preserve"><value>Scroll Speed</value></data>
+  <data name="settings_group_visual" xml:space="preserve"><value>Visual offset</value></data>
+  <data name="settings_group_other" xml:space="preserve"><value>Other</value></data>
+  <data name="delete_all_confirmation" xml:space="preserve"><value>All imported O2Jam beatmaps will be permanently deleted. This cannot be undone!</value></data>
+  <data name="import_selected_file" xml:space="preserve"><value>Import selected file</value></data>
+  <data name="import_current_folder" xml:space="preserve"><value>Import all in current folder</value></data>
+  <data name="import_directory_recursive" xml:space="preserve"><value>Import all from directory (recursive)</value></data>
+  <data name="import_directory_recursive_tooltip" xml:space="preserve"><value>Imports all OJN files from the selected directory and subdirectories</value></data>
+  <data name="select_file_or_folder" xml:space="preserve"><value>Select a file/folder</value></data>
+  <data name="import" xml:space="preserve"><value>Import</value></data>
+  <data name="history" xml:space="preserve"><value>HISTORY</value></data>
+  <data name="update" xml:space="preserve"><value>Update</value></data>
+  <data name="editor_unsupported" xml:space="preserve"><value>The O2Jam editor is not supported yet.</value></data>
+  <data name="start" xml:space="preserve"><value>start</value></data>
+  <data name="time" xml:space="preserve"><value>time</value></data>
+  <data name="overall" xml:space="preserve"><value>Overall</value></data>
+  <data name="scratch" xml:space="preserve"><value>Scratch</value></data>
+  <data name="fast" xml:space="preserve"><value>fast</value></data>
+  <data name="slow" xml:space="preserve"><value>slow</value></data>
+  <data name="hit_error_meter_show_empty_poor" xml:space="preserve"><value>Show E-POOR</value></data>
+  <data name="hit_error_meter_show_empty_poor_description" xml:space="preserve"><value>Shows E-POOR judgements and their grey timing window on the fast side.</value></data>
+  <data name="hit_error_meter_show_poor" xml:space="preserve"><value>Show POOR</value></data>
+  <data name="hit_error_meter_show_poor_description" xml:space="preserve"><value>Shows POOR judgements at the latest end of the meter.</value></data>
+  <data name="hit_error_meter_fade_duration" xml:space="preserve"><value>Judgement fade duration</value></data>
+  <data name="hit_error_meter_fade_duration_description" xml:space="preserve"><value>Seconds taken for judgement lines to fade out.</value></data>
+  <data name="key" xml:space="preserve"><value>Key {0}</value></data>
+  <data name="notes" xml:space="preserve"><value>Notes</value></data>
+  <data name="judgement" xml:space="preserve"><value>Judgement</value></data>
+  <data name="fast_slow" xml:space="preserve"><value>Fast/Slow</value></data>
+  <data name="note" xml:space="preserve"><value>note</value></data>
+  <data name="long_note" xml:space="preserve"><value>ln</value></data>
+  <data name="cool" xml:space="preserve"><value>COOL</value></data>
+  <data name="miss" xml:space="preserve"><value>MISS</value></data>
+  <data name="mine" xml:space="preserve"><value>mine</value></data>
+  <data name="poor" xml:space="preserve"><value>Poor</value></data>
+  <data name="bad" xml:space="preserve"><value>BAD</value></data>
+  <data name="good" xml:space="preserve"><value>GOOD</value></data>
+  <data name="great" xml:space="preserve"><value>Great</value></data>
+  <data name="perfect" xml:space="preserve"><value>Perfect</value></data>
+  <data name="hit_count" xml:space="preserve"><value>{0} hits</value></data>
+  <data name="import_initialising" xml:space="preserve"><value>O2Jam import is initialising...</value></data>
+  <data name="scanning_orphans" xml:space="preserve"><value>Scanning for orphaned O2Jam beatmaps...</value></data>
+  <data name="cleanup_complete" xml:space="preserve"><value>Cleaned up {0} orphaned O2Jam beatmap sets.</value></data>
+  <data name="no_orphans_found" xml:space="preserve"><value>No orphaned O2Jam beatmaps found.</value></data>
+  <data name="cleanup_failed" xml:space="preserve"><value>O2Jam cleanup failed. Check logs for more information.</value></data>
+  <data name="deleting_beatmaps" xml:space="preserve"><value>Deleting O2Jam beatmaps...</value></data>
+  <data name="deleted_sets" xml:space="preserve"><value>Deleted {0} O2Jam beatmap sets</value></data>
+  <data name="delete_cancelled" xml:space="preserve"><value>Delete cancelled. {0} O2Jam beatmap sets were deleted.</value></data>
+  <data name="delete_was_cancelled" xml:space="preserve"><value>O2Jam delete was cancelled.</value></data>
+  <data name="delete_failed" xml:space="preserve"><value>An error occurred while deleting O2Jam beatmaps. Check logs for more information.</value></data>
+  <data name="import_failed" xml:space="preserve"><value>O2Jam import failed! Check logs for more information.</value></data>
+  <data name="set_already_imported" xml:space="preserve"><value>O2Jam set is already imported.</value></data>
+  <data name="all_sets_already_imported" xml:space="preserve"><value>All {0} O2Jam sets are already imported.</value></data>
+  <data name="imported_sets" xml:space="preserve"><value>Imported {0} O2Jam sets!</value></data>
+  <data name="imported_sets_progress" xml:space="preserve"><value>Imported {0} of {1} O2Jam sets</value></data>
+  <data name="import_completed_with_failures" xml:space="preserve"><value>Imported {0} of {1} O2Jam sets; {2} files could not be read</value></data>
+  <data name="ruleset_unavailable" xml:space="preserve"><value>O2Jam ruleset is not available</value></data>
+  <data name="scanning_files" xml:space="preserve"><value>O2Jam import: scanning files...</value></data>
+  <data name="no_charts_found" xml:space="preserve"><value>No OJN charts found to import.</value></data>
+  <data name="preparing_import" xml:space="preserve"><value>O2Jam import: preparing...</value></data>
+  <data name="import_was_cancelled" xml:space="preserve"><value>O2Jam import was cancelled.</value></data>
+  <data name="import_cancelled_progress" xml:space="preserve"><value>Import cancelled. {0} of {1} O2Jam sets were imported.</value></data>
+  <data name="locked_long_note_mode" xml:space="preserve"><value>Locked long-note mode: {0}</value></data>
+  <data name="action_key_1" xml:space="preserve"><value>Key 1</value></data>
+  <data name="action_key_2" xml:space="preserve"><value>Key 2</value></data>
+  <data name="action_key_3" xml:space="preserve"><value>Key 3</value></data>
+  <data name="action_key_4" xml:space="preserve"><value>Key 4</value></data>
+  <data name="action_key_5" xml:space="preserve"><value>Key 5</value></data>
+  <data name="action_key_6" xml:space="preserve"><value>Key 6</value></data>
+  <data name="action_key_7" xml:space="preserve"><value>Key 7</value></data>
+  <data name="action_increase_scroll_speed" xml:space="preserve"><value>Increase Scroll Speed</value></data>
+  <data name="action_decrease_scroll_speed" xml:space="preserve"><value>Decrease Scroll Speed</value></data>
+  <data name="mod_mirror" xml:space="preserve"><value>Mirrors the key layout.</value></data>
+  <data name="mod_random" xml:space="preserve"><value>Shuffle the keys using a repeatable random seed.</value></data>
+  <data name="song_progress_colour" xml:space="preserve"><value>Indicator colour</value></data>
+  <data name="song_progress_colour_description" xml:space="preserve"><value>Colour of the glowing song progress indicator.</value></data>
+  <data name="seed" xml:space="preserve"><value>Seed</value></data>
+  <data name="judgement_line_offset" xml:space="preserve"><value>Judgement line offset</value></data>
+  <data name="judgement_line_offset_description" xml:space="preserve"><value>Moves the judgement line relative to the skin position. Positive values move it upward.</value></data>
+  <data name="light_position_offset" xml:space="preserve"><value>Light position offset</value></data>
+  <data name="light_position_offset_description" xml:space="preserve"><value>Moves column lights relative to the skin position. Positive values move them upward.</value></data>
+  <data name="note_height_scale" xml:space="preserve"><value>Note height scale</value></data>
+  <data name="note_height_scale_description" xml:space="preserve"><value>Scales note heads and tails without changing their positions or other Stage elements.</value></data>
+  <data name="scale_stage_width_by_columns" xml:space="preserve"><value>Scale Stage width by columns</value></data>
+  <data name="scale_stage_width_by_columns_description" xml:space="preserve"><value>Applies the configured-to-original Stage width ratio to each column, allowing layouts with more columns to use a wider Stage.</value></data>
+  <data name="auto_hide_delay" xml:space="preserve"><value>Auto-hide delay</value></data>
+  <data name="auto_hide_delay_description" xml:space="preserve"><value>Seconds before combo counter hides when combo hasn't grown. Set to -1 to never auto-hide.</value></data>
+  <data name="min_visible_combo" xml:space="preserve"><value>Min visible combo</value></data>
+  <data name="min_visible_combo_description" xml:space="preserve"><value>Minimum combo count for the counter to be visible.</value></data>
+  <data name="score_graph_current" xml:space="preserve"><value>Current</value></data>
+  <data name="score_graph_personal_best" xml:space="preserve"><value>Personal best</value></data>
+  <data name="score_graph_personal_best_short" xml:space="preserve"><value>Best</value></data>
+  <data name="score_graph_target" xml:space="preserve"><value>Target {0}</value></data>
+  <data name="score_graph_rank_x" xml:space="preserve"><value>X</value></data>
+  <data name="score_graph_rank_s" xml:space="preserve"><value>S</value></data>
+  <data name="score_graph_rank_a" xml:space="preserve"><value>A</value></data>
+  <data name="score_graph_rank_b" xml:space="preserve"><value>B</value></data>
+  <data name="score_graph_rank_c" xml:space="preserve"><value>C</value></data>
+  <data name="score_graph_rank_d" xml:space="preserve"><value>D</value></data>
+  <data name="score_graph_rank_threshold" xml:space="preserve"><value>{0} {1:D4}</value></data>
+  <data name="score_graph_ex_score" xml:space="preserve"><value>{0:D4}</value></data>
+  <data name="score_graph_difference" xml:space="preserve"><value>{0:+0000;-0000;+0000}</value></data>
+  <data name="score_graph_judgement_pgreat" xml:space="preserve"><value>PGREAT</value></data>
+  <data name="score_graph_judgement_great" xml:space="preserve"><value>GREAT</value></data>
+  <data name="score_graph_judgement_good" xml:space="preserve"><value>GOOD</value></data>
+  <data name="score_graph_judgement_bad" xml:space="preserve"><value>BAD</value></data>
+  <data name="score_graph_judgement_poor" xml:space="preserve"><value>POOR</value></data>
+  <data name="score_graph_judgement_empty_poor" xml:space="preserve"><value>E-POOR</value></data>
+  <data name="score_graph_judgement_count" xml:space="preserve"><value>{0:D4}</value></data>
+  <data name="score_graph_judgement_unavailable" xml:space="preserve"><value>—</value></data>
+  <data name="score_graph_current_colour" xml:space="preserve"><value>Current score colour</value></data>
+  <data name="score_graph_current_colour_description" xml:space="preserve"><value>Colour of the current EX score column.</value></data>
+  <data name="score_graph_personal_best_colour" xml:space="preserve"><value>Personal best colour</value></data>
+  <data name="score_graph_personal_best_colour_description" xml:space="preserve"><value>Colour of the personal-best EX score column and final-score ghost.</value></data>
+  <data name="score_graph_target_colour" xml:space="preserve"><value>Target colour</value></data>
+  <data name="score_graph_target_colour_description" xml:space="preserve"><value>Colour of the target EX score column and final-score ghost.</value></data>
+  <data name="score_graph_show_bars" xml:space="preserve"><value>Show score bars</value></data>
+  <data name="score_graph_show_bars_description" xml:space="preserve"><value>Shows the live, personal-best and target EX score bars.</value></data>
+  <data name="score_graph_show_score_difference" xml:space="preserve"><value>Show score differences</value></data>
+  <data name="score_graph_show_score_difference_description" xml:space="preserve"><value>Shows current, personal-best and target EX scores and their differences.</value></data>
+  <data name="score_graph_show_judgement_comparison" xml:space="preserve"><value>Show judgement comparison</value></data>
+  <data name="score_graph_show_judgement_comparison_description" xml:space="preserve"><value>Shows current and personal-best judgement counts.</value></data>
+  <data name="sync_source_folder_collections" xml:space="preserve"><value>Sync collections by source folder</value></data>
+
+<data name="action_p2_key_1" xml:space="preserve"><value>P2 Key 1</value></data>
+<data name="action_p2_key_2" xml:space="preserve"><value>P2 Key 2</value></data>
+<data name="action_p2_key_3" xml:space="preserve"><value>P2 Key 3</value></data>
+<data name="action_p2_key_4" xml:space="preserve"><value>P2 Key 4</value></data>
+<data name="action_p2_key_5" xml:space="preserve"><value>P2 Key 5</value></data>
+<data name="action_p2_key_6" xml:space="preserve"><value>P2 Key 6</value></data>
+<data name="action_p2_key_7" xml:space="preserve"><value>P2 Key 7</value></data>
+<data name="action_p2_pms_key_1" xml:space="preserve"><value>P2 PMS Key 1</value></data>
+<data name="action_p2_pms_key_2" xml:space="preserve"><value>P2 PMS Key 2</value></data>
+<data name="action_p2_pms_key_3" xml:space="preserve"><value>P2 PMS Key 3</value></data>
+<data name="action_p2_pms_key_4" xml:space="preserve"><value>P2 PMS Key 4</value></data>
+<data name="action_p2_pms_key_5" xml:space="preserve"><value>P2 PMS Key 5</value></data>
+<data name="action_p2_pms_key_6" xml:space="preserve"><value>P2 PMS Key 6</value></data>
+<data name="action_p2_pms_key_7" xml:space="preserve"><value>P2 PMS Key 7</value></data>
+<data name="action_p2_pms_key_8" xml:space="preserve"><value>P2 PMS Key 8</value></data>
+<data name="action_p2_pms_key_9" xml:space="preserve"><value>P2 PMS Key 9</value></data>
+<data name="action_p2_scratch" xml:space="preserve"><value>P2 Scratch</value></data>
+<data name="action_pms_key_1" xml:space="preserve"><value>PMS Key 1</value></data>
+<data name="action_pms_key_2" xml:space="preserve"><value>PMS Key 2</value></data>
+<data name="action_pms_key_3" xml:space="preserve"><value>PMS Key 3</value></data>
+<data name="action_pms_key_4" xml:space="preserve"><value>PMS Key 4</value></data>
+<data name="action_pms_key_5" xml:space="preserve"><value>PMS Key 5</value></data>
+<data name="action_pms_key_6" xml:space="preserve"><value>PMS Key 6</value></data>
+<data name="action_pms_key_7" xml:space="preserve"><value>PMS Key 7</value></data>
+<data name="action_pms_key_8" xml:space="preserve"><value>PMS Key 8</value></data>
+<data name="action_pms_key_9" xml:space="preserve"><value>PMS Key 9</value></data>
+<data name="action_scratch" xml:space="preserve"><value>Scratch</value></data>
+<data name="auto_play_keysounds_hint" xml:space="preserve"><value>Play every note and long-note tail keysound at its exact timing regardless of input accuracy.</value></data>
+<data name="bga_dim" xml:space="preserve"><value>BGA dim</value></data>
+<data name="bga_fill_screen" xml:space="preserve"><value>Fill screen</value></data>
+<data name="bga_fill_screen_description" xml:space="preserve"><value>Display the BGA across the full HUD area. Moving or resizing the component disables this.</value></data>
+<data name="cleanup_orphaned_sets" xml:space="preserve"><value>Remove orphaned O2Jam beatmap sets</value></data>
+<data name="cleanup_orphaned_sets_tooltip" xml:space="preserve"><value>Removes imported O2Jam beatmaps whose source files can no longer be found on disk.</value></data>
+<data name="cleanup_orphans_confirmation" xml:space="preserve"><value>O2Jam beatmaps whose source directory no longer exists will be removed. This cannot be undone.&#10;&#10;After deletion, you will need to re-import them. Cancel now and move the files back to their original location if you want to keep them.</value></data>
+<data name="collecting" xml:space="preserve"><value>Collecting ...</value></data>
+<data name="dedicated_preview_audio_hint" xml:space="preserve"><value>Use #PREVIEW or preview.* files when available. Disable this to synthesize song-select previews only from BGM and keysound samples.</value></data>
+<data name="delete_table_confirmation" xml:space="preserve"><value>Delete difficulty table "{0}" ({1} charts)?&#10;&#10;⚠ This may freeze the UI if done from song select. Switch to the main menu first.</value></data>
+<data name="delete_table_tooltip" xml:space="preserve"><value>Delete table</value></data>
+<data name="difficulty_table_already_imported" xml:space="preserve"><value>Difficulty table already imported: {0}</value></data>
+<data name="difficulty_table_name" xml:space="preserve"><value>{0} ({1})</value></data>
+<data name="difficulty_table_not_subdivided_status" xml:space="preserve"><value>Not subdivided</value></data>
+<data name="difficulty_table_placeholder" xml:space="preserve"><value>Difficulty table URL or file path...</value></data>
+<data name="difficulty_table_subdivided_status" xml:space="preserve"><value>Subdivided</value></data>
+<data name="difficulty_table_tooltip" xml:space="preserve"><value>{0} charts&#10;{1}</value></data>
+<data name="difficulty_table_warning" xml:space="preserve"><value>Adding or removing difficulty tables while on the song select screen may freeze the UI. Switch to the main menu first.</value></data>
+<data name="exhard_gauge_fill_colour" xml:space="preserve"><value>ExHard gauge fill colour</value></data>
+<data name="exhard_gauge_fill_colour_description" xml:space="preserve"><value>Fill colour for the ExHard gauge type.</value></data>
+<data name="exrank_description" xml:space="preserve"><value>EXRANK {0:0.##}% timing windows.</value></data>
+<data name="failed_to_load_table" xml:space="preserve"><value>Failed to load difficulty table from: {0}</value></data>
+<data name="failed_to_parse_table" xml:space="preserve"><value>Failed to parse difficulty table from {0}</value></data>
+<data name="failed_to_update_table" xml:space="preserve"><value>Failed to update difficulty table: {0}</value></data>
+<data name="file_does_not_exist" xml:space="preserve"><value>File does not exist.</value></data>
+<data name="fixed_scroll_speed_hint" xml:space="preserve"><value>Keeps the configured scroll speed constant during play, ignoring BPM, SCROLL and SPEED changes in the chart.</value></data>
+<data name="gauge_description" xml:space="preserve"><value>Use the {0} O2Jam gauge.</value></data>
+<data name="gauge_history" xml:space="preserve"><value>Gauge History</value></data>
+<data name="gauge_summary" xml:space="preserve"><value>{0} gauge&#10;{1} objects, {2}</value></data>
+<data name="gauge_summary_with_guts" xml:space="preserve"><value>{0} gauge&#10;{1} objects, {2}&#10;Damage shown at initial HP; low-HP guts may reduce penalties.</value></data>
+<data name="groove_high_health_colour" xml:space="preserve"><value>Groove high health colour</value></data>
+<data name="groove_high_health_colour_description" xml:space="preserve"><value>Colour of the groove gauge above the clear threshold.</value></data>
+<data name="groove_low_health_colour" xml:space="preserve"><value>Groove low health colour</value></data>
+<data name="groove_low_health_colour_description" xml:space="preserve"><value>Colour of the groove gauge in the red zone (below red zone threshold).</value></data>
+<data name="groove_mid_health_colour" xml:space="preserve"><value>Groove mid health colour</value></data>
+<data name="groove_mid_health_colour_description" xml:space="preserve"><value>Colour of the groove gauge in the yellow zone (between red zone and clear threshold).</value></data>
+<data name="hard_gauge_fill_colour" xml:space="preserve"><value>Hard gauge fill colour</value></data>
+<data name="hard_gauge_fill_colour_description" xml:space="preserve"><value>Fill colour for the Hard gauge type.</value></data>
+<data name="hazard_gauge_fill_colour" xml:space="preserve"><value>Hazard gauge fill colour</value></data>
+<data name="hazard_gauge_fill_colour_description" xml:space="preserve"><value>Fill colour for the Hazard gauge type.</value></data>
+<data name="importing_difficulty_table" xml:space="preserve"><value>Importing difficulty table…</value></data>
+<data name="include_scratch" xml:space="preserve"><value>Include Scratch</value></data>
+<data name="include_scratch_rotation_description" xml:space="preserve"><value>Whether to include scratch lanes in the rotation.</value></data>
+<data name="include_scratch_shuffle_description" xml:space="preserve"><value>Whether to include scratch lanes in the shuffle.</value></data>
+<data name="invert_seed_description" xml:space="preserve"><value>Use a custom seed for reproducible random LN lengths.</value></data>
+<data name="lane_order" xml:space="preserve"><value>Lane Order</value></data>
+<data name="lane_order_description" xml:space="preserve"><value>Comma-separated direct lane mapping (e.g. "0,3,1,4,2,5").</value></data>
+<data name="loaded_table" xml:space="preserve"><value>Loaded table: {0} ({1} charts)</value></data>
+<data name="locked_mode" xml:space="preserve"><value>Locked mode</value></data>
+<data name="main_bpm" xml:space="preserve"><value>Main BPM</value></data>
+<data name="max_bpm" xml:space="preserve"><value>Max BPM</value></data>
+<data name="merge_table_confirmation" xml:space="preserve"><value>Merge difficulty table "{0}" back into a single collection?</value></data>
+<data name="min_bpm" xml:space="preserve"><value>Min BPM</value></data>
+  <data name="missing_o2lazertable_meta" xml:space="preserve"><value>Page at {0} does not contain a o2lazertable meta tag</value></data>
+<data name="mod_auto_gauge" xml:space="preserve"><value>Start with the hardest gauge. When you fail, drop to the next tier.</value></data>
+<data name="mod_auto_scratch" xml:space="preserve"><value>Automatically hits scratch notes.</value></data>
+<data name="mod_background_keysound" xml:space="preserve"><value>Play all keysounds as background audio instead of on key press.</value></data>
+<data name="mod_branch_replay" xml:space="preserve"><value>Stores chart branch decisions for replay playback.</value></data>
+<data name="mod_charge_note" xml:space="preserve"><value>Two-endpoint note: head and tail judged separately with independent combo.</value></data>
+<data name="mod_constant" xml:space="preserve"><value>Disables BPM-based scroll speed changes.</value></data>
+<data name="mod_hell_charge_note" xml:space="preserve"><value>Charge-note with continuous body gauge drain: hold to recover, release to damage.</value></data>
+<data name="mod_hide_scratch" xml:space="preserve"><value>Remove scratch notes and scratch columns.</value></data>
+<data name="mod_invert" xml:space="preserve"><value>Converts each note except the last in each lane into a hold note that ends shortly before the next note.</value></data>
+<data name="mod_lane_random" xml:space="preserve"><value>Permutes lane columns. Set a custom lane order or let it generate a random permutation.</value></data>
+<data name="mod_long_note" xml:space="preserve"><value>Standard hold-note: single endpoint judged at the tail using worst offset.</value></data>
+<data name="mod_note_random" xml:space="preserve"><value>Per-note randomisation.&#x20;&#10;S-RANDOM shuffles every note with a 40ms anti-jack window.&#x20;&#10;H-RANDOM widens it to 100ms, aggressively breaking jacks at the cost of more chaotic patterns.</value></data>
+<data name="mod_paused" xml:space="preserve"><value>The play was paused and resumed.</value></data>
+<data name="mod_rotation_random" xml:space="preserve"><value>R-RANDOM: randomly rotates columns, with 50% chance of also mirroring.</value></data>
+<data name="mod_second_player" xml:space="preserve"><value>Switches to second-player cabinet layout (scratch on right).</value></data>
+<data name="no_valid_table_entries" xml:space="preserve"><value>No valid entries found in difficulty table from {0}</value></data>
+<data name="note_random_mode" xml:space="preserve"><value>Mode</value></data>
+<data name="note_random_mode_description" xml:space="preserve"><value>S-RANDOM: 40ms anti-jack - only prevents impossibly close jacks. H-RANDOM: 100ms anti-jack - actively breaks jacks into stair/trill patterns.</value></data>
+<data name="note_random_seed_description" xml:space="preserve"><value>Use a custom seed for deterministic randomisation (required for replay consistency).</value></data>
+  <data name="o2lazer_difficulty_tables" xml:space="preserve"><value>O2LAZER Difficulty Tables</value></data>
+<data name="presets" xml:space="preserve"><value>PRESETS</value></data>
+<data name="randomise_long_note_length" xml:space="preserve"><value>Randomise LN length</value></data>
+<data name="randomise_long_note_length_description" xml:space="preserve"><value>Choose each LN length at random while leaving a playable gap before the next note.</value></data>
+<data name="rank_description" xml:space="preserve"><value>RANK {0} timing windows.</value></data>
+<data name="reference_bpm" xml:space="preserve"><value>Reference BPM</value></data>
+<data name="refreshing" xml:space="preserve"><value>Refreshing ...</value></data>
+<data name="refreshing_progress" xml:space="preserve"><value>Refreshing {0}/{1}...</value></data>
+<data name="removed_table" xml:space="preserve"><value>Removed difficulty table "{0}"</value></data>
+<data name="removing_table" xml:space="preserve"><value>Removing difficulty table "{0}"...</value></data>
+<data name="seed_description" xml:space="preserve"><value>Use a custom seed for deterministic randomisation.</value></data>
+<data name="show_bme_7k" xml:space="preserve"><value>Show BME 7K</value></data>
+<data name="show_bme_7k_dp" xml:space="preserve"><value>Show BME 7K DP</value></data>
+  <data name="show_o2lazer_5k" xml:space="preserve"><value>Show O2LAZER 5K</value></data>
+  <data name="show_o2lazer_5k_dp" xml:space="preserve"><value>Show O2LAZER 5K DP</value></data>
+<data name="show_pms_9k" xml:space="preserve"><value>Show PMS 9K</value></data>
+<data name="show_pms_9k_dp" xml:space="preserve"><value>Show PMS 9K DP</value></data>
+<data name="split_table_confirmation" xml:space="preserve"><value>Split difficulty table "{0}" into per-level collections?</value></data>
+<data name="start_bpm" xml:space="preserve"><value>Start BPM</value></data>
+<data name="subdivide" xml:space="preserve"><value>Subdivide</value></data>
+<data name="subdivide_tooltip" xml:space="preserve"><value>Split into per-level collections</value></data>
+  <data name="sync_source_folder_collections_hint" xml:space="preserve"><value>Keeps one collection per source folder in sync while enabled.</value></data>
+<data name="unsubdivide" xml:space="preserve"><value>Unsubdivide</value></data>
+<data name="unsubdivide_tooltip" xml:space="preserve"><value>Merge per-level collections back into one</value></data>
+<data name="update_table_confirmation" xml:space="preserve"><value>Re-fetch difficulty table "{0}" from source?&#10;&#10;⚠ This may freeze the UI if done from song select. Switch to the main menu first.</value></data>
+<data name="update_table_tooltip" xml:space="preserve"><value>Re-fetch table from source</value></data>
+<data name="updated_table" xml:space="preserve"><value>Updated table: {0} ({1} charts)</value></data>
+<data name="updating_table" xml:space="preserve"><value>Updating difficulty table "{0}"...</value></data>
+
+</root>

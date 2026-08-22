@@ -1,0 +1,26 @@
+<!-- Contains required properties for osu!framework projects. -->
+<Project>
+    <PropertyGroup>
+        <ApplicationManifest>$(MSBuildThisFileDirectory)app.manifest</ApplicationManifest>
+    </PropertyGroup>
+    <PropertyGroup Label="Documentation">
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
+    </PropertyGroup>
+    <PropertyGroup Label="Osu dependency">
+        <!-- Shared year.milestone base; bump this to move osu + ruleset together. -->
+        <OsuBase Condition="'$(OsuBase)' == ''">2026.804</OsuBase>
+        <!-- Official osu!lazer tag revision used by the local osu checkout and OsuVersion. -->
+        <OsuRevision Condition="'$(OsuRevision)' == ''">2</OsuRevision>
+        <!-- O2Lazer release revision; new lazer bases start at the official lazer revision. -->
+        <RulesetRevision Condition="'$(RulesetRevision)' == ''">1</RulesetRevision>
+        <!-- Version passed to osu (nuget ref / local checkout target). -->
+        <OsuVersion>$(OsuBase).$(OsuRevision)</OsuVersion>
+        <!-- Defaults true: target a local osu checkout (../osu). Pass UseLocalOsu=false once a
+             matching ppy.osu.Game package is published. To build against an existing osu.Game.dll
+             without writing to the osu checkout, pass OsuGameProjectPath=D:\osu\osu.Game\bin\Debug\net8.0\osu.Game.dll. -->
+        <UseLocalOsu Condition="'$(UseLocalOsu)' == ''">true</UseLocalOsu>
+        <OsuGameProjectPath Condition="'$(OsuGameProjectPath)' == ''">$(MSBuildThisFileDirectory)..\osu\osu.Game\osu.Game.csproj</OsuGameProjectPath>
+        <UseLocalOsuBinary Condition="'$(UseLocalOsu)' == 'true' and '$(OsuGameProjectPath.EndsWith(&quot;.dll&quot;))' == 'true'">true</UseLocalOsuBinary>
+    </PropertyGroup>
+</Project>

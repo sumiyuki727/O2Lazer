@@ -1,0 +1,82 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup Label="Project">
+        <TargetFramework>net8.0</TargetFramework>
+        <AssemblyTitle>osu.Game.Rulesets.O2Lazer</AssemblyTitle>
+        <AssemblyName>osu.Game.Rulesets.O2Lazer</AssemblyName>
+        <OutputType>Library</OutputType>
+        <PlatformTarget>AnyCPU</PlatformTarget>
+        <RootNamespace>osu.Game.Rulesets.O2Lazer</RootNamespace>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Version>$(OsuBase).$(RulesetRevision)</Version>
+        <LangVersion>14</LangVersion>
+        <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    </PropertyGroup>
+    <PropertyGroup>
+        <UseLocalOsuBinary Condition="'$(UseLocalOsu)' == 'true' and '$(OsuGameProjectPath.EndsWith(&quot;.dll&quot;))' == 'true'">true</UseLocalOsuBinary>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(UseLocalOsuBinary)' == 'true'">
+        <NoWarn>$(NoWarn);MSB3277</NoWarn>
+    </PropertyGroup>
+    <ItemGroup>
+        <EmbeddedResource Include="Resources\**" Exclude="Resources\**\*.resx" WithCulture="false"/>
+        <EmbeddedResource Update="Resources\Localisation\O2LazerStrings.resx" WithCulture="false" />
+        <EmbeddedResource Update="Resources\Localisation\O2LazerStrings.zh.resx" WithCulture="false" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.45" PrivateAssets="all" />
+        <PackageReference Include="Lib.Harmony" Version="2.4.2"/>
+        <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(UseLocalOsu)' != 'true'">
+        <PackageReference Include="ppy.osu.Game" Version="$(OsuVersion)"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(UseLocalOsuBinary)' == 'true'">
+        <Reference Include="osu.Game">
+            <HintPath>$(OsuGameProjectPath)</HintPath>
+            <Private>false</Private>
+        </Reference>
+                <PackageReference Include="ppy.osu.Framework" Version="2026.731.0" />
+        <PackageReference Include="Realm" Version="20.1.0" />
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(UseLocalOsu)' == 'true' and '$(UseLocalOsuBinary)' != 'true'">
+        <ProjectReference Include="$(OsuGameProjectPath)" Private="false"/>
+    </ItemGroup>
+    <ItemGroup>
+        <InternalsVisibleTo Include="osu.Game.Rulesets.O2Lazer.Tests"/>
+        <InternalsVisibleTo Include="MonoMod.Utils.Cil.ILGeneratorProxy"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference
+            Include="..\osu.Game.Rulesets.O2Lazer.SourceGeneration\osu.Game.Rulesets.O2Lazer.SourceGeneration.csproj"
+            OutputItemType="Analyzer"
+            ReferenceOutputAssembly="false" />
+    </ItemGroup>
+    <Target Name="RepackO2LazerRuleset" AfterTargets="Build">
+        <ItemGroup>
+            <O2LazerHarmonyAssembly Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == '0Harmony'" />
+            <O2LazerRepackLibraryPath Include="@(ReferencePath->'%(RootDir)%(Directory)')" />
+            <O2LazerRepackLibraryPath Include="$(TargetDir)" />
+            <O2LazerRepackInternalizeExclude Include="^HarmonyLib\." />
+            <O2LazerRepackInternalizeExclude Include="^MonoMod\." />
+            <O2LazerRepackInputAssemblies Include="$(TargetPath)" />
+            <O2LazerRepackInputAssemblies Include="@(O2LazerHarmonyAssembly)" />
+        </ItemGroup>
+        <Error Condition="'@(O2LazerHarmonyAssembly)' == ''" Text="Unable to locate 0Harmony.dll for the O2Lazer ruleset repack. Restore Lib.Harmony before building." />
+        <ILRepack
+            Parallel="true"
+            Internalize="true"
+            InternalizeExclude="@(O2LazerRepackInternalizeExclude)"
+            RenameInternalized="true"
+            InputAssemblies="@(O2LazerRepackInputAssemblies)"
+            LibraryPath="@(O2LazerRepackLibraryPath)"
+            TargetKind="Dll"
+            OutputFile="$(TargetPath)" />
+        <Message Importance="high" Text="Repacked O2Lazer ruleset: $(TargetPath)" />
+    </Target>
+</Project>
+
+
+
+
