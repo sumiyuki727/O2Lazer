@@ -15,7 +15,7 @@
 - 韩文元数据按 CP949 解码，中文 O2Jam 2.9 元数据按 GBK/CP936 解码，并保留 UTF-8 回退。
 - 使用原生 O2Jam 的 COOL/GOOD/BAD/MISS 判定窗口、原生计分与独立判定的长条首尾判定。
 - 提供专用 O2Jam 设置、单文件导入、当前文件夹导入与递归曲库导入。
-- 默认 HUD 与可用模组保持简洁，包含 Random，不包含 Daycore 与 Nightcore。
+- 默认 HUD 与可用模组保持简洁，包含 Random、Daycore 与 Nightcore。
 
 默认键位为 `S D F Space J K L`。游戏内使用 Up/Down 调整滚动速度。
 

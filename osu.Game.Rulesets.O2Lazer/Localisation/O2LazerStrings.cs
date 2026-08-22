@@ -36,7 +36,6 @@ public static class O2LazerStrings
 
     public static LocalisableString VisualOffset => get("visual_offset");
 
-    public static LocalisableString O2LazerVisualOffset => get("o2lazer_visual_offset");
 
     public static LocalisableString OffsetMilliseconds(double value) => get("offset_milliseconds", value);
 
@@ -69,7 +68,6 @@ public static class O2LazerStrings
 
 
 
-    public static LocalisableString Seed => get("seed");
 
 
 
@@ -179,7 +177,6 @@ public static class O2LazerStrings
 
     public static LocalisableString ScoreGraphShowJudgementComparisonDescription => get("score_graph_show_judgement_comparison_description");
 
-    public static LocalisableString UseDedicatedPreviewAudio => get("use_dedicated_preview_audio");
 
 
     public static LocalisableString PreviewPlayKeysounds => get("preview_play_keysounds");
@@ -247,16 +244,13 @@ public static class O2LazerStrings
     public static LocalisableString SelectFileOrFolder => get("select_file_or_folder");
 
 
-    public static LocalisableString Import => get("import");
-
-
-    public static LocalisableString History => get("history");
 
 
 
 
 
-    public static LocalisableString Update => get("update");
+
+
 
 
 
@@ -275,7 +269,6 @@ public static class O2LazerStrings
 
     public static LocalisableString Overall => get("overall");
 
-    public static LocalisableString Scratch => get("scratch");
 
     public static LocalisableString Fast => get("fast");
 
@@ -309,17 +302,13 @@ public static class O2LazerStrings
 
     public static LocalisableString Miss => get("miss");
 
-    public static LocalisableString Mine => get("mine");
 
-    public static LocalisableString Poor => get("poor");
 
     public static LocalisableString Bad => get("bad");
 
     public static LocalisableString Good => get("good");
 
-    public static LocalisableString Great => get("great");
 
-    public static LocalisableString Perfect => get("perfect");
 
 
 
@@ -387,7 +376,6 @@ public static class O2LazerStrings
 
 
 
-    public static LocalisableString LockedLongNoteMode(string mode) => get("locked_long_note_mode", mode);
 
 
 
@@ -496,134 +484,6 @@ public static class O2LazerStrings
         public override int GetHashCode() => HashCode.Combine(key, base.GetHashCode());
     }
 
-    public static LocalisableString ActionP2Key1 => get("action_p2_key_1");
-    public static LocalisableString ActionP2Key2 => get("action_p2_key_2");
-    public static LocalisableString ActionP2Key3 => get("action_p2_key_3");
-    public static LocalisableString ActionP2Key4 => get("action_p2_key_4");
-    public static LocalisableString ActionP2Key5 => get("action_p2_key_5");
-    public static LocalisableString ActionP2Key6 => get("action_p2_key_6");
-    public static LocalisableString ActionP2Key7 => get("action_p2_key_7");
-    public static LocalisableString ActionP2PmsKey1 => get("action_p2_pms_key_1");
-    public static LocalisableString ActionP2PmsKey2 => get("action_p2_pms_key_2");
-    public static LocalisableString ActionP2PmsKey3 => get("action_p2_pms_key_3");
-    public static LocalisableString ActionP2PmsKey4 => get("action_p2_pms_key_4");
-    public static LocalisableString ActionP2PmsKey5 => get("action_p2_pms_key_5");
-    public static LocalisableString ActionP2PmsKey6 => get("action_p2_pms_key_6");
-    public static LocalisableString ActionP2PmsKey7 => get("action_p2_pms_key_7");
-    public static LocalisableString ActionP2PmsKey8 => get("action_p2_pms_key_8");
-    public static LocalisableString ActionP2PmsKey9 => get("action_p2_pms_key_9");
-    public static LocalisableString ActionP2Scratch => get("action_p2_scratch");
-    public static LocalisableString ActionPmsKey1 => get("action_pms_key_1");
-    public static LocalisableString ActionPmsKey2 => get("action_pms_key_2");
-    public static LocalisableString ActionPmsKey3 => get("action_pms_key_3");
-    public static LocalisableString ActionPmsKey4 => get("action_pms_key_4");
-    public static LocalisableString ActionPmsKey5 => get("action_pms_key_5");
-    public static LocalisableString ActionPmsKey6 => get("action_pms_key_6");
-    public static LocalisableString ActionPmsKey7 => get("action_pms_key_7");
-    public static LocalisableString ActionPmsKey8 => get("action_pms_key_8");
-    public static LocalisableString ActionPmsKey9 => get("action_pms_key_9");
-    public static LocalisableString ActionScratch => get("action_scratch");
-    public static LocalisableString AutoPlayKeysoundsHint => get("auto_play_keysounds_hint");
-    public static LocalisableString BgaDim => get("bga_dim");
-    public static LocalisableString BgaFillScreen => get("bga_fill_screen");
-    public static LocalisableString BgaFillScreenDescription => get("bga_fill_screen_description");
-    public static LocalisableString CleanupOrphanedSets => get("cleanup_orphaned_sets");
-    public static LocalisableString CleanupOrphanedSetsTooltip => get("cleanup_orphaned_sets_tooltip");
-    public static LocalisableString CleanupOrphansConfirmation => get("cleanup_orphans_confirmation");
-    public static LocalisableString Collecting => get("collecting");
-    public static LocalisableString DedicatedPreviewAudioHint => get("dedicated_preview_audio_hint");
-    public static LocalisableString DeleteTableConfirmation(string name, int count) => get("delete_table_confirmation", name, count);
-    public static LocalisableString DeleteTableTooltip => get("delete_table_tooltip");
-    public static LocalisableString DifficultyTableAlreadyImported(string source) => get("difficulty_table_already_imported", source);
-    public static LocalisableString DifficultyTableName(string name, string symbol) => get("difficulty_table_name", name, symbol);
-    public static LocalisableString DifficultyTableNotSubdividedStatus => get("difficulty_table_not_subdivided_status");
-    public static LocalisableString DifficultyTablePlaceholder => get("difficulty_table_placeholder");
-    public static LocalisableString DifficultyTableSubdividedStatus => get("difficulty_table_subdivided_status");
-    public static LocalisableString DifficultyTableTooltip(int count, string levels) => get("difficulty_table_tooltip", count, levels);
-    public static LocalisableString DifficultyTableWarning => get("difficulty_table_warning");
-    public static LocalisableString ExHardGaugeFillColour => get("exhard_gauge_fill_colour");
-    public static LocalisableString ExHardGaugeFillColourDescription => get("exhard_gauge_fill_colour_description");
-    public static LocalisableString ExRankDescription(double exRank) => get("exrank_description", exRank);
-    public static LocalisableString FailedToLoadTable(string source) => get("failed_to_load_table", source);
-    public static LocalisableString FailedToParseTable(string source) => get("failed_to_parse_table", source);
-    public static LocalisableString FailedToUpdateTable(string source) => get("failed_to_update_table", source);
-    public static LocalisableString FileDoesNotExist => get("file_does_not_exist");
-    public static LocalisableString FixedScrollSpeedHint => get("fixed_scroll_speed_hint");
-    public static LocalisableString GaugeDescription(string label) => get("gauge_description", label);
-    public static LocalisableString GaugeHistory => get("gauge_history");
-    public static LocalisableString GaugeSummary(string gauge, int objects, string total) => get("gauge_summary", gauge, objects, total);
-    public static LocalisableString GaugeSummaryWithGuts(string gauge, int objects, string total) => get("gauge_summary_with_guts", gauge, objects, total);
-    public static LocalisableString GrooveHighHealthColour => get("groove_high_health_colour");
-    public static LocalisableString GrooveHighHealthColourDescription => get("groove_high_health_colour_description");
-    public static LocalisableString GrooveLowHealthColour => get("groove_low_health_colour");
-    public static LocalisableString GrooveLowHealthColourDescription => get("groove_low_health_colour_description");
-    public static LocalisableString GrooveMidHealthColour => get("groove_mid_health_colour");
-    public static LocalisableString GrooveMidHealthColourDescription => get("groove_mid_health_colour_description");
-    public static LocalisableString HardGaugeFillColour => get("hard_gauge_fill_colour");
-    public static LocalisableString HardGaugeFillColourDescription => get("hard_gauge_fill_colour_description");
-    public static LocalisableString HazardGaugeFillColour => get("hazard_gauge_fill_colour");
-    public static LocalisableString HazardGaugeFillColourDescription => get("hazard_gauge_fill_colour_description");
-    public static LocalisableString ImportingDifficultyTable => get("importing_difficulty_table");
-    public static LocalisableString IncludeScratch => get("include_scratch");
-    public static LocalisableString IncludeScratchRotationDescription => get("include_scratch_rotation_description");
-    public static LocalisableString IncludeScratchShuffleDescription => get("include_scratch_shuffle_description");
-    public static LocalisableString InvertSeedDescription => get("invert_seed_description");
-    public static LocalisableString LaneOrder => get("lane_order");
-    public static LocalisableString LaneOrderDescription => get("lane_order_description");
-    public static LocalisableString LoadedTable(string name, int count) => get("loaded_table", name, count);
-    public static LocalisableString LockedMode => get("locked_mode");
-    public static LocalisableString MainBpm => get("main_bpm");
-    public static LocalisableString MaxBpm => get("max_bpm");
-    public static LocalisableString MergeTableConfirmation(string name) => get("merge_table_confirmation", name);
-    public static LocalisableString MinBpm => get("min_bpm");
-    public static LocalisableString MissingO2LazertableMeta(string source) => get("missing_o2lazertable_meta", source);
-    public static LocalisableString ModAutoGauge => get("mod_auto_gauge");
-    public static LocalisableString ModAutoScratch => get("mod_auto_scratch");
-    public static LocalisableString ModBackgroundKeysound => get("mod_background_keysound");
-    public static LocalisableString ModBranchReplay => get("mod_branch_replay");
-    public static LocalisableString ModChargeNote => get("mod_charge_note");
-    public static LocalisableString ModConstant => get("mod_constant");
-    public static LocalisableString ModHellChargeNote => get("mod_hell_charge_note");
-    public static LocalisableString ModHideScratch => get("mod_hide_scratch");
-    public static LocalisableString ModInvert => get("mod_invert");
-    public static LocalisableString ModLaneRandom => get("mod_lane_random");
-    public static LocalisableString ModLongNote => get("mod_long_note");
-    public static LocalisableString ModNoteRandom => get("mod_note_random");
-    public static LocalisableString ModPaused => get("mod_paused");
-    public static LocalisableString ModRotationRandom => get("mod_rotation_random");
-    public static LocalisableString ModSecondPlayer => get("mod_second_player");
-    public static LocalisableString NoValidTableEntries(string source) => get("no_valid_table_entries", source);
-    public static LocalisableString NoteRandomMode => get("note_random_mode");
-    public static LocalisableString NoteRandomModeDescription => get("note_random_mode_description");
-    public static LocalisableString NoteRandomSeedDescription => get("note_random_seed_description");
-    public static LocalisableString O2LazerDifficultyTables => get("o2lazer_difficulty_tables");
-    public static LocalisableString Presets => get("presets");
-    public static LocalisableString RandomiseLongNoteLength => get("randomise_long_note_length");
-    public static LocalisableString RandomiseLongNoteLengthDescription => get("randomise_long_note_length_description");
-    public static LocalisableString RankDescription(int rank) => get("rank_description", rank);
-    public static LocalisableString ReferenceBpm => get("reference_bpm");
-    public static LocalisableString Refreshing => get("refreshing");
-    public static LocalisableString RefreshingProgress(int processed, int total) => get("refreshing_progress", processed, total);
-    public static LocalisableString RemovedTable(string name) => get("removed_table", name);
-    public static LocalisableString RemovingTable(string name) => get("removing_table", name);
-    public static LocalisableString SeedDescription => get("seed_description");
-    public static LocalisableString ShowMania7K => get("show_bme_7k");
-    public static LocalisableString ShowMania7KDp => get("show_bme_7k_dp");
-    public static LocalisableString ShowMania5K => get("show_o2lazer_5k");
-    public static LocalisableString ShowMania5KDp => get("show_o2lazer_5k_dp");
-    public static LocalisableString ShowMania9K => get("show_pms_9k");
-    public static LocalisableString ShowMania9KDp => get("show_pms_9k_dp");
-    public static LocalisableString SplitTableConfirmation(string name) => get("split_table_confirmation", name);
-    public static LocalisableString StartBpm => get("start_bpm");
-    public static LocalisableString Subdivide => get("subdivide");
-    public static LocalisableString SubdivideTooltip => get("subdivide_tooltip");
-    public static LocalisableString SyncSourceFolderCollectionsHint => get("sync_source_folder_collections_hint");
-    public static LocalisableString Unsubdivide => get("unsubdivide");
-    public static LocalisableString UnsubdivideTooltip => get("unsubdivide_tooltip");
-    public static LocalisableString UpdateTableConfirmation(string name) => get("update_table_confirmation", name);
-    public static LocalisableString UpdateTableTooltip => get("update_table_tooltip");
-    public static LocalisableString UpdatedTable(string name, int count) => get("updated_table", name, count);
-    public static LocalisableString UpdatingTable(string name) => get("updating_table", name);
 
 }
 

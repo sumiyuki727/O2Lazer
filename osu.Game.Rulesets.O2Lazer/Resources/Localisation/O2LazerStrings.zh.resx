@@ -13,7 +13,7 @@
   <data name="hit_offset" xml:space="preserve"><value>击打偏差</value></data>
   <data name="standard_deviation" xml:space="preserve"><value>标准差 {0:0.0} ms</value></data>
   <data name="visual_offset" xml:space="preserve"><value>视觉偏移</value></data>
-  <data name="o2lazer_visual_offset" xml:space="preserve"><value>O2Jam 视觉偏移</value></data>
+  
   <data name="offset_milliseconds" xml:space="preserve"><value>{0:N0} 毫秒</value></data>
   <data name="visual_offset_earlier" xml:space="preserve"><value>{0:N0} 毫秒 - 音符提前显示；适合 Slow 较多的玩家</value></data>
   <data name="visual_offset_later" xml:space="preserve"><value>{0:N0} 毫秒 - 音符延后显示；适合 Fast 较多的玩家</value></data>
@@ -23,7 +23,7 @@
   <data name="apply_suggested_visual_offset" xml:space="preserve"><value>应用建议的视觉偏移</value></data>
   <data name="adjust_visual_offset_automatically" xml:space="preserve"><value>自动调整视觉偏移</value></data>
   <data name="adjust_visual_offset_automatically_tooltip" xml:space="preserve"><value>每次有效的 O2Jam 游玩结束后，自动应用建议的视觉偏移。</value></data>
-  <data name="use_dedicated_preview_audio" xml:space="preserve"><value>使用专用预览音频</value></data>
+  
   <data name="preview_play_keysounds" xml:space="preserve"><value>预览时播放演奏音效</value></data>  <data name="preview_play_keysounds_hint" xml:space="preserve"><value>关闭后选歌预览不加载谱面演奏音效，可明显降低快速拖拽时的卡顿。</value></data>  <data name="auto_play_keysounds" xml:space="preserve"><value>自动播放演奏音效</value></data>
   <data name="unlock_frame_rate_limit" xml:space="preserve"><value>解除帧率上限</value></data>
   <data name="unlock_frame_rate_limit_hint" xml:space="preserve"><value>在 O2Jam 游玩期间解除 osu! 的 1000 Hz 帧率与输入轮询上限。更大的 GC 和 GPU 压力可能造成额外卡顿，遇到时请关闭此选项。</value></data>
@@ -45,14 +45,14 @@
   <data name="import_directory_recursive" xml:space="preserve"><value>导入目录中的全部文件（含子目录）</value></data>
   <data name="import_directory_recursive_tooltip" xml:space="preserve"><value>导入所选目录及其子目录中的所有 OJN 文件</value></data>
   <data name="select_file_or_folder" xml:space="preserve"><value>请选择文件或文件夹</value></data>
-  <data name="import" xml:space="preserve"><value>导入</value></data>
-  <data name="history" xml:space="preserve"><value>历史记录</value></data>
-  <data name="update" xml:space="preserve"><value>更新</value></data>
+  
+  
+  
   <data name="editor_unsupported" xml:space="preserve"><value>目前尚不支持 O2Jam 编辑器。</value></data>
   <data name="start" xml:space="preserve"><value>开始</value></data>
   <data name="time" xml:space="preserve"><value>时间</value></data>
   <data name="overall" xml:space="preserve"><value>总体</value></data>
-  <data name="scratch" xml:space="preserve"><value>皿</value></data>
+  
   <data name="fast" xml:space="preserve"><value>偏快</value></data>
   <data name="slow" xml:space="preserve"><value>偏慢</value></data>
   <data name="hit_error_meter_show_empty_poor" xml:space="preserve"><value>显示 E-POOR</value></data>
@@ -69,12 +69,12 @@
   <data name="long_note" xml:space="preserve"><value>长按</value></data>
   <data name="cool" xml:space="preserve"><value>COOL</value></data>
   <data name="miss" xml:space="preserve"><value>MISS</value></data>
-  <data name="mine" xml:space="preserve"><value>地雷</value></data>
-  <data name="poor" xml:space="preserve"><value>POOR</value></data>
+  
+  
   <data name="bad" xml:space="preserve"><value>BAD</value></data>
   <data name="good" xml:space="preserve"><value>GOOD</value></data>
-  <data name="great" xml:space="preserve"><value>GREAT</value></data>
-  <data name="perfect" xml:space="preserve"><value>PGREAT</value></data>
+  
+  
   <data name="hit_count" xml:space="preserve"><value>{0} 次击打</value></data>
   <data name="import_initialising" xml:space="preserve"><value>正在初始化 O2Jam 导入...</value></data>
   <data name="scanning_orphans" xml:space="preserve"><value>正在扫描失去源文件的 O2Jam 谱面...</value></data>
@@ -98,7 +98,7 @@
   <data name="preparing_import" xml:space="preserve"><value>O2Jam 导入：正在准备...</value></data>
   <data name="import_was_cancelled" xml:space="preserve"><value>O2Jam 导入已取消。</value></data>
   <data name="import_cancelled_progress" xml:space="preserve"><value>导入已取消，已导入 {0}/{1} 个 O2Jam 谱面组。</value></data>
-  <data name="locked_long_note_mode" xml:space="preserve"><value>锁定的长按模式：{0}</value></data>
+  
   <data name="action_key_1" xml:space="preserve"><value>按键 1</value></data>
   <data name="action_key_2" xml:space="preserve"><value>按键 2</value></data>
   <data name="action_key_3" xml:space="preserve"><value>按键 3</value></data>
@@ -112,7 +112,7 @@
   <data name="mod_random" xml:space="preserve"><value>使用可复现的随机种子打乱按键轨道。</value></data>
   <data name="song_progress_colour" xml:space="preserve"><value>指示块颜色</value></data>
   <data name="song_progress_colour_description" xml:space="preserve"><value>发光歌曲进度指示块的颜色。</value></data>
-  <data name="seed" xml:space="preserve"><value>随机种子</value></data>
+  
   <data name="judgement_line_offset" xml:space="preserve"><value>判定线偏移</value></data>
   <data name="judgement_line_offset_description" xml:space="preserve"><value>相对于皮肤位置移动判定线。正值会将其向上移动。</value></data>
   <data name="light_position_offset" xml:space="preserve"><value>灯光位置偏移</value></data>
@@ -129,6 +129,7 @@
   <data name="score_graph_personal_best" xml:space="preserve"><value>个人最好</value></data>
   <data name="score_graph_personal_best_short" xml:space="preserve"><value>最好</value></data>
   <data name="score_graph_target" xml:space="preserve"><value>目标 {0}</value></data>
+  
   <data name="score_graph_rank_x" xml:space="preserve"><value>X</value></data>
   <data name="score_graph_rank_s" xml:space="preserve"><value>S</value></data>
   <data name="score_graph_rank_a" xml:space="preserve"><value>A</value></data>
@@ -160,133 +161,133 @@
   <data name="score_graph_show_judgement_comparison_description" xml:space="preserve"><value>显示当前成绩与个人最好成绩的判定数量。</value></data>
   <data name="sync_source_folder_collections" xml:space="preserve"><value>按源文件夹同步收藏夹</value></data>
 
-<data name="action_p2_key_1" xml:space="preserve"><value>P2 按键 1</value></data>
-<data name="action_p2_key_2" xml:space="preserve"><value>P2 按键 2</value></data>
-<data name="action_p2_key_3" xml:space="preserve"><value>P2 按键 3</value></data>
-<data name="action_p2_key_4" xml:space="preserve"><value>P2 按键 4</value></data>
-<data name="action_p2_key_5" xml:space="preserve"><value>P2 按键 5</value></data>
-<data name="action_p2_key_6" xml:space="preserve"><value>P2 按键 6</value></data>
-<data name="action_p2_key_7" xml:space="preserve"><value>P2 按键 7</value></data>
-<data name="action_p2_pms_key_1" xml:space="preserve"><value>P2 PMS 按键 1</value></data>
-<data name="action_p2_pms_key_2" xml:space="preserve"><value>P2 PMS 按键 2</value></data>
-<data name="action_p2_pms_key_3" xml:space="preserve"><value>P2 PMS 按键 3</value></data>
-<data name="action_p2_pms_key_4" xml:space="preserve"><value>P2 PMS 按键 4</value></data>
-<data name="action_p2_pms_key_5" xml:space="preserve"><value>P2 PMS 按键 5</value></data>
-<data name="action_p2_pms_key_6" xml:space="preserve"><value>P2 PMS 按键 6</value></data>
-<data name="action_p2_pms_key_7" xml:space="preserve"><value>P2 PMS 按键 7</value></data>
-<data name="action_p2_pms_key_8" xml:space="preserve"><value>P2 PMS 按键 8</value></data>
-<data name="action_p2_pms_key_9" xml:space="preserve"><value>P2 PMS 按键 9</value></data>
-<data name="action_p2_scratch" xml:space="preserve"><value>P2 皿</value></data>
-<data name="action_pms_key_1" xml:space="preserve"><value>PMS 按键 1</value></data>
-<data name="action_pms_key_2" xml:space="preserve"><value>PMS 按键 2</value></data>
-<data name="action_pms_key_3" xml:space="preserve"><value>PMS 按键 3</value></data>
-<data name="action_pms_key_4" xml:space="preserve"><value>PMS 按键 4</value></data>
-<data name="action_pms_key_5" xml:space="preserve"><value>PMS 按键 5</value></data>
-<data name="action_pms_key_6" xml:space="preserve"><value>PMS 按键 6</value></data>
-<data name="action_pms_key_7" xml:space="preserve"><value>PMS 按键 7</value></data>
-<data name="action_pms_key_8" xml:space="preserve"><value>PMS 按键 8</value></data>
-<data name="action_pms_key_9" xml:space="preserve"><value>PMS 按键 9</value></data>
-<data name="action_scratch" xml:space="preserve"><value>皿</value></data>
-<data name="auto_play_keysounds_hint" xml:space="preserve"><value>游玩时无论按键是否准确，都会在音符与长条尾部的准确时机播放对应 Keysound。</value></data>
-<data name="bga_dim" xml:space="preserve"><value>BGA 暗化</value></data>
-<data name="bga_fill_screen" xml:space="preserve"><value>铺满屏幕</value></data>
-<data name="bga_fill_screen_description" xml:space="preserve"><value>让 BGA 覆盖整个 HUD 区域。移动或调整组件大小会自动关闭此选项。</value></data>
-<data name="cleanup_orphaned_sets" xml:space="preserve"><value>清除失去源文件的 O2Jam 谱面集</value></data>
-<data name="cleanup_orphaned_sets_tooltip" xml:space="preserve"><value>移除磁盘上已找不到源文件的已导入 O2Jam 谱面。</value></data>
-<data name="cleanup_orphans_confirmation" xml:space="preserve"><value>源目录已不存在的 O2Jam 谱面将被移除，此操作无法撤销。&#10;&#10;删除后需要重新导入。若要保留这些谱面，请立即取消并将文件移回原位置。</value></data>
-<data name="collecting" xml:space="preserve"><value>正在收集...</value></data>
-<data name="dedicated_preview_audio_hint" xml:space="preserve"><value>存在 #PREVIEW 或 preview.* 文件时优先使用。关闭后，选歌预览将仅由 BGM 和按键音样本合成。</value></data>
-<data name="delete_table_confirmation" xml:space="preserve"><value>要删除难度表“{0}”（{1} 张谱面）吗？&#10;&#10;⚠ 若在选歌界面操作，界面可能卡顿。请先返回主菜单。</value></data>
-<data name="delete_table_tooltip" xml:space="preserve"><value>删除难度表</value></data>
-<data name="difficulty_table_already_imported" xml:space="preserve"><value>难度表已导入：{0}</value></data>
-<data name="difficulty_table_name" xml:space="preserve"><value>{0}（{1}）</value></data>
-<data name="difficulty_table_not_subdivided_status" xml:space="preserve"><value>未拆分</value></data>
-<data name="difficulty_table_placeholder" xml:space="preserve"><value>难度表 URL 或文件路径...</value></data>
-<data name="difficulty_table_subdivided_status" xml:space="preserve"><value>已拆分</value></data>
-<data name="difficulty_table_tooltip" xml:space="preserve"><value>{0} 张谱面&#10;{1}</value></data>
-<data name="difficulty_table_warning" xml:space="preserve"><value>在选歌界面添加或移除难度表可能导致界面卡顿，请先返回主菜单。</value></data>
-<data name="exhard_gauge_fill_colour" xml:space="preserve"><value>ExHard 血条填充颜色</value></data>
-<data name="exhard_gauge_fill_colour_description" xml:space="preserve"><value>ExHard 血条类型的填充颜色。</value></data>
-<data name="exrank_description" xml:space="preserve"><value>EXRANK {0:0.##}% 判定区间。</value></data>
-<data name="failed_to_load_table" xml:space="preserve"><value>无法从以下位置载入难度表：{0}</value></data>
-<data name="failed_to_parse_table" xml:space="preserve"><value>无法解析来自 {0} 的难度表</value></data>
-<data name="failed_to_update_table" xml:space="preserve"><value>难度表更新失败：{0}</value></data>
-<data name="file_does_not_exist" xml:space="preserve"><value>文件不存在。</value></data>
-<data name="fixed_scroll_speed_hint" xml:space="preserve"><value>游玩时保持设置中的滚动速度不变，忽略谱面中的 BPM、SCROLL 和 SPEED 变化。</value></data>
-<data name="gauge_description" xml:space="preserve"><value>使用 O2Jam {0} 血条。</value></data>
-<data name="gauge_history" xml:space="preserve"><value>血量历史</value></data>
-<data name="gauge_summary" xml:space="preserve"><value>{0} 血条&#10;{1} 个物件，{2}</value></data>
-<data name="gauge_summary_with_guts" xml:space="preserve"><value>{0} 血条&#10;{1} 个物件，{2}&#10;伤害按初始血量显示；低血量 GUTS 机制可能减轻惩罚。</value></data>
-<data name="groove_high_health_colour" xml:space="preserve"><value>Groove 血条高血量颜色</value></data>
-<data name="groove_high_health_colour_description" xml:space="preserve"><value>Groove 血条高于通关阈值时的颜色。</value></data>
-<data name="groove_low_health_colour" xml:space="preserve"><value>Groove 血条低血量颜色</value></data>
-<data name="groove_low_health_colour_description" xml:space="preserve"><value>Groove 血条红色区域（低于红色区域阈值）的颜色。</value></data>
-<data name="groove_mid_health_colour" xml:space="preserve"><value>Groove 血条中等血量颜色</value></data>
-<data name="groove_mid_health_colour_description" xml:space="preserve"><value>Groove 血条黄色区域（介于红色区域阈值与通关阈值之间）的颜色。</value></data>
-<data name="hard_gauge_fill_colour" xml:space="preserve"><value>Hard 血条填充颜色</value></data>
-<data name="hard_gauge_fill_colour_description" xml:space="preserve"><value>Hard 血条类型的填充颜色。</value></data>
-<data name="hazard_gauge_fill_colour" xml:space="preserve"><value>Hazard 血条填充颜色</value></data>
-<data name="hazard_gauge_fill_colour_description" xml:space="preserve"><value>Hazard 血条类型的填充颜色。</value></data>
-<data name="importing_difficulty_table" xml:space="preserve"><value>正在导入难度表…</value></data>
-<data name="include_scratch" xml:space="preserve"><value>包含皿</value></data>
-<data name="include_scratch_rotation_description" xml:space="preserve"><value>是否将皿轨包含在旋转中。</value></data>
-<data name="include_scratch_shuffle_description" xml:space="preserve"><value>是否将皿轨包含在随机排列中。</value></data>
-<data name="invert_seed_description" xml:space="preserve"><value>使用自定义随机种子以生成可重复的随机 LN 长度。</value></data>
-<data name="lane_order" xml:space="preserve"><value>轨道顺序</value></data>
-<data name="lane_order_description" xml:space="preserve"><value>以逗号分隔的直接轨道映射（例如“0,3,1,4,2,5”）。</value></data>
-<data name="loaded_table" xml:space="preserve"><value>已载入难度表：{0}（{1} 张谱面）</value></data>
-<data name="locked_mode" xml:space="preserve"><value>锁定模式</value></data>
-<data name="main_bpm" xml:space="preserve"><value>主要 BPM</value></data>
-<data name="max_bpm" xml:space="preserve"><value>最高 BPM</value></data>
-<data name="merge_table_confirmation" xml:space="preserve"><value>要将难度表“{0}”重新合并为单个收藏夹吗？</value></data>
-<data name="min_bpm" xml:space="preserve"><value>最低 BPM</value></data>
-  <data name="missing_o2lazertable_meta" xml:space="preserve"><value>页面 {0} 不含 o2lazertable 元数据标签</value></data>
-<data name="mod_auto_gauge" xml:space="preserve"><value>从最难的血条开始；失败后自动降至下一档。</value></data>
-<data name="mod_auto_scratch" xml:space="preserve"><value>自动击打皿。</value></data>
-<data name="mod_background_keysound" xml:space="preserve"><value>将所有按键音作为背景音频播放，而非按键时播放。</value></data>
-<data name="mod_branch_replay" xml:space="preserve"><value>保存谱面分支选择，以供回放时重现。</value></data>
-<data name="mod_charge_note" xml:space="preserve"><value>双端点音符：首端和尾端分别判定，并独立计算连击。</value></data>
-<data name="mod_constant" xml:space="preserve"><value>禁用由 BPM 引起的滚动速度变化。</value></data>
-<data name="mod_hell_charge_note" xml:space="preserve"><value>带持续血量变化的充能音符：按住恢复，松开扣血。</value></data>
-<data name="mod_hide_scratch" xml:space="preserve"><value>移除皿和对应轨道。</value></data>
-<data name="mod_invert" xml:space="preserve"><value>将每条轨道中除最后一个音符外的音符转换为长按音符，并在下一个音符前结束。</value></data>
-<data name="mod_lane_random" xml:space="preserve"><value>重新排列轨道。可指定轨道顺序，或随机生成一种排列。</value></data>
-<data name="mod_long_note" xml:space="preserve"><value>标准长按音符：在尾端以首尾两次偏差中较差的一次进行单次判定。</value></data>
-<data name="mod_note_random" xml:space="preserve"><value>逐音符随机排列。&#10;S-RANDOM 使用 40ms 防纵连窗口打乱每个音符。&#10;H-RANDOM 将窗口扩大至 100ms，以更混乱的排列为代价强力拆分纵连。</value></data>
-<data name="mod_paused" xml:space="preserve"><value>本次游玩曾暂停并继续。</value></data>
-<data name="mod_rotation_random" xml:space="preserve"><value>R-RANDOM：随机旋转轨道，并有 50% 概率同时镜像。</value></data>
-<data name="mod_second_player" xml:space="preserve"><value>切换为街机二号玩家布局（皿在右侧）。</value></data>
-<data name="no_valid_table_entries" xml:space="preserve"><value>来自 {0} 的难度表中没有有效条目</value></data>
-<data name="note_random_mode" xml:space="preserve"><value>模式</value></data>
-<data name="note_random_mode_description" xml:space="preserve"><value>S-RANDOM：40ms 防纵连，仅防止间隔过短且无法击打的纵连。H-RANDOM：100ms 防纵连，会主动将纵连拆分为楼梯或交互谱面。</value></data>
-<data name="note_random_seed_description" xml:space="preserve"><value>使用自定义随机种子以生成可重复的随机排列（确保回放一致性所必需）。</value></data>
-  <data name="o2lazer_difficulty_tables" xml:space="preserve"><value>O2LAZER 难度表</value></data>
-<data name="presets" xml:space="preserve"><value>预设</value></data>
-<data name="randomise_long_note_length" xml:space="preserve"><value>随机 LN 长度</value></data>
-<data name="randomise_long_note_length_description" xml:space="preserve"><value>随机选择每个 LN 的长度，并在下一个音符前保留可操作的间隔。</value></data>
-<data name="rank_description" xml:space="preserve"><value>RANK {0} 判定区间。</value></data>
-<data name="reference_bpm" xml:space="preserve"><value>基准 BPM</value></data>
-<data name="refreshing" xml:space="preserve"><value>正在刷新...</value></data>
-<data name="refreshing_progress" xml:space="preserve"><value>正在刷新 {0}/{1}...</value></data>
-<data name="removed_table" xml:space="preserve"><value>已移除难度表“{0}”</value></data>
-<data name="removing_table" xml:space="preserve"><value>正在移除难度表“{0}”...</value></data>
-<data name="seed_description" xml:space="preserve"><value>使用自定义随机种子以生成可重复的随机排列。</value></data>
-<data name="show_bme_7k" xml:space="preserve"><value>显示 BME 7K</value></data>
-<data name="show_bme_7k_dp" xml:space="preserve"><value>显示 BME 7K DP</value></data>
-  <data name="show_o2lazer_5k" xml:space="preserve"><value>显示 O2LAZER 5K</value></data>
-  <data name="show_o2lazer_5k_dp" xml:space="preserve"><value>显示 O2LAZER 5K DP</value></data>
-<data name="show_pms_9k" xml:space="preserve"><value>显示 PMS 9K</value></data>
-<data name="show_pms_9k_dp" xml:space="preserve"><value>显示 PMS 9K DP</value></data>
-<data name="split_table_confirmation" xml:space="preserve"><value>要将难度表“{0}”按等级拆分为多个收藏夹吗？</value></data>
-<data name="start_bpm" xml:space="preserve"><value>起始 BPM</value></data>
-<data name="subdivide" xml:space="preserve"><value>拆分</value></data>
-<data name="subdivide_tooltip" xml:space="preserve"><value>按等级拆分为多个收藏夹</value></data>
-  <data name="sync_source_folder_collections_hint" xml:space="preserve"><value>启用后按源文件夹保持收藏夹同步。</value></data>
-<data name="unsubdivide" xml:space="preserve"><value>合并</value></data>
-<data name="unsubdivide_tooltip" xml:space="preserve"><value>将各等级收藏夹重新合并为一个</value></data>
-<data name="update_table_confirmation" xml:space="preserve"><value>要从来源重新获取难度表“{0}”吗？&#10;&#10;⚠ 若在选歌界面操作，界面可能卡顿。请先返回主菜单。</value></data>
-<data name="update_table_tooltip" xml:space="preserve"><value>从来源重新获取难度表</value></data>
-<data name="updated_table" xml:space="preserve"><value>已更新难度表：{0}（{1} 张谱面）</value></data>
-<data name="updating_table" xml:space="preserve"><value>正在更新难度表“{0}”...</value></data>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+
 
 </root>

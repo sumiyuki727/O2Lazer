@@ -12,10 +12,7 @@ namespace osu.Game.Rulesets.O2Lazer.O2Jam;
 /// </summary>
 internal static class OjmDecoder
 {
-    internal sealed record OjmArchive(
-        IReadOnlyDictionary<ushort, byte[]> Samples,
-        IReadOnlySet<ushort> KeySoundIds,
-        bool HasZeroBasedId);
+    internal sealed record OjmArchive(IReadOnlyDictionary<ushort, byte[]> Samples);
 
     internal sealed record OjmSampleEntry(ushort SampleId, long Offset, int Length, OjmSampleKind Kind);
 
@@ -26,7 +23,6 @@ internal static class OjmDecoder
     }
 
     internal sealed record OjmArchiveInfo(
-        bool HasZeroBasedId,
         IReadOnlyDictionary<ushort, OjmSampleEntry> SampleEntries,
         int M30Encryption = 0,
         IReadOnlySet<ushort>? KeySoundIds = null);
@@ -113,8 +109,6 @@ internal static class OjmDecoder
 
         return getArchive(path).Samples.GetValueOrDefault(sampleId);
     }
-
-    internal static OjmArchive GetArchive(string path) => getArchive(path);
 
     internal static bool TryGetArchiveInfo(string? path, out OjmArchiveInfo? archiveInfo)
     {
@@ -252,7 +246,6 @@ internal static class OjmDecoder
             ? sampleOffset + payloadSize
             : (int)stream.Length;
         stream.Position = sampleOffset;
-        var hasZeroBasedId = false;
         var sampleEntries = new Dictionary<ushort, OjmSampleEntry>();
         var keySoundIds = new HashSet<ushort>();
         var parsedCount = 0;
@@ -281,18 +274,14 @@ internal static class OjmDecoder
 
                 sampleEntries[entryId] = new OjmSampleEntry(entryId, stream.Position, sampleSize, OjmSampleKind.M30);
                 if (sampleType == 5)
-                {
                     keySoundIds.Add(sampleId);
-                    if (sampleId == 0)
-                        hasZeroBasedId = true;
-                }
             }
 
             stream.Position += sampleSize;
             parsedCount++;
         }
 
-        return new OjmArchiveInfo(hasZeroBasedId, sampleEntries, encryption, keySoundIds);
+        return new OjmArchiveInfo(sampleEntries, encryption, keySoundIds);
     }
 
     private static OjmArchiveInfo readOmcInfo(Stream stream, BinaryReader reader)
@@ -312,7 +301,6 @@ internal static class OjmDecoder
             throw new InvalidDataException("The OMC archive header is invalid.");
 
         stream.Position = waveOffset;
-        var hasZeroBasedId = false;
         var sampleEntries = new Dictionary<ushort, OjmSampleEntry>();
         var keySoundIds = new HashSet<ushort>();
 
@@ -332,12 +320,7 @@ internal static class OjmDecoder
             if (sampleSize < 0 || stream.Position + sampleSize > oggOffset)
                 throw new InvalidDataException("An OMC wave sample size is negative or outside the archive bounds.");
 
-            if (sampleSize > 0 && sampleId == 0)
-            {
-                keySoundIds.Add((ushort)sampleId);
-                hasZeroBasedId = true;
-            }
-            else if (sampleSize > 0)
+            if (sampleSize > 0)
                 keySoundIds.Add((ushort)sampleId);
 
             stream.Position += sampleSize;
@@ -362,7 +345,7 @@ internal static class OjmDecoder
             stream.Position += sampleSize;
         }
 
-        return new OjmArchiveInfo(hasZeroBasedId, sampleEntries, KeySoundIds: keySoundIds);
+        return new OjmArchiveInfo(sampleEntries, KeySoundIds: keySoundIds);
     }
 
     private static OjmArchive decodeArchive(byte[] data)
@@ -401,9 +384,7 @@ internal static class OjmDecoder
             : data.Length;
         stream.Position = sampleOffset;
         var output = new Dictionary<ushort, byte[]>();
-        var keySoundIds = new HashSet<ushort>();
         var parsedCount = 0;
-        var hasZeroBasedId = false;
 
         // Some original archives report an inaccurate sample count, so the payload bounds are authoritative.
         while (stream.Position + m30_sample_header_size <= payloadEnd && parsedCount < maximum_sample_count)
@@ -427,9 +408,6 @@ internal static class OjmDecoder
             var sample = reader.ReadBytes(sampleSize);
             applyM30Xor(sample, encryption);
 
-            if (sample.Length > 0 && sampleType == 5 && sampleId == 0)
-                hasZeroBasedId = true;
-
             // OJN event references are one-based because zero denotes an empty cell. Most official
             // archives store the normalised zero-based reference directly, while converted charts
             // may store the one-based reference unchanged; OjnDecoder chooses per archive.
@@ -437,14 +415,10 @@ internal static class OjmDecoder
                 sampleId += 1000;
 
             if (sample.Length > 0 && sampleType is 0 or 5)
-            {
                 output.TryAdd(sampleId, sample);
-                if (sampleType == 5)
-                    keySoundIds.Add(sampleId);
-            }
         }
 
-        return new OjmArchive(output, keySoundIds, hasZeroBasedId);
+        return new OjmArchive(output);
     }
 
     private static OjmArchive decodeOmc(byte[] data)
@@ -466,8 +440,6 @@ internal static class OjmDecoder
             throw new InvalidDataException("The OMC archive header is invalid.");
 
         var output = new Dictionary<ushort, byte[]>();
-        var keySoundIds = new HashSet<ushort>();
-        var hasZeroBasedId = false;
         stream.Position = waveOffset;
         var xorState = new AccXorState();
 
@@ -495,12 +467,7 @@ internal static class OjmDecoder
 
             rearrange(sample);
             xorState.Decode(sample);
-            if (output.TryAdd((ushort)sampleId, createWave(sample, audioFormat, channels, sampleRate, byteRate, blockAlign, bitsPerSample)))
-            {
-                keySoundIds.Add((ushort)sampleId);
-                if (sampleId == 0)
-                    hasZeroBasedId = true;
-            }
+            output.TryAdd((ushort)sampleId, createWave(sample, audioFormat, channels, sampleRate, byteRate, blockAlign, bitsPerSample));
         }
 
         stream.Position = oggOffset;
@@ -519,7 +486,7 @@ internal static class OjmDecoder
                 output.TryAdd((ushort)(1000 + index), sample);
         }
 
-        return new OjmArchive(output, keySoundIds, hasZeroBasedId);
+        return new OjmArchive(output);
     }
 
     private static void applyM30Xor(byte[] sample, int encryption)

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading.Tasks;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
@@ -340,21 +339,6 @@ public partial class O2LazerSettingsSubsection(O2LazerRuleset ruleset) : Ruleset
         else
             // No dialog overlay available (e.g. isolated test harness): fall back to direct deletion.
             o2lazerImporter.DeleteAllO2LazerFilesAsync();
-    }
-
-    private void confirmCleanupOrphans()
-    {
-        if (o2lazerImporter == null)
-            return;
-
-        var dialog = new MassDeleteConfirmationDialog(
-            () => Task.Run(() => o2lazerImporter.CleanupOrphanedSets()),
-            O2LazerStrings.CleanupOrphansConfirmation);
-
-        if (dialogOverlay != null)
-            dialogOverlay.Push(dialog);
-        else
-            o2lazerImporter.CleanupOrphanedSets();
     }
 
 }

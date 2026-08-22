@@ -15,7 +15,7 @@ An osu!lazer ruleset for playing native O2Jam libraries directly from `.ojn` and
 - Decodes Korean metadata as CP949 and Chinese O2Jam 2.9 metadata as GBK/CP936, with UTF-8 fallback.
 - Uses native O2Jam COOL/GOOD/BAD/MISS windows, raw score, and independently judged long-note endpoints.
 - Provides dedicated O2Jam settings, file import, current-folder import, and recursive library import.
-- Keeps gameplay HUD and mods aligned with the suitable osu!mania basics, including Random but excluding Daycore and Nightcore.
+- Keeps gameplay HUD and mods aligned with the suitable osu!mania basics, including Random, Daycore and Nightcore.
 
 The default key bindings are `S D F Space J K L`. Use Up/Down during play to adjust scroll speed.
 
