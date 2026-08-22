@@ -163,7 +163,7 @@ public class O2LazerWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManag
         string? backgroundPath;
         string? panelBackgroundPath;
 
-        if (!TryReadExternalBackgroundMarker(beatmapInfo, out backgroundPath, out panelBackgroundPath))
+        if (!TryReadExternalBackgroundMarker(beatmapInfo, out backgroundPath, out panelBackgroundPath) && !hasEmbeddedBackground(beatmapInfo))
         {
             var o2lazerBeatmap = tryDecodeExternalBeatmap(beatmapInfo) as IO2LazerBeatmap ?? inner.Beatmap as IO2LazerBeatmap;
             backgroundPath = resolveExternalBackgroundPaths(beatmapInfo.Metadata.Source, o2lazerBeatmap, false).FirstOrDefault();
@@ -327,6 +327,14 @@ public class O2LazerWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManag
         return !string.IsNullOrEmpty(backgroundPath);
     }
 
+    private static bool hasEmbeddedBackground(BeatmapInfo beatmapInfo)
+    {
+        var backgroundFile = beatmapInfo.Metadata.BackgroundFile;
+        return !string.IsNullOrEmpty(backgroundFile)
+               && !Path.IsPathRooted(backgroundFile)
+               && beatmapInfo.BeatmapSet?.GetFile(backgroundFile) != null;
+    }
+
     private static IEnumerable<string> getBackgroundCandidates(IO2LazerBeatmap o2lazerBeatmap, bool preferBanner)
     {
         if (preferBanner && !string.IsNullOrWhiteSpace(o2lazerBeatmap.Banner))
@@ -381,6 +389,13 @@ public class O2LazerWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManag
             {
                 resolvedBackgroundPaths = [backgroundPath!];
                 resolvedPanelBackgroundPaths = [panelBackgroundPath!];
+            }
+            else if (hasEmbeddedBackground(BeatmapInfo))
+            {
+                // Embedded covers are served by the inner osu! WorkingBeatmap's panel store;
+                // decoding the OJN here would only be needed to discover external assets.
+                resolvedBackgroundPaths = [];
+                resolvedPanelBackgroundPaths = [];
             }
             else
             {
