@@ -339,6 +339,14 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
         if (decodedCharts.Count == 0)
             return null;
 
+        var decodedModel = new O2LazerDecodedBeatmap();
+        decodedModel.CopyFrom(decodedCharts[0].ParseResult);
+        var backgroundPath = O2LazerWorkingBeatmap.resolveExternalBackgroundPaths(group.Directory, decodedModel, false).FirstOrDefault();
+        var panelBackgroundPath = O2LazerWorkingBeatmap.resolveExternalBackgroundPaths(group.Directory, decodedModel, true).FirstOrDefault();
+        var externalBackgrounds = backgroundPath != null || panelBackgroundPath != null
+            ? new ExternalBackgroundImport(backgroundPath ?? panelBackgroundPath!, panelBackgroundPath ?? backgroundPath!)
+            : null;
+
         var candidates = decodedCharts.Select(decoded => new
         {
             Decoded = decoded,
@@ -420,7 +428,7 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
             parsed.Noter, parsed.StarRating, parsed.Bpm, parsed.Length,
             parsed.TotalObjectCount, parsed.EndTimeObjectCount, 0)).ToArray();
 
-        return new PreparedDirectory(group.Directory, charts, background);
+        return new PreparedDirectory(group.Directory, charts, background, externalBackgrounds);
     }
 
     private static string detectImageExtension(byte[] image)
@@ -679,6 +687,15 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
             foreach (var c in chartImports) allHashes.Add(c.FileHash);
             if (prepared.Background != null) allHashes.Add(prepared.Background.FileHash);
 
+            string? externalBackgroundMarkerPath = null;
+            string? externalBackgroundMarkerHash = null;
+            if (prepared.ExternalBackgrounds is { } external)
+            {
+                externalBackgroundMarkerPath = external.PanelBackgroundPath ?? external.BackgroundPath;
+                externalBackgroundMarkerHash = $"{external.BackgroundPath}|{external.PanelBackgroundPath}";
+                allHashes.Add(externalBackgroundMarkerHash);
+            }
+
             using var transaction = r.BeginWrite();
 
             // Find-or-create RealmFile objects. Files already exist on disk (written by producers);
@@ -696,6 +713,10 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
                     realmFileByHash[hash] = rf;
                 }
             }
+
+            var externalBackgroundRealmFile = externalBackgroundMarkerHash != null
+                ? realmFileByHash[externalBackgroundMarkerHash]
+                : null;
 
             // ── Build the BeatmapSet ──
 
@@ -717,6 +738,9 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
             if (prepared.Background != null && seenFilenames.Add(prepared.Background.FileName))
                 beatmapSetInfo.Files.Add(new RealmNamedFileUsage(realmFileByHash[prepared.Background.FileHash], prepared.Background.FileName));
 
+            if (externalBackgroundMarkerPath != null && externalBackgroundRealmFile != null && seenFilenames.Add(externalBackgroundMarkerPath))
+                beatmapSetInfo.Files.Add(new RealmNamedFileUsage(externalBackgroundRealmFile, externalBackgroundMarkerPath));
+
             var setTitle = chartImports[0].Title;
 
             // Create beatmap infos.
@@ -735,7 +759,7 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
                             Username = string.IsNullOrWhiteSpace(chart.Noter) ? Constant.AUTHOR : chart.Noter,
                         },
                         Source = prepared.Directory,
-                        BackgroundFile = prepared.Background?.FileName ?? string.Empty,
+                        BackgroundFile = externalBackgroundMarkerPath ?? prepared.Background?.FileName ?? string.Empty,
                         PreviewTime = 0,
                     },
                     Difficulty = new BeatmapDifficulty(),
@@ -802,7 +826,10 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
     private sealed record PreparedDirectory(
         string Directory,
         ChartImport[] Charts,
-        ResourceImport? Background);
+        ResourceImport? Background,
+        ExternalBackgroundImport? ExternalBackgrounds);
+
+    private sealed record ExternalBackgroundImport(string BackgroundPath, string PanelBackgroundPath);
 
     /// <summary>
     /// A <see cref="FileStream"/> whose contents are served from an in-memory buffer rather than disk,

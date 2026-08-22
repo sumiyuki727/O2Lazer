@@ -160,10 +160,17 @@ public class O2LazerWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManag
     private static BeatmapInfo createWrapperBeatmapInfo(WorkingBeatmap inner)
     {
         var beatmapInfo = cloneBeatmapInfo(inner.BeatmapInfo);
-        var o2lazerBeatmap = tryDecodeExternalBeatmap(beatmapInfo) as IO2LazerBeatmap ?? inner.Beatmap as IO2LazerBeatmap;
-        var backgroundPaths = resolveExternalBackgroundPaths(beatmapInfo.Metadata.Source, o2lazerBeatmap, false);
-        var panelBackgroundPaths = resolveExternalBackgroundPaths(beatmapInfo.Metadata.Source, o2lazerBeatmap, true);
-        applyExternalBackgroundMarker(beatmapInfo, backgroundPaths.FirstOrDefault(), panelBackgroundPaths.FirstOrDefault());
+        string? backgroundPath;
+        string? panelBackgroundPath;
+
+        if (!TryReadExternalBackgroundMarker(beatmapInfo, out backgroundPath, out panelBackgroundPath))
+        {
+            var o2lazerBeatmap = tryDecodeExternalBeatmap(beatmapInfo) as IO2LazerBeatmap ?? inner.Beatmap as IO2LazerBeatmap;
+            backgroundPath = resolveExternalBackgroundPaths(beatmapInfo.Metadata.Source, o2lazerBeatmap, false).FirstOrDefault();
+            panelBackgroundPath = resolveExternalBackgroundPaths(beatmapInfo.Metadata.Source, o2lazerBeatmap, true).FirstOrDefault();
+        }
+
+        applyExternalBackgroundMarker(beatmapInfo, backgroundPath, panelBackgroundPath);
 
         return beatmapInfo;
     }
@@ -258,7 +265,7 @@ public class O2LazerWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManag
         }
     }
 
-    private static List<string> resolveExternalBackgroundPaths(string? sourceDirectory, IO2LazerBeatmap? o2lazerBeatmap, bool preferBanner)
+    internal static List<string> resolveExternalBackgroundPaths(string? sourceDirectory, IO2LazerBeatmap? o2lazerBeatmap, bool preferBanner)
     {
         var paths = new List<string>();
 
@@ -293,6 +300,31 @@ public class O2LazerWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManag
         }
 
         return paths;
+    }
+
+    internal static bool TryReadExternalBackgroundMarker(BeatmapInfo beatmapInfo, out string? backgroundPath, out string? panelBackgroundPath)
+    {
+        backgroundPath = null;
+        panelBackgroundPath = null;
+
+        var markerPath = beatmapInfo.Metadata.BackgroundFile;
+        if (string.IsNullOrEmpty(markerPath) || !Path.IsPathRooted(markerPath))
+            return false;
+
+        var combined = beatmapInfo.BeatmapSet?.GetFile(markerPath)?.File.Hash;
+        if (string.IsNullOrEmpty(combined))
+            return false;
+
+        var separator = combined.IndexOf('|');
+        backgroundPath = separator >= 0 ? combined[..separator] : combined;
+        panelBackgroundPath = separator >= 0 ? combined[(separator + 1)..] : combined;
+
+        if (string.IsNullOrEmpty(backgroundPath))
+            backgroundPath = panelBackgroundPath;
+        if (string.IsNullOrEmpty(panelBackgroundPath))
+            panelBackgroundPath = backgroundPath;
+
+        return !string.IsNullOrEmpty(backgroundPath);
     }
 
     private static IEnumerable<string> getBackgroundCandidates(IO2LazerBeatmap o2lazerBeatmap, bool preferBanner)
@@ -342,14 +374,24 @@ public class O2LazerWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManag
             if (externalBackgroundResolved)
                 return;
 
-            var o2lazerBeatmap = tryDecodeExternalBeatmap(BeatmapInfo) as IO2LazerBeatmap ?? inner.Beatmap as IO2LazerBeatmap;
+            string? backgroundPath;
+            string? panelBackgroundPath;
 
-            resolvedBackgroundPaths = resolveExternalBackgroundPaths(Metadata.Source, o2lazerBeatmap, false);
-            resolvedPanelBackgroundPaths = resolveExternalBackgroundPaths(Metadata.Source, o2lazerBeatmap, true);
+            if (TryReadExternalBackgroundMarker(BeatmapInfo, out backgroundPath, out panelBackgroundPath))
+            {
+                resolvedBackgroundPaths = [backgroundPath!];
+                resolvedPanelBackgroundPaths = [panelBackgroundPath!];
+            }
+            else
+            {
+                var o2lazerBeatmap = tryDecodeExternalBeatmap(BeatmapInfo) as IO2LazerBeatmap ?? inner.Beatmap as IO2LazerBeatmap;
+                resolvedBackgroundPaths = resolveExternalBackgroundPaths(Metadata.Source, o2lazerBeatmap, false);
+                resolvedPanelBackgroundPaths = resolveExternalBackgroundPaths(Metadata.Source, o2lazerBeatmap, true);
+            }
 
-            var backgroundPath = resolvedBackgroundPaths.FirstOrDefault();
-            var panelBackgroundPath = resolvedPanelBackgroundPaths.FirstOrDefault();
-            applyExternalBackgroundMarker(BeatmapInfo, backgroundPath, panelBackgroundPath);
+            var selectedBackgroundPath = resolvedBackgroundPaths.FirstOrDefault();
+            var selectedPanelBackgroundPath = resolvedPanelBackgroundPaths.FirstOrDefault();
+            applyExternalBackgroundMarker(BeatmapInfo, selectedBackgroundPath, selectedPanelBackgroundPath);
 
             // Publish completion only after both lists and their metadata marker are ready for readers.
             externalBackgroundResolved = true;
