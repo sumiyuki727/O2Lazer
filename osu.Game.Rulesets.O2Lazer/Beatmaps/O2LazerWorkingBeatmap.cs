@@ -159,20 +159,20 @@ public class O2LazerWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManag
 
     private static BeatmapInfo createWrapperBeatmapInfo(WorkingBeatmap inner)
     {
-        var beatmapInfo = cloneBeatmapInfo(inner.BeatmapInfo);
-        string? backgroundPath;
-        string? panelBackgroundPath;
+        var beatmapInfo = inner.BeatmapInfo;
 
-        if (!TryReadExternalBackgroundMarker(beatmapInfo, out backgroundPath, out panelBackgroundPath) && !hasEmbeddedBackground(beatmapInfo))
-        {
-            var o2lazerBeatmap = tryDecodeExternalBeatmap(beatmapInfo) as IO2LazerBeatmap ?? inner.Beatmap as IO2LazerBeatmap;
-            backgroundPath = resolveExternalBackgroundPaths(beatmapInfo.Metadata.Source, o2lazerBeatmap, false).FirstOrDefault();
-            panelBackgroundPath = resolveExternalBackgroundPaths(beatmapInfo.Metadata.Source, o2lazerBeatmap, true).FirstOrDefault();
-        }
+        // Embedded covers and persisted external markers need no mutation, so reusing the
+        // original BeatmapInfo avoids cloning the full BeatmapSet on every panel request.
+        if (TryReadExternalBackgroundMarker(beatmapInfo, out _, out _) || hasEmbeddedBackground(beatmapInfo))
+            return beatmapInfo;
 
-        applyExternalBackgroundMarker(beatmapInfo, backgroundPath, panelBackgroundPath);
+        var mutableClone = cloneBeatmapInfo(beatmapInfo);
+        var o2lazerBeatmap = tryDecodeExternalBeatmap(mutableClone) as IO2LazerBeatmap ?? inner.Beatmap as IO2LazerBeatmap;
+        var backgroundPath = resolveExternalBackgroundPaths(mutableClone.Metadata.Source, o2lazerBeatmap, false).FirstOrDefault();
+        var panelBackgroundPath = resolveExternalBackgroundPaths(mutableClone.Metadata.Source, o2lazerBeatmap, true).FirstOrDefault();
+        applyExternalBackgroundMarker(mutableClone, backgroundPath, panelBackgroundPath);
 
-        return beatmapInfo;
+        return mutableClone;
     }
 
     private static BeatmapInfo cloneBeatmapInfo(BeatmapInfo source)
