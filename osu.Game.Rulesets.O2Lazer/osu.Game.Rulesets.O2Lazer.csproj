@@ -9,6 +9,9 @@
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Version>1.0.0</Version>
+        <AssemblyVersion>2026.804.1.0</AssemblyVersion>
+        <FileVersion>1.0.0</FileVersion>
+        <InformationalVersion>1.0.0</InformationalVersion>
         <LangVersion>14</LangVersion>
         <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     </PropertyGroup>
