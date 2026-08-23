@@ -45,7 +45,7 @@ public class O2JamDecoderTest
     }
 
     [Test]
-    public void TestOneBasedM30KeepsReferences()
+    public void TestOneBasedM30MapsDownInFixedMapping()
     {
         File.WriteAllBytes(Path.Combine(directory, "test.ojm"), createM30([(1, "one!"u8.ToArray()), (2, "two!"u8.ToArray())]));
         var charts = OjnDecoder.DecodeAll(createOjn([[1, 2], [1, 2], [1, 2]]), Path.Combine(directory, "test.ojn"));
@@ -53,11 +53,11 @@ public class O2JamDecoderTest
         Assert.Multiple(() =>
         {
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.EX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 1, 2 }));
+                Is.EquivalentTo(new ushort[] { 0, 1 }));
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.NX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 1, 2 }));
+                Is.EquivalentTo(new ushort[] { 0, 1 }));
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.HX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 1, 2 }));
+                Is.EquivalentTo(new ushort[] { 0, 1 }));
         });
     }
 
@@ -119,7 +119,7 @@ public class O2JamDecoderTest
     }
 
     [Test]
-    public void TestM30BgmZeroKeepsRawKeys()
+    public void TestM30BgmZeroMapsDownInFixedMapping()
     {
         File.WriteAllBytes(Path.Combine(directory, "test.ojm"), createM30WithBgmZeroAndOneBasedKeys());
         var charts = OjnDecoder.DecodeAll(createOjn([[1, 2], [1, 2], [1, 2]]), Path.Combine(directory, "test.ojn"));
@@ -127,11 +127,11 @@ public class O2JamDecoderTest
         Assert.Multiple(() =>
         {
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.EX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 1, 2 }));
+                Is.EquivalentTo(new ushort[] { 0, 1 }));
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.NX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 1, 2 }));
+                Is.EquivalentTo(new ushort[] { 0, 1 }));
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.HX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 1, 2 }));
+                Is.EquivalentTo(new ushort[] { 0, 1 }));
         });
     }
 

@@ -10,7 +10,7 @@ namespace osu.Game.Rulesets.O2Lazer.Beatmaps;
 
 internal sealed class O2LazerWorkingBeatmapCache
 {
-    private const int max_wrapper_cache = 96;
+    private const int max_wrapper_cache = 64;
 
     private readonly IStorageResourceProvider resources;
 

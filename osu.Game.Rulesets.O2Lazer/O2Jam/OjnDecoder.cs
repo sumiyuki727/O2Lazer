@@ -60,7 +60,6 @@ public static class OjnDecoder
     private const int maximum_block_count = 2_000_000;
     private const int maximum_block_divisions = short.MaxValue;
     private const int max_cached_charts = 128;
-    private const bool enable_dynamic_sample_mapping = true;
 
     private static readonly ConcurrentDictionary<ChartCacheKey, Lazy<OjnDecodedChart>> chart_cache = new();
 
@@ -266,9 +265,6 @@ public static class OjnDecoder
         var index = (int)difficulty;
         var ojmFileName = resolveOjmFileName(header, sourcePath);
         var rawEvents = readEvents(data, header.BlockOffsets[index], header.BlockCounts[index]);
-        var archiveInfo = loadArchive(sourcePath, ojmFileName);
-        if (archiveInfo != null)
-            rawEvents = mapEventsToArchive(rawEvents, archiveInfo);
 
         var maxMeasure = Math.Max(header.MeasureCounts[index], rawEvents.Count == 0 ? 0 : rawEvents.Max(e => e.Measure) + 1);
         var measures = Enumerable.Range(0, Math.Max(1, maxMeasure) + 1)
@@ -369,64 +365,13 @@ public static class OjnDecoder
                     tick,
                     sequence++,
                     channel,
-                    reference,
                     (ushort)defaultSample,
-                    bankOffset,
                     flag % 4,
                     volume));
             }
         }
 
         return output;
-    }
-
-    private static OjmDecoder.OjmArchiveInfo? loadArchive(string? sourcePath, string ojmFileName)
-    {
-        if (string.IsNullOrWhiteSpace(ojmFileName) || string.IsNullOrWhiteSpace(sourcePath))
-            return null;
-
-        try
-        {
-            var directory = Path.GetDirectoryName(Path.GetFullPath(sourcePath));
-            if (string.IsNullOrEmpty(directory))
-                return null;
-
-            var ojmPath = Path.Combine(directory, ojmFileName);
-            return OjmDecoder.TryGetArchiveInfo(ojmPath, out var archiveInfo) ? archiveInfo : null;
-        }
-        catch
-        {
-            // Without a decodable companion archive the previous zero-based mapping is the
-            // closest fallback; the audio resource store will still report the real failure.
-            return null;
-        }
-    }
-
-    private static List<RawEvent> mapEventsToArchive(List<RawEvent> rawEvents, OjmDecoder.OjmArchiveInfo archiveInfo)
-    {
-        var keySoundIds = archiveInfo.KeySoundIds;
-        var useRawReference = enable_dynamic_sample_mapping && keySoundIds != null && !keySoundIds.Contains(0)
-            ? rawReferenceFitsArchive(rawEvents, keySoundIds)
-            : false;
-
-        return rawEvents
-            .Select(rawEvent => rawEvent is RawSoundEvent sound ? mapSound(sound, useRawReference) : rawEvent)
-            .ToList();
-    }
-
-    private static bool rawReferenceFitsArchive(List<RawEvent> rawEvents, IReadOnlySet<ushort> keySoundIds)
-    {
-        var rawMisses = rawEvents.OfType<RawSoundEvent>().Count(sound => sound.BankOffset == 0 && !keySoundIds.Contains(sound.Reference));
-        var canonicalMisses = rawEvents.OfType<RawSoundEvent>().Count(sound => sound.BankOffset == 0 && !keySoundIds.Contains((ushort)(sound.Reference - 1)));
-        return rawMisses <= canonicalMisses;
-    }
-
-    private static RawSoundEvent mapSound(RawSoundEvent sound, bool useRawReference)
-    {
-        if (!useRawReference || sound.BankOffset != 0)
-            return sound;
-
-        return sound with { SampleKey = sound.Reference };
     }
 
     private static O2LazerBpmEvent[] buildBpmEvents(IEnumerable<RawEvent> events, double baseBpm)
@@ -700,9 +645,7 @@ public static class OjnDecoder
         long Tick,
         int Sequence,
         int Channel,
-        ushort Reference,
         ushort SampleKey,
-        int BankOffset,
         int Signature,
         int Volume)
         : RawEvent(Measure, Tick, Sequence)

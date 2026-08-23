@@ -24,8 +24,7 @@ internal static class OjmDecoder
 
     internal sealed record OjmArchiveInfo(
         IReadOnlyDictionary<ushort, OjmSampleEntry> SampleEntries,
-        int M30Encryption = 0,
-        IReadOnlySet<ushort>? KeySoundIds = null);
+        int M30Encryption = 0);
 
     private const int m30_header_size = 28;
     private const int m30_sample_header_size = 52;
@@ -247,7 +246,6 @@ internal static class OjmDecoder
             : (int)stream.Length;
         stream.Position = sampleOffset;
         var sampleEntries = new Dictionary<ushort, OjmSampleEntry>();
-        var keySoundIds = new HashSet<ushort>();
         var parsedCount = 0;
 
         // Some original archives report an inaccurate sample count, so the payload bounds are authoritative.
@@ -273,15 +271,13 @@ internal static class OjmDecoder
                     entryId += 1000;
 
                 sampleEntries[entryId] = new OjmSampleEntry(entryId, stream.Position, sampleSize, OjmSampleKind.M30);
-                if (sampleType == 5)
-                    keySoundIds.Add(sampleId);
             }
 
             stream.Position += sampleSize;
             parsedCount++;
         }
 
-        return new OjmArchiveInfo(sampleEntries, encryption, keySoundIds);
+        return new OjmArchiveInfo(sampleEntries, encryption);
     }
 
     private static OjmArchiveInfo readOmcInfo(Stream stream, BinaryReader reader)
@@ -302,7 +298,6 @@ internal static class OjmDecoder
 
         stream.Position = waveOffset;
         var sampleEntries = new Dictionary<ushort, OjmSampleEntry>();
-        var keySoundIds = new HashSet<ushort>();
 
         for (var sampleId = 0; sampleId < waveCount; sampleId++)
         {
@@ -319,9 +314,6 @@ internal static class OjmDecoder
 
             if (sampleSize < 0 || stream.Position + sampleSize > oggOffset)
                 throw new InvalidDataException("An OMC wave sample size is negative or outside the archive bounds.");
-
-            if (sampleSize > 0)
-                keySoundIds.Add((ushort)sampleId);
 
             stream.Position += sampleSize;
         }
@@ -345,7 +337,7 @@ internal static class OjmDecoder
             stream.Position += sampleSize;
         }
 
-        return new OjmArchiveInfo(sampleEntries, KeySoundIds: keySoundIds);
+        return new OjmArchiveInfo(sampleEntries);
     }
 
     private static OjmArchive decodeArchive(byte[] data)
