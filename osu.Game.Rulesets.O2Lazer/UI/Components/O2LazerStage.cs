@@ -48,8 +48,6 @@ public sealed partial class O2LazerStage : CompositeDrawable
 
     internal float LightPositionOffset { get; private set; }
 
-    internal float NoteHeightScale { get; private set; } = 1;
-
     internal event Action<float>? SkinHitTargetPositionChanged;
 
     internal event Action<float>? LightPositionOffsetChanged;
@@ -340,12 +338,6 @@ public sealed partial class O2LazerStage : CompositeDrawable
 
         LightPositionOffset = offset;
         LightPositionOffsetChanged?.Invoke(offset);
-    }
-
-    internal void SetNoteHeightScale(float scale)
-    {
-        if (float.IsFinite(scale) && scale > 0)
-            NoteHeightScale = scale;
     }
 
     private void applyHitTargetPosition(bool notifySkinPositionChanged = false)

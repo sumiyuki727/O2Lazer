@@ -13,6 +13,8 @@ internal sealed class O2LazerGameplaySettingsController : IDisposable
     private readonly FrameworkConfigManager frameworkConfig;
 
     private IDisposable? frameRateUnlockLease;
+    private readonly Bindable<double>? scrollSpeed;
+    private readonly Bindable<bool>? constantScrollSpeed;
 
     internal O2LazerGameplaySettingsController(
         O2LazerRulesetConfigManager? config,
@@ -27,8 +29,16 @@ internal sealed class O2LazerGameplaySettingsController : IDisposable
         if (config != null)
         {
             config.BindWith(O2LazerRulesetSetting.VisualOffset, playfield.VisualOffset);
-            playfield.ScrollController.SetConfiguredScrollSpeed(config.Get<double>(O2LazerRulesetSetting.ScrollSpeed));
-            playfield.ScrollController.ConstantScrollActive = config.Get<bool>(O2LazerRulesetSetting.ConstantScrollSpeed);
+
+            scrollSpeed = config.GetBindable<double>(O2LazerRulesetSetting.ScrollSpeed);
+            scrollSpeed.BindValueChanged(value => playfield.ScrollController.SetConfiguredScrollSpeed(value.NewValue), true);
+
+            constantScrollSpeed = config.GetBindable<bool>(O2LazerRulesetSetting.ConstantScrollSpeed);
+            constantScrollSpeed.BindValueChanged(value =>
+            {
+                playfield.ScrollController.ConstantScrollActive = value.NewValue;
+                playfield.RefreshAllLifetimes();
+            }, true);
 
             unlockFrameRateLimit = config.GetBindable<bool>(O2LazerRulesetSetting.UnlockFrameRateLimit);
             unlockFrameRateLimit.BindValueChanged(onUnlockFrameRateLimitChanged, true);
@@ -39,6 +49,8 @@ internal sealed class O2LazerGameplaySettingsController : IDisposable
 
     public void Dispose()
     {
+        scrollSpeed?.UnbindAll();
+        constantScrollSpeed?.UnbindAll();
         unlockFrameRateLimit?.UnbindAll();
         frameRateUnlockLease?.Dispose();
         frameRateUnlockLease = null;

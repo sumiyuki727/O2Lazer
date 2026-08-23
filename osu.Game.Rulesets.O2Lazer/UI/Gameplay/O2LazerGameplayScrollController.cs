@@ -40,19 +40,8 @@ internal sealed class O2LazerGameplayScrollController(O2LazerTimingMap? timingMa
 
     public double PlaybackRate { get; private set; } = 1.0;
 
-    private const int default_multiplier_index = 9;
-
     private const double default_scroll_speed = O2LazerRulesetConfigManager.DEFAULT_SCROLL_SPEED;
-
-    private static readonly double[] scroll_speed_multipliers =
-    [
-        0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0,
-        1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75,
-        3.0, 3.5, 4.0, 4.5, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
-    ];
-
     private double configuredScrollSpeed = default_scroll_speed;
-    private int currentMultiplierIndex = default_multiplier_index;
 
     public static double ComputeScrollTime(double scrollSpeed) => MAX_TIME_RANGE / Math.Max(1, scrollSpeed);
 
@@ -86,24 +75,13 @@ internal sealed class O2LazerGameplayScrollController(O2LazerTimingMap? timingMa
     public void SetConfiguredScrollSpeed(double speed)
     {
         configuredScrollSpeed = speed;
-        setScrollSpeedFromMultiplierIndex(false);
+        ScrollSpeed = configuredScrollSpeed;
+        ScrollSpeedChanged?.Invoke(configuredScrollSpeed / default_scroll_speed);
     }
 
     public void SetPlaybackRate(double rate)
     {
         PlaybackRate = double.IsFinite(rate) && Math.Abs(rate) >= 0.001 ? Math.Abs(rate) : 1.0;
-    }
-
-    public void AdjustScrollSpeed(double delta)
-    {
-        var direction = delta > 0 ? 1 : -1;
-        var newIndex = Math.Clamp(currentMultiplierIndex + direction, 0, scroll_speed_multipliers.Length - 1);
-
-        if (newIndex == currentMultiplierIndex)
-            return;
-
-        currentMultiplierIndex = newIndex;
-        setScrollSpeedFromMultiplierIndex();
     }
 
     public void Update(double currentTime)
@@ -128,14 +106,6 @@ internal sealed class O2LazerGameplayScrollController(O2LazerTimingMap? timingMa
         var range = Math.Max(1.0, ScrollRange);
         var travelDistance = Math.Max(1f, (float)(parentHeight - hitTargetPosition));
         return ScrollSpeedMultiplier / range * travelDistance;
-    }
-
-    private void setScrollSpeedFromMultiplierIndex(bool fireEvent = true)
-    {
-        ScrollSpeed = configuredScrollSpeed * scroll_speed_multipliers[currentMultiplierIndex];
-
-        if (fireEvent)
-            ScrollSpeedChanged?.Invoke(scroll_speed_multipliers[currentMultiplierIndex]);
     }
 
     public event Action<double>? ScrollSpeedChanged;

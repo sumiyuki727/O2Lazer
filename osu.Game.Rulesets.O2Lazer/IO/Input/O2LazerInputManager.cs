@@ -23,7 +23,6 @@ public partial class O2LazerInputManager(RulesetInfo ruleset, int variant)
         var triggers = KeyBindingContainer.DefaultKeyBindings
                                           .Select(binding => binding.GetAction<O2LazerAction>())
                                           .Distinct()
-                                          .Where(action => action is not O2LazerAction.IncreaseScrollSpeed and not O2LazerAction.DecreaseScrollSpeed)
                                           .Select(createTrigger)
                                           .ToArray();
 

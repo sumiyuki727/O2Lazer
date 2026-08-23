@@ -35,7 +35,7 @@ internal interface IO2LazerManiaHoldNoteVisualPiece
 
 internal interface IO2LazerManiaHoldNoteBodyPiece : IO2LazerManiaHoldNoteVisualPiece
 {
-    void SetTailAtTop(bool tailAtTop);
+    void SetTailAtTop(bool tailAtTop, float bodyHeight);
 }
 
 /// <summary>
@@ -126,7 +126,7 @@ internal partial class O2LazerManiaDefaultHoldBodyPiece : CompositeDrawable, IO2
 
     public void SetHolding(bool holding) => isHolding.Value = holding;
 
-    public void SetTailAtTop(bool tailAtTop)
+    public void SetTailAtTop(bool tailAtTop, float bodyHeight)
     {
     }
 
@@ -414,7 +414,7 @@ internal partial class O2LazerManiaArgonHoldBodyPiece : CompositeDrawable, IO2La
 
     public void SetHolding(bool holding) => hittingLayer.IsHolding.Value = holding;
 
-    public void SetTailAtTop(bool tailAtTop)
+    public void SetTailAtTop(bool tailAtTop, float bodyHeight)
     {
     }
 

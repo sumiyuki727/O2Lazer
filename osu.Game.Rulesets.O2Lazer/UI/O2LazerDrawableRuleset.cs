@@ -3,8 +3,11 @@ using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Configuration;
 using osu.Framework.Input;
+using osu.Framework.Input.Bindings;
+using osu.Framework.Input.Events;
 using osu.Framework.Platform;
 using osu.Game.Beatmaps;
+using osu.Game.Input.Bindings;
 using osu.Game.Input.Handlers;
 using osu.Game.Replays;
 using osu.Game.Rulesets.O2Lazer.Media.Audio.Samples;
@@ -24,7 +27,7 @@ using osu.Game.Screens.Play;
 
 namespace osu.Game.Rulesets.O2Lazer.UI;
 
-public partial class O2LazerDrawableRuleset : DrawableRuleset<O2LazerHitObject>
+public partial class O2LazerDrawableRuleset : DrawableRuleset<O2LazerHitObject>, IKeyBindingHandler<GlobalAction>
 {
     public O2LazerDrawableRuleset(Ruleset ruleset, IBeatmap beatmap, IReadOnlyList<Mod>? mods = null)
         : base(ruleset, beatmap, mods)
@@ -57,6 +60,10 @@ public partial class O2LazerDrawableRuleset : DrawableRuleset<O2LazerHitObject>
     private readonly O2LazerGameplayAudioController audioController;
     private O2LazerGameplayCompletionController? completionController;
     private O2LazerGameplaySettingsController? settingsController;
+    private Bindable<double>? configScrollSpeed;
+
+    [Resolved(CanBeNull = true)]
+    private Player? player { get; set; }
 
     [Cached]
     private readonly O2LazerSamplePlayback samplePlayback;
@@ -97,6 +104,31 @@ public partial class O2LazerDrawableRuleset : DrawableRuleset<O2LazerHitObject>
     }
 
     public static double ComputeScrollTime(double scrollSpeed) => O2LazerGameplayScrollController.ComputeScrollTime(scrollSpeed);
+
+    public bool OnPressed(KeyBindingPressEvent<GlobalAction> e)
+    {
+        switch (e.Action)
+        {
+            case GlobalAction.IncreaseScrollSpeed:
+            case GlobalAction.DecreaseScrollSpeed:
+                if (!AllowScrollSpeedAdjustment)
+                    return true;
+
+                if (configScrollSpeed is { } scrollSpeed)
+                    scrollSpeed.Value += e.Action == GlobalAction.IncreaseScrollSpeed ? 1 : -1;
+                return true;
+        }
+
+        return false;
+    }
+
+    public void OnReleased(KeyBindingReleaseEvent<GlobalAction> e)
+    {
+    }
+
+    // Mirrors mania: adjustment is allowed during the lead-in / breaks and always in replays,
+    // and is locked once scored play is underway (or while paused).
+    private bool AllowScrollSpeedAdjustment => player?.AllowCriticalSettingsAdjustment != false;
 
     public override DrawableHitObject<O2LazerHitObject>? CreateDrawableRepresentation(O2LazerHitObject h) => null;
 
@@ -166,6 +198,12 @@ public partial class O2LazerDrawableRuleset : DrawableRuleset<O2LazerHitObject>
         // This component also coordinates pause/seek blocking for KeySounds in the shared Track
         // playback component, so it must exist even when the chart has no background sample events.
         FrameStableComponents.Add(audioController.CreateBackgroundAudioPlayer(beatmap));
+
+        if (Config is O2LazerRulesetConfigManager config)
+        {
+            configScrollSpeed = config.GetBindable<double>(O2LazerRulesetSetting.ScrollSpeed);
+        }
+
         settingsController = new O2LazerGameplaySettingsController(
             Config as O2LazerRulesetConfigManager,
             (O2LazerPlayfield)Playfield,

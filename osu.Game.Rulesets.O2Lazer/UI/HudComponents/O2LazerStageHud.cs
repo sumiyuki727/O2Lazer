@@ -35,14 +35,6 @@ internal sealed partial class O2LazerStageHud : O2LazerHudComponent
         Precision = 1,
     };
 
-    [SettingSource(typeof(O2LazerStrings), nameof(O2LazerStrings.NoteHeightScale), nameof(O2LazerStrings.NoteHeightScaleDescription))]
-    public BindableFloat NoteHeightScale { get; } = new(1)
-    {
-        MinValue = 0.01f,
-        MaxValue = 5,
-        Precision = 0.01f,
-    };
-
     private readonly Container editHandle;
     private O2LazerStageHudController? controller;
     private float currentStageWidth;
@@ -104,10 +96,8 @@ internal sealed partial class O2LazerStageHud : O2LazerHudComponent
             controller.Register(this, this.FindClosestParent<ISerialisableDrawableContainer>());
             JudgementLineOffset.ValueChanged += onJudgementLineOffsetChanged;
             LightPositionOffset.ValueChanged += onLightPositionOffsetChanged;
-            NoteHeightScale.ValueChanged += onNoteHeightScaleChanged;
             controller.SetHitTargetPositionOffset(JudgementLineOffset.Value);
             controller.SetLightPositionOffset(LightPositionOffset.Value);
-            controller.SetNoteHeightScale(NoteHeightScale.Value);
         }
 
         if (SkinEditor != null)
@@ -120,7 +110,6 @@ internal sealed partial class O2LazerStageHud : O2LazerHudComponent
     {
         JudgementLineOffset.ValueChanged -= onJudgementLineOffsetChanged;
         LightPositionOffset.ValueChanged -= onLightPositionOffsetChanged;
-        NoteHeightScale.ValueChanged -= onNoteHeightScaleChanged;
         controller?.Unregister(this);
         controller = null;
 
@@ -130,8 +119,6 @@ internal sealed partial class O2LazerStageHud : O2LazerHudComponent
     private void onJudgementLineOffsetChanged(ValueChangedEvent<float> offset) => controller?.SetHitTargetPositionOffset(offset.NewValue);
 
     private void onLightPositionOffsetChanged(ValueChangedEvent<float> offset) => controller?.SetLightPositionOffset(offset.NewValue);
-
-    private void onNoteHeightScaleChanged(ValueChangedEvent<float> scale) => controller?.SetNoteHeightScale(scale.NewValue);
 
     internal float GetCurrentStageWidth() => currentStageWidth;
 

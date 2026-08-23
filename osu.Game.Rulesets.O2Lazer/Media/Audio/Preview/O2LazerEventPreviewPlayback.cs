@@ -19,6 +19,7 @@ internal sealed class O2LazerEventPreviewPlayback : IDisposable
 {
     private readonly O2LazerPreviewTrack owner;
     private readonly AudioManager audioManager;
+    private readonly O2LazerEventPreviewTimeline timeline;
     private readonly List<O2LazerPreviewTimelineEntry> sortedEvents = [];
     private readonly bool deriveLengthFromSamples;
     private readonly bool extendLengthFromSamples;
@@ -40,6 +41,8 @@ internal sealed class O2LazerEventPreviewPlayback : IDisposable
 
     internal int ActiveVoiceCount => playbackSession?.ActiveVoiceCount ?? 0;
 
+    internal double TimeOffset => timeline.TimeOffset;
+
     internal O2LazerEventPreviewPlayback(
         O2LazerPreviewTrack owner,
         O2LazerEventPreviewTimeline timeline,
@@ -48,6 +51,7 @@ internal sealed class O2LazerEventPreviewPlayback : IDisposable
     {
         this.owner = owner;
         this.audioManager = audioManager;
+        this.timeline = timeline;
         sortedEvents.AddRange(timeline.Entries);
         Length = timeline.Length;
         deriveLengthFromSamples = timeline.DeriveLengthFromSamples;
@@ -115,10 +119,11 @@ internal sealed class O2LazerEventPreviewPlayback : IDisposable
             return;
         }
 
-        eventResyncRequired = ActiveVoiceCount == 0;
-
-        if (eventResyncRequired)
-            nextEventIndex = findFirstEventAfter(currentTime);
+        // Clean restart after gameplay: clear residual voices and rebase the PCM clock so the
+        // resumed timeline maps to the mixer's current frame position.
+        stopPlayback();
+        eventResyncRequired = true;
+        nextEventIndex = findFirstEventAfter(currentTime);
     }
 
     public void Stop() => stopPlayback();

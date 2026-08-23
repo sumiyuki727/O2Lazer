@@ -75,6 +75,7 @@ public partial class O2LazerRuleset : Ruleset, IO2LazerStyleUnrankedBadgeRuleset
         O2LazerEditorPatcher.InstallOnce();
         O2LazerSongSelectLampPatcher.InstallOnce();
         O2LazerBeatmapSearchPatcher.InstallOnce();
+        O2LazerModSelectDeselectAllPatcher.InstallOnce();
         O2LazerLocalLeaderboardPatcher.InstallOnce();
         O2LazerRankingHitResultColourPatcher.InstallOnce();
         O2LazerWorkingBeatmapPatcher.InstallOnce();

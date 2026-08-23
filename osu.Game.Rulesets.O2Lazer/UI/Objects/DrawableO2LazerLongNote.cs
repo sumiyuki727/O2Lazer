@@ -49,7 +49,6 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
     private float lastBodyWidth;
     private float lastVisualNoteHeight;
     private float lastVisualTailHeight;
-    private float noteHeightScale = 1;
     private bool lastHoldingBody;
     private bool lastReleasedFast;
     private O2LazerManiaLongNoteBody longNoteBody = null!;
@@ -105,7 +104,7 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
             var o2jamHeadOffset = headY - o2jamMyY;
             var fullHeight = Math.Max(0, rawHeadY - endY);
             var consumedHeight = Math.Max(0, -o2jamHeadOffset);
-            var headHeight = NoteVisualHeight * noteHeightScale;
+            var headHeight = NoteVisualHeight;
             var o2jamReleasedFast =
                 controller.LongNoteStarted && HitObject != null && Time.Current < ln.EndTime && !holdingBody;
 
@@ -136,8 +135,8 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
         var bodyTailOffset = holdingBody
             ? visualState.VisibleBodyTailOffset(headOffset, tailOffset)
             : tailOffset;
-        var visualNoteHeight = NoteVisualHeight * noteHeightScale;
-        var visualTailHeight = longNoteTail.Drawable.DrawHeight * noteHeightScale;
+        var visualNoteHeight = NoteVisualHeight;
+        var visualTailHeight = longNoteTail.Drawable.DrawHeight;
 
         var releasedFast =
             controller.LongNoteStarted && HitObject != null && Time.Current < ln.EndTime && !holdingBody;
@@ -185,7 +184,7 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
             longNoteBody.Y = bodyTop;
 
         if (Math.Abs(longNoteBody.Height - bodyHeight) > 0.5f)
-            longNoteBody.Height = Math.Max(1, bodyHeight);
+            longNoteBody.Height = Math.Max(0, bodyHeight);
 
         longNoteBody.UpdateBody(bodyHeight, tailAtTop, holdingBody);
         longNoteBody.Alpha = bodyHeight > 0 ? 1 : 0;
@@ -220,19 +219,6 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
         longNoteTail.Colour = Color4.White;
         if (longNoteTail.Drawable is IO2LazerManiaHoldNoteVisualPiece tailPiece)
             tailPiece.Recycle();
-    }
-
-    protected override void ApplyNoteHeightScaleToKind(float scale)
-    {
-        noteHeightScale = scale;
-
-        if (isO2Jam)
-        {
-            o2jamVisual.ApplyNoteHeightScale(scale);
-            return;
-        }
-
-        longNoteTail.Scale = new Vector2(1, scale);
     }
 
     protected override void OnApply()

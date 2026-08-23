@@ -34,8 +34,6 @@ public abstract partial class DrawableO2LazerHitObject : DrawableHitObject<O2Laz
 
     protected Container NoteContainer = null!;
 
-    private float appliedNoteHeightScale = float.NaN;
-
     [Resolved(CanBeNull = true)]
     protected O2LazerColumn? ParentColumn { get; private set; }
 
@@ -71,27 +69,6 @@ public abstract partial class DrawableO2LazerHitObject : DrawableHitObject<O2Laz
         }
 
         UpdateKindPostResultState();
-    }
-
-    protected override void Update()
-    {
-        base.Update();
-
-        ApplyNoteHeightScale(ParentColumn?.NoteHeightScale ?? 1);
-    }
-
-    internal void ApplyNoteHeightScale(float scale)
-    {
-        if (scale == appliedNoteHeightScale)
-            return;
-
-        appliedNoteHeightScale = scale;
-        NoteContainer.Scale = new Vector2(1, scale);
-        ApplyNoteHeightScaleToKind(scale);
-    }
-
-    protected virtual void ApplyNoteHeightScaleToKind(float scale)
-    {
     }
 
     protected virtual void ResetKindState()

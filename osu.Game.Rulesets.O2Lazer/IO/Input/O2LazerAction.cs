@@ -37,11 +37,4 @@ public enum O2LazerAction
     [LocalisableDescription(typeof(O2LazerStrings), nameof(O2LazerStrings.ActionKey7))]
     Key7,
 
-    [Description("Increase Scroll Speed")]
-    [LocalisableDescription(typeof(O2LazerStrings), nameof(O2LazerStrings.ActionIncreaseScrollSpeed))]
-    IncreaseScrollSpeed,
-
-    [Description("Decrease Scroll Speed")]
-    [LocalisableDescription(typeof(O2LazerStrings), nameof(O2LazerStrings.ActionDecreaseScrollSpeed))]
-    DecreaseScrollSpeed,
 }

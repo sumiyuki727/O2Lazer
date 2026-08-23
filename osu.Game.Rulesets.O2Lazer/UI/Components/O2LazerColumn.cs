@@ -79,8 +79,6 @@ public partial class O2LazerColumn : Playfield, IO2LazerColumn
 
     internal double VisualOffset => ParentPlayfield.VisualOffset.Value;
 
-    internal float NoteHeightScale => ParentPlayfield.Stage.NoteHeightScale;
-
     protected O2LazerPlayfield ParentPlayfield { get; }
 
     private O2LazerColumnKeySound? keySound;

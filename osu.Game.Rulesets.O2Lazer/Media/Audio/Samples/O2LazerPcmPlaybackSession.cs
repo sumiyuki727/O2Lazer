@@ -93,10 +93,13 @@ internal sealed class O2LazerPcmPlaybackSession : IDisposable
             return;
 
         disposed = true;
-        Controller?.Dispose();
-        Controller = null;
+        // Detach the native stream before the framework mixer is torn down so teardown
+        // never leaves the O2LAZER PCM stream mixed into the global output.
+        Controller?.StopAll();
         pcmBridge?.Dispose();
         pcmBridge = null;
+        Controller?.Dispose();
+        Controller = null;
         pcmMixer = null;
         outputMixer?.Dispose();
         outputMixer = null;

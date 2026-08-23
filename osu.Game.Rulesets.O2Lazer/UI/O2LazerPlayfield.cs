@@ -176,17 +176,6 @@ public sealed partial class O2LazerPlayfield : Playfield, IKeyBindingHandler<O2L
 
     public bool OnPressed(KeyBindingPressEvent<O2LazerAction> e)
     {
-        switch (e.Action)
-        {
-            case O2LazerAction.IncreaseScrollSpeed:
-                ScrollController.AdjustScrollSpeed(1);
-                return true;
-
-            case O2LazerAction.DecreaseScrollSpeed:
-                ScrollController.AdjustScrollSpeed(-1);
-                return true;
-        }
-
         var column = O2LazerKeyBindingConfiguration.ActionToColumn(e.Action, LayoutVariant);
 
         if (column == null || column.Value >= TotalColumns)
@@ -202,13 +191,6 @@ public sealed partial class O2LazerPlayfield : Playfield, IKeyBindingHandler<O2L
 
     public void OnReleased(KeyBindingReleaseEvent<O2LazerAction> e)
     {
-        switch (e.Action)
-        {
-            case O2LazerAction.IncreaseScrollSpeed:
-            case O2LazerAction.DecreaseScrollSpeed:
-                return;
-        }
-
         var column = O2LazerKeyBindingConfiguration.ActionToColumn(e.Action, LayoutVariant);
 
         if (column == null || column.Value >= TotalColumns)

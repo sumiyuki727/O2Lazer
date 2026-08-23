@@ -170,7 +170,7 @@ internal sealed partial class O2LazerLegacyStretchedHoldNoteBodyPiece : Composit
             animation.GotoFrame(0);
     }
 
-    public void SetTailAtTop(bool tailAtTop)
+    public void SetTailAtTop(bool tailAtTop, float bodyHeight)
     {
         if (bodySprite == null)
             return;
@@ -184,15 +184,8 @@ internal sealed partial class O2LazerLegacyStretchedHoldNoteBodyPiece : Composit
         }
 
         bodySprite.FillMode = FillMode.Stretch;
-        var sourceHeight = bodySprite switch
-        {
-            Sprite sprite => sprite.Texture?.DisplayHeight ?? 0,
-            TextureAnimation animation when animation.FrameCount > 0 => animation.CurrentFrame.DisplayHeight,
-            _ => bodySprite.DrawHeight,
-        };
-
-        if (sourceHeight > 0)
-            bodySprite.Scale = new Vector2(1, scaleDirection * MathF.Max(1, 32800 / sourceHeight));
+        if (bodyHeight > 0)
+            bodySprite.Scale = new Vector2(1, scaleDirection * MathF.Max(1, 32800 / bodyHeight));
     }
 
     public void Recycle()
@@ -211,6 +204,7 @@ internal sealed partial class O2LazerDeferredResolvedHoldNoteBodyPiece(O2LazerSk
     private Drawable? resolved;
     private bool holding;
     private bool tailAtTop;
+    private float bodyHeight;
 
     public int AnimationFrameCount => (resolved as IO2LazerManiaHoldNoteBodyPiece)?.AnimationFrameCount ?? 0;
 
@@ -221,7 +215,7 @@ internal sealed partial class O2LazerDeferredResolvedHoldNoteBodyPiece(O2LazerSk
     {
         InternalChild = resolved = new O2LazerLegacyStretchedHoldNoteBodyPiece(skin, lookup);
         var piece = (IO2LazerManiaHoldNoteBodyPiece)resolved;
-        piece.SetTailAtTop(tailAtTop);
+        piece.SetTailAtTop(tailAtTop, bodyHeight);
         piece.SetHolding(holding);
     }
 
@@ -231,10 +225,11 @@ internal sealed partial class O2LazerDeferredResolvedHoldNoteBodyPiece(O2LazerSk
         (resolved as IO2LazerManiaHoldNoteBodyPiece)?.SetHolding(newHolding);
     }
 
-    public void SetTailAtTop(bool newTailAtTop)
+    public void SetTailAtTop(bool newTailAtTop, float newBodyHeight)
     {
         tailAtTop = newTailAtTop;
-        (resolved as IO2LazerManiaHoldNoteBodyPiece)?.SetTailAtTop(newTailAtTop);
+        bodyHeight = newBodyHeight;
+        (resolved as IO2LazerManiaHoldNoteBodyPiece)?.SetTailAtTop(newTailAtTop, newBodyHeight);
     }
 
     public void Recycle()

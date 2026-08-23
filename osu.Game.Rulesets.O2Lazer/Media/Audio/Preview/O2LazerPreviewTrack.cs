@@ -137,7 +137,7 @@ public abstract class O2LazerPreviewTrack : Track, IAdjustableAudioComponent
         base.Reset();
     }).WaitSafely();
 
-    internal void RestorePreview(double? gameplayTime)
+    internal virtual void RestorePreview(double? gameplayTime)
     {
         EnqueueAction(() =>
         {

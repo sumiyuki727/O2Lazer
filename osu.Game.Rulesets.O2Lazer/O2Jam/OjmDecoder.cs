@@ -20,12 +20,12 @@ internal static class OjmDecoder
     {
         M30,
         OmcOgg,
+        OmcWave,
     }
 
     internal sealed record OjmArchiveInfo(
         IReadOnlyDictionary<ushort, OjmSampleEntry> SampleEntries,
-        int M30Encryption = 0,
-        bool IsM30 = false);
+        int M30Encryption = 0);
 
     private const int m30_header_size = 28;
     private const int m30_sample_header_size = 52;
@@ -91,7 +91,10 @@ internal static class OjmDecoder
 
     internal static byte[]? GetSample(string path, ushort sampleId)
     {
-        if (TryGetArchiveInfo(path, out var archiveInfo) && archiveInfo is not null && archiveInfo.SampleEntries.TryGetValue(sampleId, out var entry))
+        if (TryGetArchiveInfo(path, out var archiveInfo)
+            && archiveInfo is not null
+            && archiveInfo.SampleEntries.TryGetValue(sampleId, out var entry)
+            && entry.Kind != OjmSampleKind.OmcWave)
         {
             var fullPath = Path.GetFullPath(path);
             var cacheKey = $"{fullPath}|{sampleId}";
@@ -277,7 +280,7 @@ internal static class OjmDecoder
             parsedCount++;
         }
 
-        return new OjmArchiveInfo(sampleEntries, encryption, IsM30: true);
+        return new OjmArchiveInfo(sampleEntries, encryption);
     }
 
     private static OjmArchiveInfo readOmcInfo(Stream stream, BinaryReader reader)
@@ -314,6 +317,9 @@ internal static class OjmDecoder
 
             if (sampleSize < 0 || stream.Position + sampleSize > oggOffset)
                 throw new InvalidDataException("An OMC wave sample size is negative or outside the archive bounds.");
+
+            if (sampleSize > 0)
+                sampleEntries[(ushort)sampleId] = new OjmSampleEntry((ushort)sampleId, stream.Position, sampleSize, OjmSampleKind.OmcWave);
 
             stream.Position += sampleSize;
         }

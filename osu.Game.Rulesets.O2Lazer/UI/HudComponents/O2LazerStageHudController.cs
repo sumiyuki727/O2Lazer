@@ -48,7 +48,6 @@ internal sealed partial class O2LazerStageHudController : Component
 
         normaliseProportionalHudWidth();
         scheduleStageHudSingleton();
-        SetNoteHeightScale(stageHud?.NoteHeightScale.Value ?? 1);
         tryInitialiseHudSize();
         updateStageTransform();
         updatePositionOffsetRanges();
@@ -60,8 +59,6 @@ internal sealed partial class O2LazerStageHudController : Component
 
     internal void SetLightPositionOffset(float offset) => playfield.Stage.SetLightPositionOffset(offset);
 
-    internal void SetNoteHeightScale(float scale) => playfield.Stage.SetNoteHeightScale(scale);
-
     internal void Unregister(O2LazerStageHud hud)
     {
         if (stageHud != hud)
@@ -71,7 +68,6 @@ internal sealed partial class O2LazerStageHudController : Component
         hud.SetCurrentStageWidth(0);
         playfield.Stage.SetHitTargetPositionOffset(0);
         playfield.Stage.SetLightPositionOffset(0);
-        playfield.Stage.SetNoteHeightScale(1);
         playfield.Stage.ClearHudTransform();
     }
 
@@ -99,7 +95,6 @@ internal sealed partial class O2LazerStageHudController : Component
         unregisterContainer();
         playfield.Stage.SetHitTargetPositionOffset(0);
         playfield.Stage.SetLightPositionOffset(0);
-        playfield.Stage.SetNoteHeightScale(1);
         playfield.Stage.ClearHudTransform();
 
         base.Dispose(isDisposing);
@@ -129,7 +124,6 @@ internal sealed partial class O2LazerStageHudController : Component
 
             stageHud = keeper;
             normaliseProportionalHudWidth();
-            SetNoteHeightScale(keeper.NoteHeightScale.Value);
             tryInitialiseHudSize();
             updateStageTransform();
             updatePositionOffsetRanges();
@@ -175,7 +169,6 @@ internal sealed partial class O2LazerStageHudController : Component
             stageHud = null;
             playfield.Stage.SetHitTargetPositionOffset(0);
             playfield.Stage.SetLightPositionOffset(0);
-            playfield.Stage.SetNoteHeightScale(1);
             playfield.Stage.ClearHudTransform();
         }
 

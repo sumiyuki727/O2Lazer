@@ -70,6 +70,16 @@ internal sealed class O2LazerEventPreviewTrack : O2LazerPreviewTrack
         Length = O2LazerEventPreviewTimeline.DEFAULT_LENGTH;
     }
 
+    internal override void RestorePreview(double? gameplayTime)
+    {
+        // The preview timeline is normalised to its first event, while gameplay time is absolute
+        // chart time. Convert before seeking so the resumed BGM/keysound positions line up.
+        if (gameplayTime is { } time && playback is { } existing)
+            gameplayTime = Math.Max(0, time - existing.TimeOffset);
+
+        base.RestorePreview(gameplayTime);
+    }
+
     protected override void PrepareStart() => consumeTimeline();
 
     protected override void StartPlayback()

@@ -68,7 +68,10 @@ internal sealed class O2LazerBassMixerBridge : IDisposable
                 return;
 
             disposed = true;
-            pendingLifecycleAction = enqueueAudioAction(detachAndFree);
+            // Detach synchronously instead of queueing to the audio thread: BASS calls are
+            // thread-safe, and this guarantees the stream is gone before the framework mixer
+            // is disposed, so teardown can never leave O2LAZER audio mixed into the output.
+            detachAndFree();
         }
     }
 
@@ -125,6 +128,12 @@ internal sealed class O2LazerBassMixerBridge : IDisposable
     {
         try
         {
+            if (disposed)
+            {
+                new Span<byte>((void*)buffer, length).Clear();
+                return length;
+            }
+
             var sampleCount = length / sizeof(float);
             var samples = new Span<float>((void*)buffer, sampleCount);
 

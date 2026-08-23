@@ -10,7 +10,8 @@ internal sealed record O2LazerEventPreviewTimeline(
     IReadOnlyList<O2LazerPreviewTimelineEntry> Entries,
     double Length,
     bool DeriveLengthFromSamples = false,
-    bool ExtendLengthFromSamples = false)
+    bool ExtendLengthFromSamples = false,
+    double TimeOffset = 0)
 {
     internal const double DEFAULT_LENGTH = 30000;
 
@@ -43,15 +44,19 @@ internal sealed record O2LazerEventPreviewTimeline(
         cancellationToken.ThrowIfCancellationRequested();
         entries.Sort((a, b) => a.Time.CompareTo(b.Time));
 
+        var length = entries.Count > 0 ? entries[^1].Time + 5000 : DEFAULT_LENGTH;
+
         if (entries.Count > 0 && entries[0].Time > 0)
         {
             var leadIn = entries[0].Time;
 
             for (var i = 0; i < entries.Count; i++)
                 entries[i] = entries[i] with { Time = entries[i].Time - leadIn };
+
+            length = entries[^1].Time + 5000;
+            return new O2LazerEventPreviewTimeline(entries, length, ExtendLengthFromSamples: true, TimeOffset: leadIn);
         }
 
-        var length = entries.Count > 0 ? entries[^1].Time + 5000 : DEFAULT_LENGTH;
         return new O2LazerEventPreviewTimeline(entries, length, ExtendLengthFromSamples: true);
     }
 }

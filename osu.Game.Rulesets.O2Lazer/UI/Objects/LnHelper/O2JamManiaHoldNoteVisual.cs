@@ -33,9 +33,7 @@ internal sealed partial class O2JamManiaHoldNoteVisual : CompositeDrawable
     private bool headAttached;
     private bool wasPinned;
     private bool dropped;
-    private float noteHeightScale = 1;
-
-    private float tailVisualHeight => Tail.Drawable.DrawHeight * noteHeightScale;
+    private float tailVisualHeight => Tail.Drawable.DrawHeight;
 
     public O2JamManiaHoldNoteVisual(O2LazerLayoutVariant layoutVariant, int column)
     {
@@ -111,15 +109,9 @@ internal sealed partial class O2JamManiaHoldNoteVisual : CompositeDrawable
         headHost.Child = noteContainer;
     }
 
-    internal void ApplyNoteHeightScale(float scale)
-    {
-        noteHeightScale = scale;
-        Tail.Scale = new Vector2(1, scale);
-    }
-
     internal void UpdateGeometry(float fullHeight, float consumedHeight, float headHeight, bool pinActive, bool holding)
     {
-        Height = Math.Max(1, fullHeight);
+        Height = Math.Max(0, fullHeight);
 
         var tailHeight = tailVisualHeight;
 
@@ -129,7 +121,9 @@ internal sealed partial class O2JamManiaHoldNoteVisual : CompositeDrawable
         maskingContainer.Padding = new MarginPadding { Bottom = headHeight / 2 };
 
         Body.Y = -headHeight / 2;
-        Body.Height = Math.Max(1, fullHeight - headHeight / 2 + tailHeight / 2);
+        // osu!mania does not force a minimum body height: when the head and tail overlap the
+        // body naturally disappears, otherwise a forced 1px sliver renders badly in some skins.
+        Body.Height = Math.Max(0, fullHeight - headHeight / 2 + tailHeight / 2);
         Body.Alpha = fullHeight > 0 ? 1 : 0;
         Tail.Alpha = fullHeight > 0 ? 1 : 0;
         Body.UpdateBody(Body.Height, tailAtTop: true, isHolding: holding);

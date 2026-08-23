@@ -48,6 +48,11 @@ public sealed partial class O2LazerColumnHitObjectContainer : HitObjectContainer
     {
         base.UpdateAfterChildrenLife();
 
+        // Skip positioning until layout provides a valid column height; otherwise notes
+        // momentarily cluster at the judgement line before the first sized frame.
+        if (DrawHeight <= 0)
+            return;
+
         var currentScrollPos = scrollController.CurrentScrollPosition;
         var hitTarget = getHitTargetPosition();
         var scale = scrollController.ScrollSpeedMultiplier / Math.Max(1.0, scrollController.ScrollRange)

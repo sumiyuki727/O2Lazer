@@ -24,8 +24,6 @@ public static class O2LazerKeyBindingConfiguration
 
     private static KeyBinding[] bindingsO2Jam7K() =>
     [
-        new(InputKey.Up, O2LazerAction.IncreaseScrollSpeed),
-        new(InputKey.Down, O2LazerAction.DecreaseScrollSpeed),
         new(InputKey.S, O2LazerAction.Key1),
         new(InputKey.D, O2LazerAction.Key2),
         new(InputKey.F, O2LazerAction.Key3),

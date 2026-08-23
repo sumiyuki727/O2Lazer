@@ -86,10 +86,6 @@ public static class O2LazerStrings
 
     public static LocalisableString LightPositionOffsetDescription => get("light_position_offset_description");
 
-    public static LocalisableString NoteHeightScale => get("note_height_scale");
-
-    public static LocalisableString NoteHeightScaleDescription => get("note_height_scale_description");
-
     public static LocalisableString ScaleStageWidthByColumns => get("scale_stage_width_by_columns");
 
     public static LocalisableString ScaleStageWidthByColumnsDescription => get("scale_stage_width_by_columns_description");
@@ -421,10 +417,6 @@ public static class O2LazerStrings
 
 
 
-
-    public static LocalisableString ActionIncreaseScrollSpeed => get("action_increase_scroll_speed");
-
-    public static LocalisableString ActionDecreaseScrollSpeed => get("action_decrease_scroll_speed");
 
 
 

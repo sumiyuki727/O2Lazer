@@ -85,7 +85,7 @@ public sealed partial class O2LazerManiaLongNoteBody : CompositeDrawable
         UpdateAnimation(isHolding);
 
         if (bodyPiece?.Drawable is IO2LazerManiaHoldNoteBodyPiece body)
-            body.SetTailAtTop(tailAtTop);
+            body.SetTailAtTop(tailAtTop, bodyHeight);
     }
 
 }

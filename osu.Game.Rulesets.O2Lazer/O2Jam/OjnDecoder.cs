@@ -261,14 +261,13 @@ public static class OjnDecoder
 
     // Missing keysounds (e.g. a one-based archive without id 0) are intentional silence in the
     // fixed `ref - 1` mapping, so only keep definitions whose sample actually exists in the archive.
-    // OMC archive info currently omits wave keysounds, so filtering is limited to M30.
     private static HashSet<ushort>? resolveAvailableSamples(string ojmFileName, string? sourcePath)
     {
         if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(ojmFileName))
             return null;
 
         var ojmPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourcePath) ?? ".", ojmFileName));
-        if (!OjmDecoder.TryGetArchiveInfo(ojmPath, out var archiveInfo) || archiveInfo is not { IsM30: true })
+        if (!OjmDecoder.TryGetArchiveInfo(ojmPath, out var archiveInfo) || archiveInfo == null)
             return null;
 
         return new HashSet<ushort>(archiveInfo.SampleEntries.Keys);
