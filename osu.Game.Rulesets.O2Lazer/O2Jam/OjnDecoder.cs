@@ -60,7 +60,7 @@ public static class OjnDecoder
     private const int maximum_block_count = 2_000_000;
     private const int maximum_block_divisions = short.MaxValue;
     private const int max_cached_charts = 128;
-    private const bool enable_dynamic_sample_mapping = false;
+    private const bool enable_dynamic_sample_mapping = true;
 
     private static readonly ConcurrentDictionary<ChartCacheKey, Lazy<OjnDecodedChart>> chart_cache = new();
 
