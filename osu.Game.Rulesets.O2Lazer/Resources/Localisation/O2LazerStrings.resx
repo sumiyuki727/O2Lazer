@@ -108,8 +108,6 @@
   <data name="action_key_7" xml:space="preserve"><value>Key 7</value></data>
   <data name="action_increase_scroll_speed" xml:space="preserve"><value>Increase Scroll Speed</value></data>
   <data name="action_decrease_scroll_speed" xml:space="preserve"><value>Decrease Scroll Speed</value></data>
-  <data name="mod_mirror" xml:space="preserve"><value>Mirrors the key layout.</value></data>
-  <data name="mod_random" xml:space="preserve"><value>Shuffle the keys using a repeatable random seed.</value></data>
   <data name="song_progress_colour" xml:space="preserve"><value>Indicator colour</value></data>
   <data name="song_progress_colour_description" xml:space="preserve"><value>Colour of the glowing song progress indicator.</value></data>
   

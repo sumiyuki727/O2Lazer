@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.O2Lazer.Mods;
 
 public class O2LazerModRandom : ModRandom, IApplicableToBeatmap
 {
-    public override LocalisableString Description => O2LazerStrings.ModRandom;
+    public override LocalisableString Description => "Shuffle around the keys!";
 
     public override Type[] IncompatibleMods => [.. base.IncompatibleMods, typeof(O2LazerModMirror)];
 

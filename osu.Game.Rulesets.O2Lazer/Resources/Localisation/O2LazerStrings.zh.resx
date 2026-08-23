@@ -108,8 +108,6 @@
   <data name="action_key_7" xml:space="preserve"><value>按键 7</value></data>
   <data name="action_increase_scroll_speed" xml:space="preserve"><value>提高滚动速度</value></data>
   <data name="action_decrease_scroll_speed" xml:space="preserve"><value>降低滚动速度</value></data>
-  <data name="mod_mirror" xml:space="preserve"><value>镜像翻转按键布局。</value></data>
-  <data name="mod_random" xml:space="preserve"><value>使用可复现的随机种子打乱按键轨道。</value></data>
   <data name="song_progress_colour" xml:space="preserve"><value>指示块颜色</value></data>
   <data name="song_progress_colour_description" xml:space="preserve"><value>发光歌曲进度指示块的颜色。</value></data>
   

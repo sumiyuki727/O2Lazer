@@ -435,15 +435,6 @@ public static class O2LazerStrings
 
 
 
-    public static LocalisableString ModMirror => get("mod_mirror");
-
-    public static LocalisableString ModRandom => get("mod_random");
-
-
-
-
-
-
 
 
 
@@ -484,6 +475,4 @@ public static class O2LazerStrings
 
 
 }
-
-
 

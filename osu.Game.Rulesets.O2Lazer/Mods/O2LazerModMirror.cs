@@ -16,7 +16,7 @@ public class O2LazerModMirror : Mod, IApplicableAfterBeatmapConversion
 
     public override IconUsage? Icon => OsuIcon.ModMirror;
 
-    public override LocalisableString Description => O2LazerStrings.ModMirror;
+    public override LocalisableString Description => "Notes are flipped horizontally.";
 
     public override ModType Type => ModType.Conversion;
 
