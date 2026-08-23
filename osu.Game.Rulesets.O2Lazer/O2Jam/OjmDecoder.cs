@@ -106,26 +106,6 @@ internal static class OjmDecoder
                 return sample;
         }
 
-        // Legacy/community archives sometimes omit the zero-based id 0 while keeping the
-        // first keysound at id 1. Fixed `ref - 1` mapping then requests a missing id;
-        // fall back to the next keysound id instead of changing the mapping scheme.
-        if (archiveInfo != null && sampleId < 1000 && sampleId < ushort.MaxValue
-            && archiveInfo.SampleEntries.TryGetValue((ushort)(sampleId + 1), out var fallbackEntry))
-        {
-            var fullPath = Path.GetFullPath(path);
-            var cacheKey = $"{fullPath}|{sampleId}";
-
-            if (!lazy_samples.ContainsKey(cacheKey) && lazy_samples.Count >= max_cached_lazy_samples)
-                evictOneLazySample();
-
-            var fallbackSample = lazy_samples.GetOrAdd(cacheKey, _ => new Lazy<byte[]?>(
-                () => readSample(fullPath, fallbackEntry, archiveInfo.M30Encryption),
-                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
-
-            if (fallbackSample != null)
-                return fallbackSample;
-        }
-
         return getArchive(path).Samples.GetValueOrDefault(sampleId);
     }
 

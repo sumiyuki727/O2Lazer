@@ -100,19 +100,6 @@ public class O2JamDecoderTest
     }
 
     [Test]
-    public void TestGetSampleFallsBackToNextKeysoundId()
-    {
-        var ojmPath = Path.Combine(directory, "test.ojm");
-        File.WriteAllBytes(ojmPath, createM30([(1, "fallback-payload"u8.ToArray())]));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(OjmDecoder.GetSample(ojmPath, 0), Is.EqualTo("fallback-payload"u8.ToArray()));
-            Assert.That(OjmDecoder.GetSample(ojmPath, 1), Is.EqualTo("fallback-payload"u8.ToArray()));
-        });
-    }
-
-    [Test]
     public void TestOmcBgmReferencesRemainCanonical()
     {
         File.WriteAllBytes(Path.Combine(directory, "test.ojm"), createOmc(2));
