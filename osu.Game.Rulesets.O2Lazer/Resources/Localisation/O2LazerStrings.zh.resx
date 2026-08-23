@@ -91,6 +91,9 @@
   <data name="all_sets_already_imported" xml:space="preserve"><value>全部 {0} 个 O2Jam 谱面组均已导入。</value></data>
   <data name="imported_sets" xml:space="preserve"><value>已导入 {0} 个 O2Jam 谱面组！</value></data>
   <data name="imported_sets_progress" xml:space="preserve"><value>已导入 {0}/{1} 个 O2Jam 谱面组</value></data>
+  <data name="processed_sets_progress" xml:space="preserve"><value>已处理 {0}/{1} 个 O2Jam 谱面组</value></data>
+  <data name="refreshing" xml:space="preserve"><value>正在刷新 O2Jam 谱面...</value></data>
+  <data name="refresh_complete" xml:space="preserve"><value>已刷新全部 O2Jam 谱面。</value></data>
   <data name="import_completed_with_failures" xml:space="preserve"><value>已导入 {0}/{1} 个 O2Jam 谱面组；{2} 个文件无法读取</value></data>
   <data name="ruleset_unavailable" xml:space="preserve"><value>O2Jam 规则集不可用</value></data>
   <data name="scanning_files" xml:space="preserve"><value>O2Jam 导入：正在扫描文件...</value></data>

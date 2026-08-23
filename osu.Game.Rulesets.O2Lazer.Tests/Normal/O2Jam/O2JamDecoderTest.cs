@@ -45,7 +45,7 @@ public class O2JamDecoderTest
     }
 
     [Test]
-    public void TestOneBasedM30MapsDownInFixedMapping()
+    public void TestM30MissingKeyZeroIsExcludedFromDefinitions()
     {
         File.WriteAllBytes(Path.Combine(directory, "test.ojm"), createM30([(1, "one!"u8.ToArray()), (2, "two!"u8.ToArray())]));
         var charts = OjnDecoder.DecodeAll(createOjn([[1, 2], [1, 2], [1, 2]]), Path.Combine(directory, "test.ojn"));
@@ -53,11 +53,11 @@ public class O2JamDecoderTest
         Assert.Multiple(() =>
         {
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.EX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 0, 1 }));
+                Is.EquivalentTo(new ushort[] { 1 }));
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.NX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 0, 1 }));
+                Is.EquivalentTo(new ushort[] { 1 }));
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.HX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 0, 1 }));
+                Is.EquivalentTo(new ushort[] { 1 }));
         });
     }
 
@@ -84,9 +84,9 @@ public class O2JamDecoderTest
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.EX).ParseResult.SampleDefinitions.Keys,
                 Is.EquivalentTo(new ushort[] { 0, 1 }));
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.NX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 0, 5 }));
+                Is.EquivalentTo(new ushort[] { 0 }));
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.HX).ParseResult.SampleDefinitions.Keys,
-                Is.EquivalentTo(new ushort[] { 9, 10 }));
+                Is.EquivalentTo(new ushort[] { 10 }));
         });
     }
 
@@ -97,6 +97,38 @@ public class O2JamDecoderTest
         File.WriteAllBytes(ojmPath, createM30([(1, "lazy-payload"u8.ToArray())]));
 
         Assert.That(OjmDecoder.GetSample(ojmPath, 1), Is.EqualTo("lazy-payload"u8.ToArray()));
+    }
+
+    [Test]
+    public void TestM30UnderReportedPayloadSizeKeepsLaterSamplesReadable()
+    {
+        var ojmBytes = createM30([(1, "one!"u8.ToArray()), (2, "two!"u8.ToArray())]);
+
+        using (var stream = new MemoryStream(ojmBytes))
+        using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
+        {
+            stream.Position = 20;
+            writer.Write(56); // declared payload covers only the first sample's table entry + payload
+        }
+
+        var ojmPath = Path.Combine(directory, "underreported.ojm");
+        File.WriteAllBytes(ojmPath, ojmBytes);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OjmDecoder.GetSample(ojmPath, 1), Is.EqualTo("one!"u8.ToArray()));
+            Assert.That(OjmDecoder.GetSample(ojmPath, 2), Is.EqualTo("two!"u8.ToArray()));
+        });
+    }
+
+    [Test]
+    public void TestM30TrailingGarbageDoesNotFailExistingSamples()
+    {
+        var ojmBytes = createM30([(1, "one!"u8.ToArray())]).Concat(new byte[] { 0xFF }).ToArray();
+        var ojmPath = Path.Combine(directory, "trailing.ojm");
+        File.WriteAllBytes(ojmPath, ojmBytes);
+
+        Assert.That(OjmDecoder.GetSample(ojmPath, 1), Is.EqualTo("one!"u8.ToArray()));
     }
 
     [Test]
@@ -119,9 +151,9 @@ public class O2JamDecoderTest
     }
 
     [Test]
-    public void TestM30BgmZeroMapsDownInFixedMapping()
+    public void TestOmcWaveKeysoundsRemainInDefinitions()
     {
-        File.WriteAllBytes(Path.Combine(directory, "test.ojm"), createM30WithBgmZeroAndOneBasedKeys());
+        File.WriteAllBytes(Path.Combine(directory, "test.ojm"), createOmcWithWaves(2));
         var charts = OjnDecoder.DecodeAll(createOjn([[1, 2], [1, 2], [1, 2]]), Path.Combine(directory, "test.ojn"));
 
         Assert.Multiple(() =>
@@ -132,6 +164,23 @@ public class O2JamDecoderTest
                 Is.EquivalentTo(new ushort[] { 0, 1 }));
             Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.HX).ParseResult.SampleDefinitions.Keys,
                 Is.EquivalentTo(new ushort[] { 0, 1 }));
+        });
+    }
+
+    [Test]
+    public void TestM30BgmZeroMapsDownInFixedMapping()
+    {
+        File.WriteAllBytes(Path.Combine(directory, "test.ojm"), createM30WithBgmZeroAndOneBasedKeys());
+        var charts = OjnDecoder.DecodeAll(createOjn([[1, 2], [1, 2], [1, 2]]), Path.Combine(directory, "test.ojn"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.EX).ParseResult.SampleDefinitions.Keys,
+                Is.EquivalentTo(new ushort[] { 1 }));
+            Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.NX).ParseResult.SampleDefinitions.Keys,
+                Is.EquivalentTo(new ushort[] { 1 }));
+            Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.HX).ParseResult.SampleDefinitions.Keys,
+                Is.EquivalentTo(new ushort[] { 1 }));
         });
     }
 
@@ -153,13 +202,48 @@ public class O2JamDecoderTest
         });
     }
 
-    private static byte[] createOjn(ushort[][] difficultyReferences, byte[][]? difficultyFlags = null)
+    [Test]
+    public void TestGbkChineseTitleDecodesCorrectlyOnLegacyEncodingVersion()
+    {
+        var title = "[国服]莎娜塔";
+        // GBK bytes of "[国服]莎娜塔", as written by Chinese 2.x-era O2Jam clients.
+        byte[] titleBytes = [0x5B, 0xB9, 0xFA, 0xB7, 0xFE, 0x5D, 0xC9, 0xAF, 0xC4, 0xC8, 0xCB, 0xFE];
+        var charts = OjnDecoder.DecodeAll(
+            createOjn([[1, 2], [1, 2], [1, 2]], titleBytes: titleBytes, encodingVersion: 2.0f),
+            Path.Combine(directory, "test.ojn"));
+
+        Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.EX).Header.Title, Is.EqualTo(title));
+    }
+
+    [Test]
+    public void TestTruncatedEmbeddedImagesDoNotRejectChart()
+    {
+        var charts = OjnDecoder.DecodeAll(
+            createOjn([[1, 2], [1, 2], [1, 2]], thumbnailSize: 12856, coverOffset: 130_000),
+            Path.Combine(directory, "test.ojn"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.EX).Header.Title, Is.EqualTo("Synthetic Song"));
+            Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.EX).Header.CoverArt, Is.Empty);
+            Assert.That(charts.Single(chart => chart.Difficulty == OjnDifficulty.EX).Header.Thumbnail, Is.Empty);
+        });
+    }
+
+    private static byte[] createOjn(
+        ushort[][] difficultyReferences,
+        byte[][]? difficultyFlags = null,
+        byte[]? titleBytes = null,
+        float encodingVersion = 2.5f,
+        int thumbnailSize = 0,
+        int coverSize = 0,
+        int coverOffset = 0)
     {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         writer.Write(1234);
         writer.Write("ojn\0"u8.ToArray());
-        writer.Write(2.5f);
+        writer.Write(encodingVersion);
         writer.Write(2);
         writer.Write(120f);
         write(writer, new short[] { 4, 7, 12, 0 });
@@ -170,13 +254,24 @@ public class O2JamDecoderTest
         writer.Write((short)0);
         writer.Write((short)1234);
         writer.Write(new byte[20]);
-        writer.Write(0);
+        writer.Write(thumbnailSize);
         writer.Write(1);
-        writeFixedString(writer, "Synthetic Song", 64);
+
+        if (titleBytes != null)
+        {
+            if (titleBytes.Length > 64)
+                throw new ArgumentException("Title bytes exceed the field size.");
+
+            writer.Write(titleBytes);
+            writer.Write(new byte[64 - titleBytes.Length]);
+        }
+        else
+            writeFixedString(writer, "Synthetic Song", 64);
+
         writeFixedString(writer, "Synthetic Artist", 32);
         writeFixedString(writer, "Synthetic Noter", 32);
         writeFixedString(writer, "test.ojm", 32);
-        writer.Write(0);
+        writer.Write(coverSize);
         write(writer, new[] { 5, 5, 5 });
 
         var offsets = new int[3];
@@ -188,7 +283,7 @@ public class O2JamDecoderTest
         }
 
         write(writer, offsets);
-        writer.Write(0);
+        writer.Write(coverOffset);
 
         Assert.That(stream.Position, Is.EqualTo(300));
 
@@ -277,6 +372,35 @@ public class O2JamDecoderTest
         for (var index = 0; index < oggCount; index++)
         {
             writeFixedString(writer, "sample", 32);
+            writer.Write(4);
+            writer.Write(new byte[] { (byte)index, 0, 0, 0 });
+        }
+
+        return stream.ToArray();
+    }
+
+    private static byte[] createOmcWithWaves(int waveCount)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+        writer.Write("OMC\0"u8.ToArray());
+        writer.Write((short)waveCount);
+        writer.Write((short)0);
+        writer.Write(20);
+        var payloadSize = waveCount * (56 + 4);
+        writer.Write(20 + payloadSize);
+        writer.Write(20 + payloadSize);
+
+        for (var index = 0; index < waveCount; index++)
+        {
+            writeFixedString(writer, "sample", 32);
+            writer.Write((short)1); // PCM
+            writer.Write((short)2);
+            writer.Write(44100);
+            writer.Write(176400);
+            writer.Write((short)4);
+            writer.Write((short)16);
+            writer.Write(0);
             writer.Write(4);
             writer.Write(new byte[] { (byte)index, 0, 0, 0 });
         }

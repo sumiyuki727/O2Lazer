@@ -351,6 +351,9 @@ public static class O2LazerStrings
     public static LocalisableString ImportedSets(int count) => get("imported_sets", count);
 
     public static LocalisableString ImportedSetsProgress(int imported, int total) => get("imported_sets_progress", imported, total);
+    public static LocalisableString ProcessedSetsProgress(int processed, int total) => get("processed_sets_progress", processed, total);
+    public static LocalisableString Refreshing => get("refreshing");
+    public static LocalisableString RefreshComplete => get("refresh_complete");
 
     public static LocalisableString ImportCompletedWithFailures(int imported, int total, int failed) =>
         get("import_completed_with_failures", imported, total, failed);
@@ -475,4 +478,3 @@ public static class O2LazerStrings
 
 
 }
-

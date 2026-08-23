@@ -24,7 +24,8 @@ internal static class OjmDecoder
 
     internal sealed record OjmArchiveInfo(
         IReadOnlyDictionary<ushort, OjmSampleEntry> SampleEntries,
-        int M30Encryption = 0);
+        int M30Encryption = 0,
+        bool IsM30 = false);
 
     private const int m30_header_size = 28;
     private const int m30_sample_header_size = 52;
@@ -241,14 +242,13 @@ internal static class OjmDecoder
         if (declaredCount is < 0 or > maximum_sample_count || sampleOffset < m30_header_size || sampleOffset > stream.Length || payloadSize < 0)
             throw new InvalidDataException("The M30 archive header is invalid.");
 
-        var payloadEnd = payloadSize > 0 && (long)sampleOffset + payloadSize <= stream.Length
-            ? sampleOffset + payloadSize
-            : (int)stream.Length;
+        // The declared payload size is not authoritative: some converted archives under-report
+        // it while keeping a full sample table up to EOF, so walk to the file end instead.
+        var payloadEnd = (int)stream.Length;
         stream.Position = sampleOffset;
         var sampleEntries = new Dictionary<ushort, OjmSampleEntry>();
         var parsedCount = 0;
 
-        // Some original archives report an inaccurate sample count, so the payload bounds are authoritative.
         while (stream.Position + m30_sample_header_size <= payloadEnd && parsedCount < maximum_sample_count)
         {
             ensureRemaining(stream, m30_sample_header_size, payloadEnd);
@@ -262,7 +262,7 @@ internal static class OjmDecoder
             reader.ReadInt32();
 
             if (sampleSize < 0 || stream.Position + sampleSize > payloadEnd)
-                throw new InvalidDataException("An M30 sample payload is outside the archive bounds.");
+                break;
 
             if (sampleSize > 0 && sampleType is 0 or 5)
             {
@@ -277,7 +277,7 @@ internal static class OjmDecoder
             parsedCount++;
         }
 
-        return new OjmArchiveInfo(sampleEntries, encryption);
+        return new OjmArchiveInfo(sampleEntries, encryption, IsM30: true);
     }
 
     private static OjmArchiveInfo readOmcInfo(Stream stream, BinaryReader reader)
@@ -371,14 +371,13 @@ internal static class OjmDecoder
         if (declaredCount is < 0 or > maximum_sample_count || sampleOffset < m30_header_size || sampleOffset > data.Length || payloadSize < 0)
             throw new InvalidDataException("The M30 archive header is invalid.");
 
-        var payloadEnd = payloadSize > 0 && (long)sampleOffset + payloadSize <= data.Length
-            ? sampleOffset + payloadSize
-            : data.Length;
+        // Same under-reported payload size handling as readM30Info: the sample table is walked
+        // to EOF, and a malformed trailing entry ends the table instead of failing the archive.
+        var payloadEnd = data.Length;
         stream.Position = sampleOffset;
         var output = new Dictionary<ushort, byte[]>();
         var parsedCount = 0;
 
-        // Some original archives report an inaccurate sample count, so the payload bounds are authoritative.
         while (stream.Position + m30_sample_header_size <= payloadEnd && parsedCount < maximum_sample_count)
         {
             reader.ReadBytes(32);
@@ -395,7 +394,7 @@ internal static class OjmDecoder
             parsedCount++;
 
             if (sampleSize < 0 || stream.Position + sampleSize > payloadEnd)
-                throw new InvalidDataException("An M30 sample payload is outside the archive bounds.");
+                break;
 
             var sample = reader.ReadBytes(sampleSize);
             applyM30Xor(sample, encryption);

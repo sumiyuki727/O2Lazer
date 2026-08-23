@@ -121,11 +121,10 @@ public static class OjnDecoder
         var blockOffsets = readInt32Array(reader, 3);
         var coverOffset = reader.ReadInt32();
 
-        validateRanges(data.Length, blockOffsets, blockCounts, coverOffset, coverSize, thumbnailSize);
+        validateRanges(data.Length, blockOffsets, blockCounts);
 
-        stream.Position = coverOffset;
-        var cover = reader.ReadBytes(coverSize);
-        var thumbnail = reader.ReadBytes(thumbnailSize);
+        var cover = readImage(reader, coverOffset, coverSize);
+        var thumbnail = readImage(reader, coverOffset + (long)coverSize, thumbnailSize);
 
         return new OjnHeader(
             id,
@@ -260,6 +259,21 @@ public static class OjnDecoder
             : string.Empty;
     }
 
+    // Missing keysounds (e.g. a one-based archive without id 0) are intentional silence in the
+    // fixed `ref - 1` mapping, so only keep definitions whose sample actually exists in the archive.
+    // OMC archive info currently omits wave keysounds, so filtering is limited to M30.
+    private static HashSet<ushort>? resolveAvailableSamples(string ojmFileName, string? sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(ojmFileName))
+            return null;
+
+        var ojmPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourcePath) ?? ".", ojmFileName));
+        if (!OjmDecoder.TryGetArchiveInfo(ojmPath, out var archiveInfo) || archiveInfo is not { IsM30: true })
+            return null;
+
+        return new HashSet<ushort>(archiveInfo.SampleEntries.Keys);
+    }
+
     private static OjnDecodedChart decodeDifficulty(byte[] data, OjnHeader header, OjnDifficulty difficulty, string? sourcePath)
     {
         var index = (int)difficulty;
@@ -280,7 +294,10 @@ public static class OjnDecoder
             .ToArray();
 
         var referencedSamples = sounds.Select(e => e.SampleKey).Distinct();
-        var sampleDefinitions = referencedSamples.ToDictionary(
+        var availableSamples = resolveAvailableSamples(ojmFileName, sourcePath);
+        var sampleDefinitions = referencedSamples
+            .Where(sampleKey => availableSamples == null || availableSamples.Contains(sampleKey))
+            .ToDictionary(
             sampleKey => sampleKey,
             sampleKey => OjnSampleReference.Create(ojmFileName, sampleKey));
 
@@ -518,12 +535,11 @@ public static class OjnDecoder
         var cp949 = tryDecode(strict_cp949, bytes);
         var gbk = tryDecode(strict_gbk, bytes);
 
-        if (encodingVersion >= 2.9f && gbk != null)
+        if (gbk != null)
         {
-            // Chinese O2Jam 2.9 clients wrote their localised metadata in CP936/GBK,
-            // but Korean charts saved by the same client can still use CP949 Hanja.
-            // Validity alone is ambiguous, so use cross-encoding round trips: a string
-            // readable as Korean Hanja is usually not representable as simplified GBK
+            // Chinese GBK metadata (including 2.x-era 国服 charts) is often also decodable
+            // as CP949 Hangul, so validity alone is ambiguous. Use cross-encoding round trips:
+            // a string readable as Korean Hanja is usually not representable as simplified GBK
             // Chinese and vice versa (e.g. 国 is absent from CP949).
             if (cp949 != null)
             {
@@ -590,7 +606,7 @@ public static class OjnDecoder
         return encoding;
     }
 
-    private static void validateRanges(int fileLength, int[] offsets, int[] blockCounts, int coverOffset, int coverSize, int thumbnailSize)
+    private static void validateRanges(int fileLength, int[] offsets, int[] blockCounts)
     {
         for (var i = 0; i < offsets.Length; i++)
         {
@@ -602,13 +618,16 @@ public static class OjnDecoder
             if (blockCounts[i] is < 0 or > maximum_block_count)
                 throw new InvalidDataException($"OJN difficulty {i} has an invalid block count.");
         }
+    }
 
-        if (coverSize == 0 && thumbnailSize == 0)
-            return;
+    private static byte[] readImage(BinaryReader reader, long offset, int size)
+    {
+        if (size <= 0 || offset < 0 || offset >= reader.BaseStream.Length)
+            return [];
 
-        var imageEnd = (long)coverOffset + coverSize + thumbnailSize;
-        if (coverOffset < header_size || imageEnd > fileLength)
-            throw new InvalidDataException("The embedded OJN images are outside the file bounds.");
+        reader.BaseStream.Position = offset;
+        var available = (int)Math.Min(size, reader.BaseStream.Length - offset);
+        return reader.ReadBytes(available);
     }
 
     private static void ensureRemaining(Stream stream, long count)

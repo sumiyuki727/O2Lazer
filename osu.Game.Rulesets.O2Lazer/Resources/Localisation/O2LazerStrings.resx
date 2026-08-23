@@ -91,6 +91,9 @@
   <data name="all_sets_already_imported" xml:space="preserve"><value>All {0} O2Jam sets are already imported.</value></data>
   <data name="imported_sets" xml:space="preserve"><value>Imported {0} O2Jam sets!</value></data>
   <data name="imported_sets_progress" xml:space="preserve"><value>Imported {0} of {1} O2Jam sets</value></data>
+  <data name="processed_sets_progress" xml:space="preserve"><value>Processed {0} of {1} O2Jam sets</value></data>
+  <data name="refreshing" xml:space="preserve"><value>Refreshing O2Jam charts...</value></data>
+  <data name="refresh_complete" xml:space="preserve"><value>Refreshed all O2Jam charts.</value></data>
   <data name="import_completed_with_failures" xml:space="preserve"><value>Imported {0} of {1} O2Jam sets; {2} files could not be read</value></data>
   <data name="ruleset_unavailable" xml:space="preserve"><value>O2Jam ruleset is not available</value></data>
   <data name="scanning_files" xml:space="preserve"><value>O2Jam import: scanning files...</value></data>

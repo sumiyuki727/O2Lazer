@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using osu.Framework.Platform;
 using osu.Game.Beatmaps;
@@ -22,7 +23,12 @@ namespace osu.Game.Rulesets.O2Lazer.IO.Import;
 
 public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INotificationOverlay? notifications = null, BeatmapManager? beatmaps = null) : ICanAcceptFiles
 {
-    private const int max_parallel_imports = 4;
+    private const int max_parallel_imports = 8;
+    private const int refresh_batch_size = 256;
+
+    private static readonly Regex o2jam_id_pattern = new(
+        @"^o2ma(\d+)\.(?:ojn|ojm|m30)$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static readonly EnumerationOptions library_enumeration_options = new()
     {
@@ -47,25 +53,42 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
         };
         notifications?.Post(notification);
 
-        return !checkRulesetAvailable(notification)
-            ? Task.CompletedTask
-            : Task.Run(() => runImportPipeline(notification, paths));
+        return Import(paths, notification, false);
     }
 
     public Task Import(ImportTask[] tasks, ImportParameters parameters = default)
         => Import(tasks.Select(t => t.Path).ToArray());
 
+    private Task Import(string[] paths, ProgressNotification notification, bool isRefresh) =>
+        !checkRulesetAvailable(notification)
+            ? Task.CompletedTask
+            : Task.Run(() => runImportPipeline(notification, paths, isRefresh));
+
     /// <summary>
     /// Re-reads an O2Jam source folder, marks orphaned sets as pending deletion, and
     /// refreshes source-folder collections when the corresponding setting is enabled.
+    /// Uses a single refresh notification so the user only sees scan progress and completion.
     /// </summary>
     public async Task Refresh(string path)
     {
-        await Import(path).ConfigureAwait(false);
-        CleanupOrphanedSets();
+        var notification = new ProgressNotification
+        {
+            Text = O2LazerStrings.Refreshing,
+            State = ProgressNotificationState.Active,
+        };
+        notifications?.Post(notification);
+
+        await Import([path], notification, true).ConfigureAwait(false);
+        CleanupOrphanedSets(notification);
 
         if (O2LazerRulesetRuntime.SyncSourceFolderCollections)
             UpdateSourceFolderCollections();
+
+        if (notification.State != ProgressNotificationState.Cancelled)
+        {
+            notification.CompletionText = O2LazerStrings.RefreshComplete;
+            notification.State = ProgressNotificationState.Completed;
+        }
     }
 
     /// <summary>
@@ -79,14 +102,18 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
     ///     are skipped.
     /// </remarks>
     /// <returns>The number of sets marked as orphaned.</returns>
-    public int CleanupOrphanedSets()
+    public int CleanupOrphanedSets() => CleanupOrphanedSets(null);
+
+    private int CleanupOrphanedSets(ProgressNotification? provided)
     {
-        var notification = new ProgressNotification
+        var notification = provided ?? new ProgressNotification
         {
             Text = O2LazerStrings.ScanningOrphans,
             State = ProgressNotificationState.Active,
         };
-        notifications?.Post(notification);
+
+        if (provided == null)
+            notifications?.Post(notification);
 
         try
         {
@@ -96,11 +123,15 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
                     .AsEnumerable()
                     .Where(s => !s.DeletePending)
                     .Where(s => s.Beatmaps.Any(b => b.Ruleset.ShortName == Constant.SHORT_NAME))
-                    .Where(s => s.Beatmaps.Any(b =>
+                    .Where(s =>
                     {
-                        var src = b.Metadata.Source;
-                        return string.IsNullOrEmpty(src) || !Directory.Exists(src);
-                    }))
+                        var source = s.Beatmaps.FirstOrDefault(b => !string.IsNullOrEmpty(b.Metadata.Source))?.Metadata.Source;
+                        if (string.IsNullOrEmpty(source) || !Directory.Exists(source))
+                            return true;
+
+                        var chartFile = s.Files.FirstOrDefault(f => Constant.IsChartFile(f.Filename))?.Filename;
+                        return string.IsNullOrEmpty(chartFile) || !File.Exists(Path.Combine(source, chartFile));
+                    })
                     .ToArray();
 
                 foreach (var set in orphans)
@@ -114,10 +145,15 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
                 return orphans.Length;
             });
 
-            notification.CompletionText = deleted > 0
-                ? O2LazerStrings.CleanupComplete(deleted)
-                : O2LazerStrings.NoOrphansFound;
-            notification.State = ProgressNotificationState.Completed;
+            if (provided == null)
+            {
+                notification.CompletionText = deleted > 0
+                    ? O2LazerStrings.CleanupComplete(deleted)
+                    : O2LazerStrings.NoOrphansFound;
+                notification.State = ProgressNotificationState.Completed;
+            }
+            else
+                notification.Text = O2LazerStrings.Refreshing;
 
             return deleted;
         }
@@ -125,8 +161,11 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
         {
             O2LazerLogger.Error(e, $"O2LAZER cleanup failed: {e.Message}");
 
-            notification.CompletionText = O2LazerStrings.CleanupFailed;
-            notification.State = ProgressNotificationState.Cancelled;
+            if (provided == null)
+            {
+                notification.CompletionText = O2LazerStrings.CleanupFailed;
+                notification.State = ProgressNotificationState.Cancelled;
+            }
             return 0;
         }
     }
@@ -213,6 +252,47 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
         {
             return source;
         }
+    }
+
+    /// <summary>
+    /// Backfills the <c>o2ma{id}</c> search tag for charts imported before tags were stored.
+    /// The song-select carousel only exposes metadata, so the id must live in <see cref="BeatmapMetadata.Tags"/>.
+    /// </summary>
+    public void UpdateSearchTags()
+    {
+        realm.Write(r =>
+        {
+            var beatmaps = r.All<BeatmapInfo>()
+                .Filter("Ruleset.ShortName == $0 && BeatmapSet.DeletePending == false", Constant.SHORT_NAME)
+                .ToList();
+
+            foreach (var beatmap in beatmaps)
+            {
+                var idTerm = getO2JamIdTerm(beatmap);
+                if (idTerm == null || beatmap.Metadata.Tags.Contains(idTerm, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                beatmap.Metadata.Tags = string.IsNullOrWhiteSpace(beatmap.Metadata.Tags)
+                    ? idTerm
+                    : $"{beatmap.Metadata.Tags} {idTerm}";
+            }
+        });
+    }
+
+    private static string? getO2JamIdTerm(BeatmapInfo beatmap)
+    {
+        var match = o2jam_id_pattern.Match(beatmap.Path ?? string.Empty);
+        if (match.Success)
+            return $"o2ma{match.Groups[1].Value}";
+
+        foreach (var file in beatmap.BeatmapSet?.Files ?? [])
+        {
+            match = o2jam_id_pattern.Match(file.Filename);
+            if (match.Success)
+                return $"o2ma{match.Groups[1].Value}";
+        }
+
+        return null;
     }
 
     public void DeleteAllO2LazerFilesAsync()
@@ -331,10 +411,60 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
         ImportGroup group,
         RealmAccess realmAccess,
         RealmFileStore fileStore,
-        ConcurrentDictionary<string, byte> importedBeatmapMd5Hashes)
+        ConcurrentDictionary<string, byte> importedBeatmapMd5Hashes,
+        IReadOnlySet<string> existingSetHashes,
+        IReadOnlyDictionary<string, ExistingSet> sourcePathToSetHash)
     {
         var path = group.ChartPaths.Single();
+        var pathKey = getSourcePathKey(group.Directory, Path.GetFileName(path));
+        var fingerprint = computeFileFingerprint(path);
+
+        if (sourcePathToSetHash.TryGetValue(pathKey, out var previousSet)
+            && previousSet.Marker == O2LazerMetadataMarker.CurrentMarker
+            && previousSet.Fingerprint != null
+            && previousSet.Fingerprint == fingerprint)
+        {
+            // Marker and fingerprint both match: the source is unchanged since the last
+            // processed import, so skip the file without reading or decoding it.
+            return null;
+        }
+
         var content = File.ReadAllBytes(path);
+        var header = OjnDecoder.DecodeHeader(content);
+
+        var candidates = Enum.GetValues<OjnDifficulty>()
+            .Where(difficulty => header.BlockCounts[(int)difficulty] > 0 || header.NoteCounts[(int)difficulty] > 0)
+            .Select(difficulty => new
+            {
+                Difficulty = difficulty,
+                Md5 = calculateDifficultyHash(content, difficulty),
+            })
+            .ToArray();
+        if (candidates.Length == 0)
+            return null;
+
+        var setHash = calculateSetHash(candidates.Select(candidate => candidate.Md5));
+
+        string? replacedSetHash = null;
+
+        if (sourcePathToSetHash.TryGetValue(pathKey, out previousSet) && previousSet.Hash != setHash)
+        {
+            // The file at this path changed: retire the previously imported set so the new
+            // content replaces it instead of leaving a duplicate behind.
+            foreach (var md5 in previousSet.Md5Hashes)
+                importedBeatmapMd5Hashes.TryRemove(md5, out _);
+
+            replacedSetHash = previousSet.Hash;
+        }
+
+        if (existingSetHashes.Contains(setHash))
+        {
+            return new PreparedDirectory(group.Directory, [], null, null,
+                Marker: O2LazerMetadataMarker.CurrentMarker,
+                Fingerprint: fingerprint!,
+                Refresh: new MetadataRefresh(setHash, replacedSetHash, header, path));
+        }
+
         var decodedCharts = OjnDecoder.DecodeAll(content, path);
         if (decodedCharts.Count == 0)
             return null;
@@ -347,35 +477,16 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
             ? new ExternalBackgroundImport(backgroundPath ?? panelBackgroundPath!, panelBackgroundPath ?? backgroundPath!)
             : null;
 
-        var candidates = decodedCharts.Select(decoded => new
-        {
-            Decoded = decoded,
-            Md5 = calculateDifficultyHash(content, decoded.Difficulty),
-        }).ToArray();
-
         var uniqueCharts = candidates
             .Where(candidate => importedBeatmapMd5Hashes.TryAdd(candidate.Md5, 0))
             .ToArray();
         if (uniqueCharts.Length == 0)
             return null;
 
-        var setHash = calculateSetHash(candidates.Select(candidate => candidate.Md5));
-
-        var existing = realmAccess.Run(r =>
-        {
-            var existingSet = r.All<BeatmapSetInfo>()
-                .Filter("Hash == $0", setHash)
-                .FirstOrDefault();
-
-            return existingSet != null && !existingSet.DeletePending;
-        });
-
-        if (existing)
-            return null;
-
+        var decodedByDifficulty = decodedCharts.ToDictionary(decoded => decoded.Difficulty);
         var parsedCharts = uniqueCharts.Select(candidate =>
         {
-            var decoded = candidate.Decoded;
+            var decoded = decodedByDifficulty[candidate.Difficulty];
             var level = decoded.Header.Levels[(int)decoded.Difficulty];
             var title = string.IsNullOrWhiteSpace(decoded.Header.Title)
                 ? Path.GetFileNameWithoutExtension(path)
@@ -384,6 +495,7 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
 
             return (
                 Md5: candidate.Md5,
+                O2JamId: decoded.Header.Id,
                 Title: title,
                 Artist: decoded.Header.Artist,
                 DifficultyName: OjnDecoder.DifficultyDisplayName(decoded.Difficulty, level),
@@ -424,11 +536,136 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
 
         var charts = parsedCharts.Select(parsed => new ChartImport(
             path, parsed.Md5, chartFileHash,
+            parsed.O2JamId,
             parsed.Title, parsed.Artist, parsed.DifficultyName, parsed.Level,
             parsed.Noter, parsed.StarRating, parsed.Bpm, parsed.Length,
             parsed.TotalObjectCount, parsed.EndTimeObjectCount, 0)).ToArray();
 
-        return new PreparedDirectory(group.Directory, charts, background, externalBackgrounds);
+        return new PreparedDirectory(group.Directory, charts, background, externalBackgrounds,
+            Marker: O2LazerMetadataMarker.CurrentMarker,
+            Fingerprint: fingerprint!,
+            ReplacesSetHash: replacedSetHash);
+    }
+
+    /// <summary>
+    /// Applies a queued metadata refresh inside the consumer's write transaction, so no
+    /// realm writes happen from producer worker threads. Also retires the replaced set
+    /// when the same path now resolves to different content.
+    /// </summary>
+    private static void applyMetadataRefresh(Realm r, MetadataRefresh refresh, string marker, string fingerprint)
+    {
+        if (refresh.ReplacesSetHash is { } replacedHash)
+        {
+            var replaced = r.All<BeatmapSetInfo>().Filter("Hash == $0", replacedHash).FirstOrDefault();
+            if (replaced != null && !replaced.DeletePending)
+            {
+                replaced.DeletePending = true;
+                O2LazerLogger.Log($"O2LAZER refresh: retiring replaced set \"{replaced.Metadata.Title}\"");
+            }
+        }
+
+        var beatmapSet = r.All<BeatmapSetInfo>()
+            .Filter("Hash == $0", refresh.SetHash)
+            .FirstOrDefault();
+        if (beatmapSet == null)
+            return;
+
+        var title = string.IsNullOrWhiteSpace(refresh.Header.Title)
+            ? Path.GetFileNameWithoutExtension(refresh.ChartPath)
+            : refresh.Header.Title;
+        var artist = refresh.Header.Artist;
+        var author = string.IsNullOrWhiteSpace(refresh.Header.Noter)
+            ? Constant.AUTHOR
+            : refresh.Header.Noter;
+
+        foreach (var beatmap in beatmapSet.Beatmaps.Where(b => b.Ruleset.ShortName == Constant.SHORT_NAME))
+        {
+            beatmap.Metadata.Title = title;
+            beatmap.Metadata.Artist = artist;
+            beatmap.Metadata.Author.Username = author;
+
+            var tags = beatmap.Metadata.Tags
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(token => !token.StartsWith("o2lazer-", StringComparison.Ordinal))
+                .Append(marker)
+                .Append(fingerprint);
+            beatmap.Metadata.Tags = string.Join(' ', tags);
+        }
+    }
+
+    /// <summary>
+    /// Snapshots the currently imported O2Lazer library once per pipeline so per-chart
+    /// existence and replacement decisions avoid a realm query for every file.
+    /// </summary>
+    private (HashSet<string> SetHashes, Dictionary<string, ExistingSet> SourcePathToSetHash) createExistingLibrarySnapshot()
+    {
+        // All data is copied into plain records inside the realm action; realm objects must
+        // never be returned, as the temporary realm is closed before the caller resumes.
+        return realm.Run(r =>
+        {
+            var setHashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var sourcePathToSetHash = new Dictionary<string, ExistingSet>(StringComparer.OrdinalIgnoreCase);
+
+            var sets = r.All<BeatmapSetInfo>()
+                .AsEnumerable()
+                .Where(s => !s.DeletePending && s.Beatmaps.Any(b => b.Ruleset.ShortName == Constant.SHORT_NAME))
+                .ToArray();
+
+            foreach (var set in sets)
+            {
+                setHashes.Add(set.Hash);
+
+                var source = set.Beatmaps.FirstOrDefault(b => !string.IsNullOrEmpty(b.Metadata.Source))?.Metadata.Source;
+                var chartFile = set.Files.FirstOrDefault(f => Constant.IsChartFile(f.Filename))?.Filename;
+                if (!string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(chartFile))
+                {
+                    var firstBeatmap = set.Beatmaps.FirstOrDefault(b => b.Ruleset.ShortName == Constant.SHORT_NAME);
+                    var (marker, fingerprint) = readMarkerTokens(firstBeatmap?.Metadata.Tags);
+                    sourcePathToSetHash[getSourcePathKey(source, chartFile)] = new ExistingSet(
+                        set.Hash,
+                        set.Beatmaps.Select(b => b.MD5Hash).Where(hash => !string.IsNullOrWhiteSpace(hash)).ToArray()!,
+                        marker,
+                        fingerprint);
+                }
+            }
+
+            return (setHashes, sourcePathToSetHash);
+        });
+    }
+
+    private static string getSourcePathKey(string directory, string chartFile) =>
+        $"{Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)}|{chartFile}";
+
+    private static string? computeFileFingerprint(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? $"o2lazer-src:{info.Length}:{info.LastWriteTimeUtc.Ticks}" : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static (string? Marker, string? Fingerprint) readMarkerTokens(string? tags)
+    {
+        string? marker = null;
+        string? fingerprint = null;
+
+        if (tags != null)
+        {
+            foreach (var token in tags.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (token.StartsWith("o2lazer-meta:", StringComparison.Ordinal))
+                    marker = token;
+                else if (token.StartsWith("o2lazer-src:", StringComparison.Ordinal))
+                    fingerprint = token;
+            }
+        }
+
+        return (marker, fingerprint);
     }
 
     private static string detectImageExtension(byte[] image)
@@ -503,13 +740,14 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
     /// producer launch, and consumer drain. All cancellation and error states are
     /// written back to <paramref name="notification"/>.
     /// </summary>
-    private void runImportPipeline(ProgressNotification notification, string[] paths)
+    private void runImportPipeline(ProgressNotification notification, string[] paths, bool isRefresh = false)
     {
         try
         {
             var fileStore = new RealmFileStore(realm, storage);
 
-            notification.Text = O2LazerStrings.ScanningFiles;
+            if (!isRefresh)
+                notification.Text = O2LazerStrings.ScanningFiles;
             var groups = discoverChartGroups(paths);
 
             if (groups.Length == 0)
@@ -519,19 +757,23 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
                 return;
             }
 
-            notification.Text = O2LazerStrings.PreparingImport;
+            if (!isRefresh)
+                notification.Text = O2LazerStrings.PreparingImport;
 
             using var pool = new BlockingCollection<PreparedDirectory?>(1024);
             var importedBeatmapMd5Hashes = createImportedBeatmapMd5Lookup();
+            var (existingSetHashes, sourcePathToSetHash) = createExistingLibrarySnapshot();
             var failedPaths = new ConcurrentQueue<string>();
 
-            var producer = launchProducer(notification, groups, fileStore, pool, importedBeatmapMd5Hashes, failedPaths);
+            var producer = launchProducer(notification, groups, fileStore, pool, importedBeatmapMd5Hashes, existingSetHashes, sourcePathToSetHash, failedPaths);
             var (imported, processed, cancelled) = drainConsumer(notification, groups, pool, producer);
 
             if (cancelled) return; // drainConsumer already set the notification state
 
             if (O2LazerRulesetRuntime.SyncSourceFolderCollections)
                 UpdateSourceFolderCollections();
+
+            UpdateSearchTags();
 
             applyCompletionState(notification,
                 new ImportResult(RulesetAvailable: true, TotalSets: groups.Length, Imported: imported, Processed: processed, Failed: failedPaths.Count));
@@ -561,6 +803,8 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
         RealmFileStore fileStore,
         BlockingCollection<PreparedDirectory?> pool,
         ConcurrentDictionary<string, byte> importedBeatmapMd5Hashes,
+        IReadOnlySet<string> existingSetHashes,
+        IReadOnlyDictionary<string, ExistingSet> sourcePathToSetHash,
         ConcurrentQueue<string> failedPaths)
     {
         return Task.Run(() =>
@@ -577,7 +821,7 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
 
                     try
                     {
-                        prepared = readPreparedDirectory(group, realm, fileStore, importedBeatmapMd5Hashes);
+                        prepared = readPreparedDirectory(group, realm, fileStore, importedBeatmapMd5Hashes, existingSetHashes, sourcePathToSetHash);
                     }
                     catch (OperationCanceledException)
                     {
@@ -618,6 +862,7 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
     {
         var imported = 0;
         var processed = 0;
+        var pendingRefreshes = new List<(PreparedDirectory Prepared, MetadataRefresh Refresh)>();
 
         try
         {
@@ -632,9 +877,23 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
                     if (prepared == null)
                     {
                         processed++;
-                        reportProgress(notification, imported, groups.Length, processed);
+                        reportProgress(notification, groups.Length, processed);
                         return;
                     }
+
+                    if (prepared.Refresh is { } refresh)
+                    {
+                        pendingRefreshes.Add((prepared, refresh));
+                        processed++;
+                        reportProgress(notification, groups.Length, processed);
+
+                        if (pendingRefreshes.Count >= refresh_batch_size)
+                            flushPendingRefreshes(r, pendingRefreshes);
+
+                        return;
+                    }
+
+                    flushPendingRefreshes(r, pendingRefreshes);
 
                     var ok = importPreparedDirectory(r, prepared, rulesetInfo);
 
@@ -642,9 +901,12 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
                         imported++;
 
                     processed++;
-                    reportProgress(notification, imported, groups.Length, processed);
+                    reportProgress(notification, groups.Length, processed);
                 });
             }
+
+            if (pendingRefreshes.Count > 0)
+                realm.Run(r => flushPendingRefreshes(r, pendingRefreshes));
 
             producer.GetAwaiter().GetResult();
         }
@@ -660,11 +922,25 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
 
         return (imported, processed, false);
 
-        static void reportProgress(ProgressNotification n, int imp, int total, int proc)
+        static void reportProgress(ProgressNotification n, int total, int proc)
         {
-            n.Text = O2LazerStrings.ImportedSetsProgress(imp, total);
+            n.Text = O2LazerStrings.ProcessedSetsProgress(proc, total);
             n.Progress = (float)proc / total;
         }
+    }
+
+    private static void flushPendingRefreshes(
+        Realm r,
+        List<(PreparedDirectory Prepared, MetadataRefresh Refresh)> pending)
+    {
+        if (pending.Count == 0)
+            return;
+
+        using var transaction = r.BeginWrite();
+        foreach (var (prepared, refresh) in pending)
+            applyMetadataRefresh(r, refresh, prepared.Marker, prepared.Fingerprint);
+        transaction.Commit();
+        pending.Clear();
     }
 
     /// <summary>
@@ -697,6 +973,13 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
             }
 
             using var transaction = r.BeginWrite();
+
+            if (prepared.ReplacesSetHash is { } replacedHash)
+            {
+                var replaced = r.All<BeatmapSetInfo>().Filter("Hash == $0", replacedHash).FirstOrDefault();
+                if (replaced != null && !replaced.DeletePending)
+                    replaced.DeletePending = true;
+            }
 
             // Find-or-create RealmFile objects. Files already exist on disk (written by producers);
             // we only need the realm metadata to point at them.
@@ -750,17 +1033,18 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
                 {
                     DifficultyName = chart.DifficultyName,
                     Ruleset = rulesetInfo,
-                    Metadata = new BeatmapMetadata
-                    {
-                        Title = setTitle,
-                        Artist = chart.Artist,
-                        Author = new RealmUser
+                        Metadata = new BeatmapMetadata
                         {
-                            Username = string.IsNullOrWhiteSpace(chart.Noter) ? Constant.AUTHOR : chart.Noter,
-                        },
-                        Source = prepared.Directory,
-                        BackgroundFile = externalBackgroundMarkerPath ?? prepared.Background?.FileName ?? string.Empty,
-                        PreviewTime = 0,
+                            Title = setTitle,
+                            Artist = chart.Artist,
+                            Author = new RealmUser
+                            {
+                                Username = string.IsNullOrWhiteSpace(chart.Noter) ? Constant.AUTHOR : chart.Noter,
+                            },
+                            Tags = $"o2jam o2ma{chart.O2JamId} {prepared.Marker} {prepared.Fingerprint}",
+                            Source = prepared.Directory,
+                            BackgroundFile = externalBackgroundMarkerPath ?? prepared.Background?.FileName ?? string.Empty,
+                            PreviewTime = 0,
                     },
                     Difficulty = new BeatmapDifficulty(),
                     Hash = chart.FileHash,
@@ -809,6 +1093,7 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
         string Path,
         string Md5Hash,
         string FileHash, // SHA-256 for RealmFile (computed during file write)
+        int O2JamId,
         string Title,
         string Artist,
         string DifficultyName,
@@ -827,7 +1112,23 @@ public partial class O2LazerFileImporter(RealmAccess realm, Storage storage, INo
         string Directory,
         ChartImport[] Charts,
         ResourceImport? Background,
-        ExternalBackgroundImport? ExternalBackgrounds);
+        ExternalBackgroundImport? ExternalBackgrounds,
+        string Marker,
+        string Fingerprint,
+        MetadataRefresh? Refresh = null,
+        string? ReplacesSetHash = null);
+
+    private sealed record MetadataRefresh(
+        string SetHash,
+        string? ReplacesSetHash,
+        OjnHeader Header,
+        string ChartPath);
+
+    private sealed record ExistingSet(
+        string Hash,
+        IReadOnlyList<string> Md5Hashes,
+        string? Marker,
+        string? Fingerprint);
 
     private sealed record ExternalBackgroundImport(string BackgroundPath, string PanelBackgroundPath);
 
