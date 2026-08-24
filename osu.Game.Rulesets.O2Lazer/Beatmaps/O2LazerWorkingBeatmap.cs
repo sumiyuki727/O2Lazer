@@ -131,20 +131,13 @@ public class O2LazerWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManag
 
     private O2LazerEventPreviewTrack createPreviewTrack(IBeatmap beatmap, IO2LazerBeatmap o2lazerBeatmap)
     {
-        List<Func<CancellationToken, O2LazerEventPreviewTimeline>> timelineSources = [];
-
-        if (O2LazerRulesetRuntime.UseDedicatedPreviewAudio)
-        {
-            foreach (var candidate in O2LazerPreviewAudioResolver.GetExistingDedicatedPreviewCandidates(Metadata.Source, o2lazerBeatmap.PreviewFile))
-                timelineSources.Add(_ => O2LazerEventPreviewTimeline.CreateSingleFile(candidate));
-        }
-
-        timelineSources.Add(cancellationToken => O2LazerEventPreviewTimeline.Create(
-            token => CreatePreviewEvents(beatmap, o2lazerBeatmap, token),
-            o2lazerBeatmap.SampleDefinitions,
-            cancellationToken));
-
-        return new O2LazerEventPreviewTrack(timelineSources, Metadata.Source, audioManager);
+        return new O2LazerEventPreviewTrack(
+            cancellationToken => O2LazerEventPreviewTimeline.Create(
+                token => CreatePreviewEvents(beatmap, o2lazerBeatmap, token),
+                o2lazerBeatmap.SampleDefinitions,
+                cancellationToken),
+            Metadata.Source,
+            audioManager);
     }
 
     protected override IBeatmap GetBeatmap() => tryDecodeExternalBeatmap(BeatmapInfo) ?? inner.Beatmap;

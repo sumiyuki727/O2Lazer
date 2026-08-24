@@ -43,8 +43,6 @@ public class O2LazerBeatmap : Beatmap<O2LazerHitObject>, IO2LazerBeatmap
 
     public O2LazerLongNoteMode LockedLongNoteMode { get; set; }
 
-    public string? PreviewFile { get; set; }
-
     public string? StageFile { get; set; }
 
     public string? BackBmp { get; set; }

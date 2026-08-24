@@ -1,5 +1,6 @@
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
+using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.UI;
 
 namespace osu.Game.Rulesets.O2Lazer.UI.Components;
@@ -24,7 +25,7 @@ public interface IO2LazerColumn
 
     bool Hidden { get; set; }
 
-    void TriggerHitExplosion(bool isLongNote);
+    void TriggerHitExplosion(bool isLongNote, JudgementResult? result = null);
 
     void PlaySample(ushort? sampleKey, int volume);
 

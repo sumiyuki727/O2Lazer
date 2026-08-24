@@ -1,4 +1,5 @@
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Textures;
@@ -8,7 +9,9 @@ using osu.Game.Rulesets.O2Lazer.Configuration;
 using osu.Game.Rulesets.O2Lazer.IO.Input;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
 using osu.Game.Rulesets.O2Lazer.Skinning.Legacy;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
+using osuTK;
 
 namespace osu.Game.Rulesets.O2Lazer.Skinning.LegacyDrawables;
 
@@ -20,6 +23,8 @@ internal sealed partial class LegacyO2LazerKeyArea : CompositeDrawable, IKeyBind
 
     private Drawable? upSprite;
     private Drawable? downSprite;
+    private Container keyAreaContainer = null!;
+    private IBindable<ScrollingDirection> direction = null!;
 
     public LegacyO2LazerKeyArea(O2LazerLegacySkinTransformer transformer, O2LazerSkinComponentLookup lookup)
     {
@@ -31,7 +36,7 @@ internal sealed partial class LegacyO2LazerKeyArea : CompositeDrawable, IKeyBind
     }
 
     [BackgroundDependencyLoader]
-    private void load(ISkinSource skin)
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
     {
         upSprite = skin.GetAnimation(upImage, WrapMode.ClampToEdge, WrapMode.ClampToEdge, true, true)?.With(d =>
         {
@@ -50,17 +55,53 @@ internal sealed partial class LegacyO2LazerKeyArea : CompositeDrawable, IKeyBind
             d.Alpha = 0;
         });
 
-        InternalChild = new Container
+        InternalChild = keyAreaContainer = new Container
         {
-            Anchor = Anchor.BottomCentre,
-            Origin = Anchor.BottomCentre,
-            RelativeSizeAxes = Axes.Both,
+            RelativeSizeAxes = Axes.X,
+            AutoSizeAxes = Axes.Y,
             Children =
             [
                 upSprite ?? Empty(),
                 downSprite ?? Empty(),
             ],
         };
+
+        direction = scrollingInfo.Direction.GetBoundCopy();
+        direction.BindValueChanged(change =>
+        {
+            if (change.NewValue == ScrollingDirection.Up)
+            {
+                keyAreaContainer.Anchor = keyAreaContainer.Origin = Anchor.TopCentre;
+
+                if (upSprite != null)
+                {
+                    upSprite.Anchor = Anchor.TopCentre;
+                    upSprite.Scale = new Vector2(1, -1);
+                }
+
+                if (downSprite != null)
+                {
+                    downSprite.Anchor = Anchor.TopCentre;
+                    downSprite.Scale = new Vector2(1, -1);
+                }
+            }
+            else
+            {
+                keyAreaContainer.Anchor = keyAreaContainer.Origin = Anchor.BottomCentre;
+
+                if (upSprite != null)
+                {
+                    upSprite.Anchor = Anchor.BottomCentre;
+                    upSprite.Scale = Vector2.One;
+                }
+
+                if (downSprite != null)
+                {
+                    downSprite.Anchor = Anchor.BottomCentre;
+                    downSprite.Scale = Vector2.One;
+                }
+            }
+        }, true);
     }
 
     public bool OnPressed(KeyBindingPressEvent<O2LazerAction> e)

@@ -35,12 +35,33 @@ public partial class O2LazerBuiltInSkinTransformer(ISkin skin, IBeatmap beatmap)
         if (O2LazerDefaultHud.TryGetMainHudWithStage(lookup, () => base.GetDrawableComponent(lookup), out var mainHud))
             return mainHud;
 
+        // Mania intentionally leaves Triangles on its generic combo; only Argon and legacy skins get ruleset-specific counters.
+        if (isO2Jam
+            && lookup is GlobalSkinnableContainerLookup { Lookup: GlobalSkinnableContainers.MainHUDComponents, Ruleset: not null }
+            && Skin is not TrianglesSkin)
+        {
+            return O2LazerDefaultHud.CreateRulesetMainHud(Skin is ArgonSkin or ArgonProSkin
+                ? O2LazerComboStyle.Argon
+                : O2LazerComboStyle.Legacy);
+        }
+
         if (lookup is O2LazerSkinComponentLookup o2lazerLookup)
             return getDrawableFactory(o2lazerLookup)?.Create();
 
-        return lookup is SkinComponentLookup<HitResult>
-            ? null
-            : O2LazerDefaultHud.GetDrawableComponent(lookup) ?? base.GetDrawableComponent(lookup);
+        if (lookup is SkinComponentLookup<HitResult> resultLookup)
+            return getResult(resultLookup.Component);
+
+        return O2LazerDefaultHud.GetDrawableComponent(lookup) ?? base.GetDrawableComponent(lookup);
+    }
+
+    private Drawable? getResult(HitResult result)
+    {
+        if (Skin is ArgonProSkin && result >= HitResult.Great)
+            return Drawable.Empty();
+
+        return Skin is ArgonSkin or ArgonProSkin
+            ? new O2LazerArgonJudgementPiece(result)
+            : new O2LazerDefaultJudgementPiece(result);
     }
 
     /// <inheritdoc/>
@@ -81,6 +102,7 @@ public partial class O2LazerBuiltInSkinTransformer(ISkin skin, IBeatmap beatmap)
                 O2LazerSkinComponents.ColumnBackground => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaArgonColumnBackground(lookup)),
                 O2LazerSkinComponents.KeyArea => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaArgonKeyArea(lookup)),
                 O2LazerSkinComponents.HitTarget => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaArgonHitTarget()),
+                O2LazerSkinComponents.HitExplosion => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaArgonHitExplosion(lookup)),
                 O2LazerSkinComponents.StageForeground or O2LazerSkinComponents.ColumnLight => new O2LazerResolvedDrawableFactory(() => Drawable.Empty()),
                 _ => null,
             };
@@ -97,7 +119,8 @@ public partial class O2LazerBuiltInSkinTransformer(ISkin skin, IBeatmap beatmap)
                 O2LazerSkinComponents.StageBackground => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultStageBackground()),
                 O2LazerSkinComponents.ColumnBackground => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultColumnBackground(lookup)),
                 O2LazerSkinComponents.KeyArea => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultKeyArea(lookup)),
-                O2LazerSkinComponents.HitTarget => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultHitTarget()),
+                O2LazerSkinComponents.HitTarget => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultHitTarget(lookup)),
+                O2LazerSkinComponents.HitExplosion => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultHitExplosion(lookup)),
                 O2LazerSkinComponents.StageForeground or O2LazerSkinComponents.ColumnLight => new O2LazerResolvedDrawableFactory(() => Drawable.Empty()),
                 _ => null,
             };
@@ -136,7 +159,7 @@ public partial class O2LazerBuiltInSkinTransformer(ISkin skin, IBeatmap beatmap)
                 O2LazerSkinComponents.StageBackground => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultStageBackground()),
                 O2LazerSkinComponents.ColumnBackground => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultColumnBackground(lookup)),
                 O2LazerSkinComponents.KeyArea => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultKeyArea(lookup)),
-                O2LazerSkinComponents.HitTarget => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultHitTarget()),
+                O2LazerSkinComponents.HitTarget => new O2LazerResolvedDrawableFactory(() => new O2LazerManiaDefaultHitTarget(lookup)),
                 _ => new O2LazerResolvedDrawableFactory(() => Drawable.Empty()),
             };
         }

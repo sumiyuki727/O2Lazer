@@ -14,9 +14,6 @@ internal static class O2LazerRulesetRuntime
     internal static O2LazerVisualOffsetSuggestionStore VisualOffsetSuggestions { get; } = new();
 
 
-    internal static bool UseDedicatedPreviewAudio =>
-        ConfigManager?.Get<bool>(O2LazerRulesetSetting.UseDedicatedPreviewAudio) ?? true;
-
     internal static bool CanAwardPerformancePoints(IReadOnlyList<Mod> mods) =>
         mods.Any(mod => mod is IO2LazerPerformanceScoringMod) && mods.All(mod => mod.Ranked);
 

@@ -1,8 +1,14 @@
+using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Animations;
 using osu.Framework.Graphics.Containers;
+using osu.Framework.Utils;
+using osu.Game.Rulesets.O2Lazer.Skinning.Configuration;
 using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.Scoring;
+using osu.Game.Rulesets.UI.Scrolling;
+using osu.Game.Skinning;
 
 namespace osu.Game.Rulesets.O2Lazer.Skinning.LegacyDrawables;
 
@@ -18,6 +24,8 @@ internal sealed partial class LegacyO2LazerJudgementPiece : CompositeDrawable, I
 {
     private readonly HitResult result;
     private readonly Drawable animation;
+
+    private IBindable<ScrollingDirection> direction = null!;
 
     public LegacyO2LazerJudgementPiece(HitResult result, Drawable animation)
     {
@@ -39,6 +47,13 @@ internal sealed partial class LegacyO2LazerJudgementPiece : CompositeDrawable, I
         if (result is HitResult.Meh or HitResult.Miss)
         {
             animation.ScaleTo(1.2f).Then().ScaleTo(1, 100, Easing.Out);
+
+            if (result == HitResult.Miss)
+            {
+                animation.RotateTo(0);
+                animation.RotateTo(RNG.NextSingle(-5.73f, 5.73f), 100, Easing.Out);
+            }
+
             return;
         }
 
@@ -51,6 +66,41 @@ internal sealed partial class LegacyO2LazerJudgementPiece : CompositeDrawable, I
     }
 
     public Drawable? GetAboveHitObjectsProxiedContent() => null;
+
+    [BackgroundDependencyLoader]
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
+    {
+        direction = scrollingInfo.Direction.GetBoundCopy();
+        direction.BindValueChanged(_ => updatePosition(skin), true);
+    }
+
+    private void updatePosition(ISkinSource skin)
+    {
+        float hitPosition = skin.GetConfig<O2LazerSkinConfigurationLookup, float>(
+            new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.HitPosition)
+        )?.Value ?? 0;
+        float scorePosition = skin.GetConfig<O2LazerSkinConfigurationLookup, float>(
+            new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.ScorePosition)
+        )?.Value ?? 0;
+
+        float hitPositionFromTop = 480f * LegacyManiaSkinConfiguration.POSITION_SCALE_FACTOR - hitPosition;
+
+        if (direction.Value == ScrollingDirection.Up)
+        {
+            Anchor = scorePosition > hitPositionFromTop / 2f ? Anchor.TopCentre : Anchor.BottomCentre;
+            Y = scorePosition > hitPositionFromTop / 2f ? hitPositionFromTop - scorePosition : -scorePosition;
+        }
+        else if (scorePosition > hitPositionFromTop / 2f)
+        {
+            Anchor = Anchor.BottomCentre;
+            Y = scorePosition - hitPositionFromTop;
+        }
+        else
+        {
+            Anchor = Anchor.TopCentre;
+            Y = scorePosition;
+        }
+    }
 
     protected override void LoadComplete()
     {

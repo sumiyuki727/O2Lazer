@@ -1,15 +1,21 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Animations;
 using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Primitives;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.Textures;
+using osu.Game.Rulesets.O2Lazer;
+using osu.Game.Rulesets.O2Lazer.Configuration;
 using osu.Game.Rulesets.O2Lazer.Parsing;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
 using osu.Game.Rulesets.O2Lazer.Skinning.Configuration;
 using osu.Game.Rulesets.O2Lazer.Skinning.NoteTextures;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
 using osuTK;
 using osuTK.Graphics;
@@ -37,10 +43,29 @@ internal sealed partial class O2LazerResolvedNotePiece : CompositeDrawable
     }
 
     [BackgroundDependencyLoader]
-    private void load(ISkinSource skin)
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
     {
         if (noteAnimation == null)
             setTextures(O2LazerLegacyTextureResolver.ResolveNoteTextures(skin, lookup));
+
+        scrollingInfo.Direction.BindValueChanged(direction => updateDirection(direction.NewValue), true);
+    }
+
+    private void updateDirection(ScrollingDirection direction)
+    {
+        if (directionContainer == null)
+            return;
+
+        if (lookup.Component == O2LazerSkinComponents.HoldNoteTail)
+        {
+            directionContainer.Anchor = direction == ScrollingDirection.Up ? Anchor.BottomCentre : Anchor.TopCentre;
+            directionContainer.Scale = new Vector2(1, direction == ScrollingDirection.Up ? 1 : -1);
+        }
+        else
+        {
+            directionContainer.Anchor = direction == ScrollingDirection.Up ? Anchor.TopCentre : Anchor.BottomCentre;
+            directionContainer.Scale = new Vector2(1, direction == ScrollingDirection.Up ? -1 : 1);
+        }
     }
 
     private void setTextures(Texture[] textures)
@@ -122,8 +147,21 @@ internal sealed partial class O2LazerResolvedNotePiece : CompositeDrawable
 /// </summary>
 internal sealed partial class O2LazerLegacyStretchedHoldNoteBodyPiece : CompositeDrawable, IO2LazerManiaHoldNoteBodyPiece
 {
+    // Mania stretches a non-stretch body texture across this fixed span and masks the visible
+    // window. Beyond it the legacy single-sprite path cannot cover the remainder, so the opt-in
+    // repeat mode draws the full span once and tiles the plain lower half to extend it.
+    private const float full_span = 32800;
+    private const float half_span = full_span / 2;
+
     private readonly Drawable? bodySprite;
     private readonly LegacyManiaSkinConfiguration.LegacyNoteBodyStyle? bodyStyle;
+    private IBindable<ScrollingDirection> direction = null!;
+
+    private Container? tileContainer;
+    private Sprite? firstSegmentSprite;
+    private Texture? lowerHalfTexture;
+    private readonly List<Sprite> repeatSegments = [];
+    private bool tiledModeActive;
 
     public int AnimationFrameCount => (bodySprite as TextureAnimation)?.FrameCount ?? (bodySprite == null ? 0 : 1);
 
@@ -159,6 +197,32 @@ internal sealed partial class O2LazerLegacyStretchedHoldNoteBodyPiece : Composit
         InternalChild = bodySprite;
     }
 
+    [BackgroundDependencyLoader]
+    private void load(IScrollingInfo scrollingInfo)
+    {
+        direction = scrollingInfo.Direction.GetBoundCopy();
+        direction.BindValueChanged(onDirectionChanged, true);
+    }
+
+    private void onDirectionChanged(ValueChangedEvent<ScrollingDirection> change)
+    {
+        if (bodySprite == null)
+            return;
+
+        // Mania flips the body sprite's anchor when scaling it for up-scroll, otherwise the
+        // mirrored texture is offset by one texture height.
+        if (change.NewValue == ScrollingDirection.Up)
+        {
+            bodySprite.Origin = Anchor.TopCentre;
+            bodySprite.Anchor = Anchor.BottomCentre;
+        }
+        else
+        {
+            bodySprite.Origin = Anchor.TopCentre;
+            bodySprite.Anchor = Anchor.TopCentre;
+        }
+    }
+
     public void SetHolding(bool holding)
     {
         if (bodySprite is not TextureAnimation animation)
@@ -175,17 +239,120 @@ internal sealed partial class O2LazerLegacyStretchedHoldNoteBodyPiece : Composit
         if (bodySprite == null)
             return;
 
+        if (bodySprite is Sprite sprite
+            && bodyStyle != LegacyManiaSkinConfiguration.LegacyNoteBodyStyle.Stretch
+            && (O2LazerRulesetRuntime.ConfigManager?.Get<bool>(O2LazerRulesetSetting.PercyLongNoteBodyRepeat) ?? false))
+        {
+            ensureTiledLayout(sprite);
+            applyTiledLayout(tailAtTop, bodyHeight);
+        }
+        else
+        {
+            ensureLegacyLayout();
+            applyLegacyLayout(tailAtTop, bodyHeight);
+        }
+    }
+
+    private void ensureLegacyLayout()
+    {
+        if (!tiledModeActive)
+            return;
+
+        RemoveInternal(tileContainer, true);
+        tileContainer = null;
+        firstSegmentSprite = null;
+        lowerHalfTexture = null;
+        repeatSegments.Clear();
+        InternalChild = bodySprite;
+        tiledModeActive = false;
+    }
+
+    private void ensureTiledLayout(Sprite sprite)
+    {
+        if (tiledModeActive)
+            return;
+
+        RemoveInternal(bodySprite, false);
+
+        tileContainer = new Container
+        {
+            RelativeSizeAxes = Axes.Both,
+        };
+        firstSegmentSprite = new Sprite
+        {
+            Texture = sprite.Texture,
+            FillMode = FillMode.Stretch,
+            RelativeSizeAxes = Axes.X,
+        };
+        lowerHalfTexture = sprite.Texture.Crop(new RectangleF(
+            0,
+            sprite.Texture.Height / 2f,
+            sprite.Texture.Width,
+            sprite.Texture.Height / 2f));
+
+        tileContainer.Add(firstSegmentSprite);
+        InternalChild = tileContainer;
+        tiledModeActive = true;
+    }
+
+    private void applyLegacyLayout(bool tailAtTop, float bodyHeight)
+    {
         var scaleDirection = tailAtTop ? 1 : -1;
 
         if (bodyStyle == LegacyManiaSkinConfiguration.LegacyNoteBodyStyle.Stretch)
         {
-            bodySprite.Scale = new Vector2(1, scaleDirection);
+            bodySprite!.Scale = new Vector2(1, scaleDirection);
             return;
         }
 
-        bodySprite.FillMode = FillMode.Stretch;
+        bodySprite!.FillMode = FillMode.Stretch;
         if (bodyHeight > 0)
             bodySprite.Scale = new Vector2(1, scaleDirection * MathF.Max(1, 32800 / bodyHeight));
+    }
+
+    private void applyTiledLayout(bool tailAtTop, float bodyHeight)
+    {
+        if (tileContainer == null || firstSegmentSprite == null || lowerHalfTexture == null)
+            return;
+
+        var firstHeight = Math.Min(bodyHeight, full_span);
+        firstSegmentSprite.Height = firstHeight;
+        firstSegmentSprite.Scale = new Vector2(1, (tailAtTop ? 1 : -1) * full_span / Math.Max(1, firstHeight));
+        firstSegmentSprite.Anchor = tailAtTop ? Anchor.TopCentre : Anchor.BottomCentre;
+        firstSegmentSprite.Origin = Anchor.TopCentre;
+        firstSegmentSprite.Y = 0;
+
+        var remaining = Math.Max(0, bodyHeight - full_span);
+        var needed = (int)Math.Ceiling(remaining / half_span);
+
+        while (repeatSegments.Count < needed)
+        {
+            var repeat = new Sprite
+            {
+                Texture = lowerHalfTexture,
+                FillMode = FillMode.Stretch,
+                RelativeSizeAxes = Axes.X,
+            };
+            repeatSegments.Add(repeat);
+            tileContainer.Add(repeat);
+        }
+
+        while (repeatSegments.Count > needed)
+        {
+            tileContainer.Remove(repeatSegments[^1], true);
+            repeatSegments.RemoveAt(repeatSegments.Count - 1);
+        }
+
+        for (var i = 0; i < needed; i++)
+        {
+            var repeat = repeatSegments[i];
+            var tileHeight = Math.Min(half_span, Math.Max(0, remaining - i * half_span));
+            repeat.Height = tileHeight;
+            repeat.Scale = new Vector2(1, (tailAtTop ? 1 : -1) * half_span / Math.Max(1, tileHeight));
+            repeat.Anchor = tailAtTop ? Anchor.TopCentre : Anchor.BottomCentre;
+            repeat.Origin = Anchor.TopCentre;
+            repeat.Y = tailAtTop ? full_span + i * half_span : -(full_span + i * half_span);
+        }
     }
 
     public void Recycle()

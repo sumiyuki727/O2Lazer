@@ -4,6 +4,7 @@ using osu.Game.Rulesets.O2Lazer.Beatmaps.Objects;
 using osu.Game.Rulesets.O2Lazer.UI.Gameplay;
 using osu.Game.Rulesets.O2Lazer.UI.Objects;
 using osu.Game.Rulesets.UI;
+using osu.Game.Rulesets.UI.Scrolling;
 
 namespace osu.Game.Rulesets.O2Lazer.UI.Components;
 
@@ -67,7 +68,9 @@ public sealed partial class O2LazerColumnHitObjectContainer : HitObjectContainer
             var hitObject = note.HitObject!;
             var startPosition = scrollController.GetVisualScrollPosition(hitObject.StartTime, hitObject.ScrollPositionAtStartTime);
             var offset = (float)((startPosition - currentScrollPos) * scale);
-            var y = -(hitTarget + offset);
+            var y = scrollController.Direction == ScrollingDirection.Up
+                ? hitTarget + offset
+                : -(hitTarget + offset);
 
             note.Y = y;
 
@@ -75,7 +78,8 @@ public sealed partial class O2LazerColumnHitObjectContainer : HitObjectContainer
             {
                 var endPosition = scrollController.GetVisualScrollPosition(longNote.EndTime, longNote.ScrollPositionAtEndTime);
                 var endOffset = (float)((endPosition - currentScrollPos) * scale);
-                ln.UpdateBodyGeometry(y, -(hitTarget + endOffset));
+                var endY = scrollController.Direction == ScrollingDirection.Up ? hitTarget + endOffset : -(hitTarget + endOffset);
+                ln.UpdateBodyGeometry(y, endY);
             }
 
             if (note.RequiresColumnFrameUpdate)

@@ -3,6 +3,7 @@ using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Game.Rulesets.O2Lazer.UI;
 using osu.Game.Rulesets.O2Lazer.UI.Components;
+using osu.Game.Rulesets.UI.Scrolling;
 
 namespace osu.Game.Rulesets.O2Lazer.Skinning.LegacyDrawables;
 
@@ -29,13 +30,15 @@ internal sealed partial class O2LazerHitTargetInsetContainer : Container
         base.Update();
 
         var bottomInset = playfield?.Stage.HitTargetPosition ?? O2LazerStage.HIT_TARGET_POSITION;
+        var isUp = playfield?.ScrollController.Direction == ScrollingDirection.Up;
 
-        if (content.Padding.Bottom == bottomInset)
+        if (content.Padding.Top == (isUp ? bottomInset : 0) && content.Padding.Bottom == (isUp ? 0 : bottomInset))
             return;
 
         content.Padding = new MarginPadding
         {
-            Bottom = bottomInset,
+            Top = isUp ? bottomInset : 0,
+            Bottom = isUp ? 0 : bottomInset,
         };
     }
 }

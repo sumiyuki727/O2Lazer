@@ -12,6 +12,21 @@ internal sealed class O2LazerLongNoteVisualState
 
     public void PrepareHeadPin() => heldBodyDirection = null;
 
+    /// <summary>
+    /// Rebases a pinned head to the judgement line after a live direction change.
+    /// The elapsed hold distance is derived from the current scroll position each frame, so only
+    /// the line reference needs to move to the new direction's coordinate space.
+    /// </summary>
+    public void RebaseHeadPin(float linePosition)
+    {
+        if (headYAtStartTime == null)
+            return;
+
+        headYAtStartTime = linePosition;
+        previousHeadTime = null;
+        heldBodyDirection = null;
+    }
+
     public void UpdateHeadYAtStartTime(float realHeadY, double currentTime, double startTime, double visualOffset)
     {
         var visualOffsetChanged = previousVisualOffset != visualOffset;

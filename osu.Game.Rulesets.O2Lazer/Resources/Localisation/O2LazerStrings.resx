@@ -28,6 +28,8 @@
   <data name="unlock_frame_rate_limit" xml:space="preserve"><value>Unlock frame rate limit</value></data>
   <data name="unlock_frame_rate_limit_hint" xml:space="preserve"><value>Remove osu!'s 1000 Hz frame and input polling cap during O2Jam gameplay. Higher GC and GPU pressure may cause extra stutters; disable this option if that happens.</value></data>
   <data name="fixed_scroll_speed" xml:space="preserve"><value>Fixed scroll speed</value></data>
+  <data name="percy_long_note_body_repeat" xml:space="preserve"><value>Percy long note fix</value></data>
+  <data name="percy_long_note_body_repeat_description" xml:space="preserve"><value>When a hold is longer than the body texture's designed span, repeat only the plain lower half to extend it, keeping the percy tail fade drawn once.</value></data>
   <data name="scroll_speed_tooltip_with_o2jam_grade" xml:space="preserve"><value>{0} · O2Jam {1}</value></data>
   <data name="import_path" xml:space="preserve"><value>Import path</value></data>
   <data name="import_path_hint" xml:space="preserve"><value>Folder used by the last O2Jam import. Click to choose a different folder; beatmaps from the selected folder are read into the library automatically.</value></data>
@@ -118,10 +120,6 @@
   <data name="light_position_offset_description" xml:space="preserve"><value>Moves column lights relative to the skin position. Positive values move them upward.</value></data>
   <data name="scale_stage_width_by_columns" xml:space="preserve"><value>Scale Stage width by columns</value></data>
   <data name="scale_stage_width_by_columns_description" xml:space="preserve"><value>Applies the configured-to-original Stage width ratio to each column, allowing layouts with more columns to use a wider Stage.</value></data>
-  <data name="auto_hide_delay" xml:space="preserve"><value>Auto-hide delay</value></data>
-  <data name="auto_hide_delay_description" xml:space="preserve"><value>Seconds before combo counter hides when combo hasn't grown. Set to -1 to never auto-hide.</value></data>
-  <data name="min_visible_combo" xml:space="preserve"><value>Min visible combo</value></data>
-  <data name="min_visible_combo_description" xml:space="preserve"><value>Minimum combo count for the counter to be visible.</value></data>
   <data name="score_graph_current" xml:space="preserve"><value>Current</value></data>
   <data name="score_graph_personal_best" xml:space="preserve"><value>Personal best</value></data>
   <data name="score_graph_personal_best_short" xml:space="preserve"><value>Best</value></data>

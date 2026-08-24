@@ -21,7 +21,6 @@ public sealed record O2LazerParseResult(
     IReadOnlyList<O2LazerBranchDecision> BranchDecisions,
     O2LazerTextEvents TextEvents,
     O2LazerBgaTimeline Bga,
-    string? PreviewFile = null,
     string? Genre = null,
     string? Subtitle = null,
     string? SubArtist = null,

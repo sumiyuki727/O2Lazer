@@ -127,6 +127,12 @@ public partial class O2LazerLegacySkinTransformer : LegacySkinTransformer, IO2La
         if (O2LazerDefaultHud.TryGetMainHudWithStage(lookup, () => base.GetDrawableComponent(lookup), out var mainHud))
             return mainHud;
 
+        if (lookup is GlobalSkinnableContainerLookup { Lookup: GlobalSkinnableContainers.MainHUDComponents, Ruleset: not null }
+            && IsProvidingLegacyResources)
+        {
+            return O2LazerDefaultHud.CreateRulesetMainHud(O2LazerComboStyle.Legacy);
+        }
+
         var hud = O2LazerDefaultHud.GetDrawableComponent(lookup);
         if (hud != null) return hud;
 

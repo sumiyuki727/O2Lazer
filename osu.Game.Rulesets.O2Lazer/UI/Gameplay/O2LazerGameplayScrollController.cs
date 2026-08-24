@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using osu.Game.Rulesets.O2Lazer.Parsing;
 using osu.Game.Rulesets.O2Lazer.Configuration;
+using osu.Game.Rulesets.UI.Scrolling;
 
 namespace osu.Game.Rulesets.O2Lazer.UI.Gameplay;
 
@@ -39,6 +40,8 @@ internal sealed class O2LazerGameplayScrollController(O2LazerTimingMap? timingMa
     public double ScrollRangeScale { get; private set; } = 1.0;
 
     public double PlaybackRate { get; private set; } = 1.0;
+
+    public ScrollingDirection Direction { get; set; } = ScrollingDirection.Down;
 
     private const double default_scroll_speed = O2LazerRulesetConfigManager.DEFAULT_SCROLL_SPEED;
     private double configuredScrollSpeed = default_scroll_speed;
@@ -99,7 +102,9 @@ internal sealed class O2LazerGameplayScrollController(O2LazerTimingMap? timingMa
         ConstantScrollActive ? time : mappedScrollPosition;
 
     public float YForScrollProgress(double progress, double parentHeight, double hitTargetPosition, double noteHeight = 0)
-        => (float)(parentHeight - hitTargetPosition - progress * ScrollCoordinateScale(parentHeight, hitTargetPosition) - noteHeight);
+        => Direction == ScrollingDirection.Up
+            ? (float)(hitTargetPosition + progress * ScrollCoordinateScale(parentHeight, hitTargetPosition) - noteHeight)
+            : (float)(parentHeight - hitTargetPosition - progress * ScrollCoordinateScale(parentHeight, hitTargetPosition) - noteHeight);
 
     public double ScrollCoordinateScale(double parentHeight, double hitTargetPosition)
     {

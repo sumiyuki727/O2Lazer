@@ -38,6 +38,10 @@ public partial class O2LazerSettingsSubsection(O2LazerRuleset ruleset) : Ruleset
     // and gameplay application code below stay intact so re-enabling is a one-line change.
     private static readonly bool enable_visual_offset_settings = false;
 
+    // Hidden now that live direction switching is stable; the config value and bindable
+    // application code stay intact so re-enabling is a one-line change.
+    private static readonly bool enable_scroll_direction_settings = false;
+
     protected override LocalisableString Header => O2LazerStrings.RulesetName;
 
     [Cached]
@@ -145,6 +149,15 @@ public partial class O2LazerSettingsSubsection(O2LazerRuleset ruleset) : Ruleset
                 RulesetSettingsStrings.ScrollSpeedTooltip((int)O2LazerDrawableRuleset.ComputeScrollTime(v), v),
                 O2LazerGameplayScrollController.GetO2JamSpeedGrade(v)),
         }));
+        if (enable_scroll_direction_settings)
+        {
+            var scrollDirectionBindable = manager.GetBindable<O2LazerScrollingDirection>(O2LazerRulesetSetting.ScrollDirection);
+            children.Add(new SettingsItemV2(new FormEnumDropdown<O2LazerScrollingDirection>
+            {
+                Caption = RulesetSettingsStrings.ScrollingDirection,
+                Current = scrollDirectionBindable,
+            }));
+        }
         children.Add(new SettingsItemV2(new FormCheckBox
         {
             Caption = O2LazerStrings.FixedScrollSpeed,
@@ -196,6 +209,12 @@ public partial class O2LazerSettingsSubsection(O2LazerRuleset ruleset) : Ruleset
             {
                 Caption = O2LazerStrings.PreviewPlayKeysounds,
                 Current = manager.GetBindable<bool>(O2LazerRulesetSetting.PreviewPlayKeysounds),
+            }),
+            new SettingsItemV2(new FormCheckBox
+            {
+                Caption = O2LazerStrings.PercyLongNoteBodyRepeat,
+                HintText = O2LazerStrings.PercyLongNoteBodyRepeatDescription,
+                Current = manager.GetBindable<bool>(O2LazerRulesetSetting.PercyLongNoteBodyRepeat),
             }),
             new SettingsItemV2(new FormCheckBox
             {

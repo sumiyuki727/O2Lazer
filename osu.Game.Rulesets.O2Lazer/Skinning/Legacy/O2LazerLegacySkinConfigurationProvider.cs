@@ -16,7 +16,9 @@ internal sealed class O2LazerLegacySkinConfigurationProvider
 {
 
     public bool HasConfigurations => layoutVariant == O2LazerLayoutVariant.O2Jam7K
-        ? skinConfigurations.Value.Any(c => c.Section == O2LazerSkinConfigurationSection.Mania && c.Keys == maniaKeyCount)
+        ? skinConfigurations.Value.Any(c =>
+            (c.Section == O2LazerSkinConfigurationSection.O2Lazer && c.Layout == O2LazerLayoutVariant.O2Jam7K)
+            || (c.Section == O2LazerSkinConfigurationSection.Mania && c.Keys == maniaKeyCount))
         : skinConfigurations.Value.Count > 0;
 
     private readonly ISkin skin;
@@ -54,6 +56,9 @@ internal sealed class O2LazerLegacySkinConfigurationProvider
     {
         if (layoutVariant == O2LazerLayoutVariant.O2Jam7K)
         {
+            foreach (var configuration in skinConfigurations.Value.Where(c => c.Section == O2LazerSkinConfigurationSection.O2Lazer && c.Layout == O2LazerLayoutVariant.O2Jam7K))
+                yield return configuration;
+
             foreach (var configuration in getManiaFallbackConfigurations())
                 yield return configuration;
 

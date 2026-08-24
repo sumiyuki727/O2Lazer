@@ -22,16 +22,28 @@ using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Rulesets.UI;
+using osu.Game.Rulesets.UI.Scrolling;
+using osu.Game.Rulesets.UI.Scrolling.Algorithms;
 using osu.Game.Scoring;
 using osu.Game.Screens.Play;
 
 namespace osu.Game.Rulesets.O2Lazer.UI;
 
-public partial class O2LazerDrawableRuleset : DrawableRuleset<O2LazerHitObject>, IKeyBindingHandler<GlobalAction>
+public partial class O2LazerDrawableRuleset : DrawableRuleset<O2LazerHitObject>, IDrawableScrollingRuleset, IKeyBindingHandler<GlobalAction>
 {
+    [Cached(Type = typeof(IScrollingInfo))]
+    private readonly O2LazerLocalScrollingInfo scrollingInfo = new();
+
+    private readonly Bindable<ScrollingDirection> scrollDirection = new();
+    private readonly Bindable<O2LazerScrollingDirection> configDirection = new();
+
+    public IScrollingInfo ScrollingInfo => scrollingInfo;
+
     public O2LazerDrawableRuleset(Ruleset ruleset, IBeatmap beatmap, IReadOnlyList<Mod>? mods = null)
         : base(ruleset, beatmap, mods)
     {
+        scrollingInfo.Direction.BindTo(scrollDirection);
+
         var o2lazerBeatmap = (O2LazerBeatmap)beatmap;
         audioController = new O2LazerGameplayAudioController(o2lazerBeatmap, Mods);
         samplePlayback = audioController.SamplePlayback;
@@ -202,7 +214,10 @@ public partial class O2LazerDrawableRuleset : DrawableRuleset<O2LazerHitObject>,
         if (Config is O2LazerRulesetConfigManager config)
         {
             configScrollSpeed = config.GetBindable<double>(O2LazerRulesetSetting.ScrollSpeed);
+            config.BindWith(O2LazerRulesetSetting.ScrollDirection, configDirection);
         }
+
+        configDirection.BindValueChanged(direction => applyScrollDirection((ScrollingDirection)direction.NewValue), true);
 
         settingsController = new O2LazerGameplaySettingsController(
             Config as O2LazerRulesetConfigManager,
@@ -210,6 +225,24 @@ public partial class O2LazerDrawableRuleset : DrawableRuleset<O2LazerHitObject>,
             O2LazerGameplayAudioController.GetPlaybackRate(Mods).Rate,
             host,
             frameworkConfig);
+    }
+
+    private void applyScrollDirection(ScrollingDirection direction)
+    {
+        // The playfield observes IScrollingInfo.Direction and updates the stage / scroll controller
+        // from there, matching mania's single bindable propagation path.
+        scrollDirection.Value = direction;
+    }
+
+    private class O2LazerLocalScrollingInfo : IScrollingInfo
+    {
+        public IBindable<ScrollingDirection> Direction { get; } = new Bindable<ScrollingDirection>();
+
+        public IBindable<double> TimeRange { get; } = new BindableDouble();
+
+        public readonly Bindable<IScrollAlgorithm> Algorithm = new Bindable<IScrollAlgorithm>(new ConstantScrollAlgorithm());
+
+        IBindable<IScrollAlgorithm> IScrollingInfo.Algorithm => Algorithm;
     }
 }
 

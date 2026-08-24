@@ -34,8 +34,6 @@ internal class O2LazerDecodedBeatmap : Beatmap, IO2LazerBeatmap
 
     public O2LazerLongNoteMode LockedLongNoteMode { get; set; }
 
-    public string? PreviewFile { get; set; }
-
     public string? StageFile { get; set; }
 
     public string? BackBmp { get; set; }
@@ -59,7 +57,6 @@ internal class O2LazerDecodedBeatmap : Beatmap, IO2LazerBeatmap
         TextEvents = parseResult.TextEvents;
         Bga = parseResult.Bga;
         LockedLongNoteMode = parseResult.LockedLongNoteMode;
-        PreviewFile = parseResult.PreviewFile;
         StageFile = parseResult.StageFile;
         BackBmp = parseResult.BackBmp;
         Banner = parseResult.Banner;

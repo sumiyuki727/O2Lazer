@@ -1,4 +1,5 @@
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Game.Rulesets.O2Lazer.Beatmaps.Objects;
@@ -11,6 +12,7 @@ using osu.Game.Rulesets.O2Lazer.UI.Components;
 using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.Scoring;
+using osu.Game.Rulesets.UI.Scrolling;
 using osuTK;
 using osuTK.Graphics;
 
@@ -34,6 +36,13 @@ public abstract partial class DrawableO2LazerHitObject : DrawableHitObject<O2Laz
 
     protected Container NoteContainer = null!;
 
+    protected ScrollingDirection CurrentDirection { get; private set; } = ScrollingDirection.Down;
+
+    private IBindable<ScrollingDirection> direction = null!;
+
+    [Resolved]
+    private IScrollingInfo scrollingInfo { get; set; } = null!;
+
     [Resolved(CanBeNull = true)]
     protected O2LazerColumn? ParentColumn { get; private set; }
 
@@ -43,6 +52,28 @@ public abstract partial class DrawableO2LazerHitObject : DrawableHitObject<O2Laz
         Anchor = Anchor.BottomLeft;
         Origin = Anchor.BottomLeft;
         RelativeSizeAxes = Axes.X;
+    }
+
+    [BackgroundDependencyLoader]
+    private void load(IScrollingInfo scrollingInfo)
+    {
+        this.scrollingInfo = scrollingInfo;
+        direction = scrollingInfo.Direction.GetBoundCopy();
+        direction.BindValueChanged(change => ApplyScrollDirection(change.NewValue), true);
+    }
+
+    protected override void Update()
+    {
+        base.Update();
+
+        if (scrollingInfo != null && scrollingInfo.Direction.Value != CurrentDirection)
+            ApplyScrollDirection(scrollingInfo.Direction.Value);
+    }
+
+    protected virtual void ApplyScrollDirection(ScrollingDirection newDirection)
+    {
+        CurrentDirection = newDirection;
+        Anchor = Origin = newDirection == ScrollingDirection.Up ? Anchor.TopLeft : Anchor.BottomLeft;
     }
 
     public virtual bool TryHit(HitResult result)
@@ -92,6 +123,7 @@ public abstract partial class DrawableO2LazerHitObject : DrawableHitObject<O2Laz
         base.OnApply();
         AutoSizeAxes = LayoutVariant == O2LazerLayoutVariant.O2Jam7K && this is not ILongNoteHolder ? Axes.Y : Axes.None;
         Alpha = 1;
+        ApplyScrollDirection(CurrentDirection);
         ResetKindState();
     }
 
@@ -134,8 +166,8 @@ public abstract partial class DrawableO2LazerHitObject<TCol> : DrawableO2LazerHi
 
         NoteContainer = new Container
         {
-            Anchor = LayoutVariant == O2LazerLayoutVariant.O2Jam7K ? Anchor.BottomLeft : Anchor.TopLeft,
-            Origin = LayoutVariant == O2LazerLayoutVariant.O2Jam7K ? Anchor.BottomLeft : Anchor.TopLeft,
+            Anchor = noteAnchor(),
+            Origin = noteAnchor(),
             RelativeSizeAxes = Axes.X,
             AutoSizeAxes = LayoutVariant == O2LazerLayoutVariant.O2Jam7K ? Axes.Y : Axes.None,
         };
@@ -148,14 +180,31 @@ public abstract partial class DrawableO2LazerHitObject<TCol> : DrawableO2LazerHi
                 : Empty())
         {
             AutoSizeHeight = LayoutVariant == O2LazerLayoutVariant.O2Jam7K,
-            Anchor = LayoutVariant == O2LazerLayoutVariant.O2Jam7K ? Anchor.BottomLeft : Anchor.TopLeft,
-            Origin = LayoutVariant == O2LazerLayoutVariant.O2Jam7K ? Anchor.BottomLeft : Anchor.TopLeft,
-            ComponentAnchor = Anchor.BottomCentre,
+            Anchor = noteAnchor(),
+            Origin = noteAnchor(),
+            ComponentAnchor = CurrentDirection == ScrollingDirection.Up ? Anchor.TopCentre : Anchor.BottomCentre,
         };
 
         NoteContainer.Add(cachedSkinnableDrawable);
         AddNoteContainer(NoteContainer);
     }
+
+    protected override void ApplyScrollDirection(ScrollingDirection newDirection)
+    {
+        base.ApplyScrollDirection(newDirection);
+
+        if (NoteContainer == null)
+            return;
+
+        NoteContainer.Anchor = NoteContainer.Origin = noteAnchor();
+        if (cachedSkinnableDrawable != null)
+        {
+            cachedSkinnableDrawable.Anchor = cachedSkinnableDrawable.Origin = noteAnchor();
+            cachedSkinnableDrawable.SetComponentAnchor(newDirection == ScrollingDirection.Up ? Anchor.TopCentre : Anchor.BottomCentre);
+        }
+    }
+
+    private Anchor noteAnchor() => CurrentDirection == ScrollingDirection.Up ? Anchor.TopLeft : Anchor.BottomLeft;
 
     protected float NoteVisualHeight => cachedSkinnableDrawable?.Drawable.DrawHeight ?? 0;
 }

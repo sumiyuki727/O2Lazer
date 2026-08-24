@@ -1,78 +1,56 @@
+using System;
 using System.Globalization;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Threading;
-using osu.Game.Configuration;
-using osu.Game.Rulesets.O2Lazer.Localisation;
 using osu.Game.Rulesets.O2Lazer.Skinning.Configuration;
 using osu.Game.Rulesets.Scoring;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
 using osuTK;
 using osuTK.Graphics;
 
 namespace osu.Game.Rulesets.O2Lazer.UI.HudComponents;
 
-public sealed partial class O2LazerComboCounter : O2LazerHudComponent
+public partial class O2LazerComboCounter : O2LazerHudComponent
 {
-
-    [SettingSource(typeof(O2LazerStrings), nameof(O2LazerStrings.AutoHideDelay), nameof(O2LazerStrings.AutoHideDelayDescription))]
-    public BindableFloat AutoHideDelay { get; } = new(3f)
-    {
-        MinValue = -1f,
-        MaxValue = 100f,
-        Precision = 1f,
-    };
-
-    [SettingSource(typeof(O2LazerStrings), nameof(O2LazerStrings.MinVisibleCombo), nameof(O2LazerStrings.MinVisibleComboDescription))]
-    public Bindable<int> MinVisibleCombo { get; } = new BindableInt(10)
-    {
-        MinValue = 0,
-        MaxValue = 100,
-    };
-
     public Bindable<int> Current { get; } = new BindableInt { MinValue = 0 };
 
-    public int DisplayedCount
+    /// <summary>
+    /// Value shown at the current moment.
+    /// </summary>
+    public virtual int DisplayedCount
     {
-        get;
+        get => displayedCount;
         private set
         {
-            if (field.Equals(value))
+            if (displayedCount.Equals(value))
                 return;
 
+            displayedCountText.FadeTo(value == 0 ? 0 : 1);
             displayedCountText.Text = value.ToString(CultureInfo.InvariantCulture);
             counterContainer.Size = displayedCountText.Size;
-            field = value;
+
+            displayedCount = value;
         }
     }
+
+    private int displayedCount;
+
+    private int previousValue;
 
     private const double fade_out_duration = 100;
     private const double rolling_duration = 20;
 
-    private int previousValue;
+    [Resolved]
+    private IScrollingInfo scrollingInfo { get; set; } = null!;
 
-    private bool autoHidden;
-    private ScheduledDelegate? autoHideTask;
+    private IBindable<ScrollingDirection> direction = null!;
 
     private Container counterContainer = null!;
     private LegacySpriteText popOutCountText = null!;
     private LegacySpriteText displayedCountText = null!;
-
-    private Color4 breakColour = Color4.Red;
-
-    protected override void LoadComplete()
-    {
-        base.LoadComplete();
-
-        displayedCountText.Text = Current.Value.ToString(CultureInfo.InvariantCulture);
-        popOutCountText.Text = Current.Value.ToString(CultureInfo.InvariantCulture);
-
-        Current.BindValueChanged(combo => updateCount(combo.NewValue == 0), true);
-
-        counterContainer.Size = displayedCountText.Size;
-    }
 
     [BackgroundDependencyLoader]
     private void load(ISkinSource skin, ScoreProcessor scoreProcessor)
@@ -82,13 +60,8 @@ public sealed partial class O2LazerComboCounter : O2LazerHudComponent
 
         Y = skin.GetConfig<O2LazerSkinConfigurationLookup, float>(
             new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.ComboPosition)
-        )?.Value ?? 300;
+        )?.Value ?? 0;
 
-        breakColour = skin.GetConfig<O2LazerSkinConfigurationLookup, Color4>(
-            new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.ComboBreakColour)
-        )?.Value ?? Color4.Red;
-
-        AlwaysPresent = true;
         AutoSizeAxes = Axes.Both;
 
         InternalChildren =
@@ -105,6 +78,9 @@ public sealed partial class O2LazerComboCounter : O2LazerHudComponent
                         BypassAutoSizeAxes = Axes.Both,
                         Anchor = Anchor.Centre,
                         Origin = Anchor.Centre,
+                        Colour = skin.GetConfig<O2LazerSkinConfigurationLookup, Color4>(
+                            new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.ComboBreakColour)
+                        )?.Value ?? Color4.Red,
                     },
                     displayedCountText = new LegacySpriteText(LegacyFont.Combo)
                     {
@@ -119,6 +95,32 @@ public sealed partial class O2LazerComboCounter : O2LazerHudComponent
         ];
 
         Current.BindTo(scoreProcessor.Combo);
+    }
+
+    protected override void LoadComplete()
+    {
+        base.LoadComplete();
+
+        displayedCountText.Text = popOutCountText.Text = Current.Value.ToString(CultureInfo.InvariantCulture);
+
+        Current.BindValueChanged(combo => updateCount(combo.NewValue == 0), true);
+
+        counterContainer.Size = displayedCountText.Size;
+
+        direction = scrollingInfo.Direction.GetBoundCopy();
+        direction.BindValueChanged(_ => updateAnchor());
+
+        Schedule(() => Schedule(updateAnchor));
+    }
+
+    private void updateAnchor()
+    {
+        if (Anchor.HasFlag(Anchor.y1))
+            return;
+
+        Anchor &= ~(Anchor.y0 | Anchor.y2);
+        Anchor |= direction.Value == ScrollingDirection.Up ? Anchor.y2 : Anchor.y0;
+        Y = Math.Abs(Y) * (direction.Value == ScrollingDirection.Up ? -1 : 1);
     }
 
     private void updateCount(bool rolling)
@@ -140,49 +142,6 @@ public sealed partial class O2LazerComboCounter : O2LazerHudComponent
         }
         else
             onCountRolling();
-
-        scheduleAutoHide();
-    }
-
-    private void scheduleAutoHide()
-    {
-        autoHideTask?.Cancel();
-
-        // Don't interfere with combo-break animation.
-        if (Current.Value == 0)
-            return;
-
-        // AutoHideDelay = -1 means never auto-hide.
-        if (AutoHideDelay.Value < 0)
-            return;
-
-        var threshold = MinVisibleCombo.Value;
-
-        if (Current.Value < threshold)
-        {
-            if (!autoHidden)
-            {
-                autoHidden = true;
-                this.FadeOut(200);
-            }
-        }
-        else
-        {
-            if (autoHidden)
-            {
-                autoHidden = false;
-                this.FadeIn(200);
-            }
-
-            autoHideTask = Scheduler.AddDelayed(() =>
-            {
-                if (Current.Value == 0)
-                    return;
-
-                autoHidden = true;
-                this.FadeOut(200);
-            }, AutoHideDelay.Value * 1000);
-        }
     }
 
     private void onCountIncrement()
@@ -191,10 +150,8 @@ public sealed partial class O2LazerComboCounter : O2LazerHudComponent
 
         DisplayedCount = Current.Value;
         displayedCountText.ScaleTo(new Vector2(1f, 1.4f))
-            .ScaleTo(new Vector2(1f), 300, Easing.Out);
-
-        if (Current.Value >= MinVisibleCombo.Value)
-            displayedCountText.FadeIn(120);
+            .ScaleTo(new Vector2(1f), 300, Easing.Out)
+            .FadeIn(120);
     }
 
     private void onCountChange()
@@ -202,15 +159,9 @@ public sealed partial class O2LazerComboCounter : O2LazerHudComponent
         popOutCountText.Hide();
 
         if (Current.Value == 0)
-        {
             displayedCountText.FadeOut();
-            displayedCountText.FlashColour(breakColour, 2000, Easing.OutQuint);
-        }
 
         DisplayedCount = Current.Value;
-
-        if (Current.Value >= MinVisibleCombo.Value)
-            displayedCountText.FadeIn(120);
 
         displayedCountText.ScaleTo(1f);
     }
@@ -224,11 +175,9 @@ public sealed partial class O2LazerComboCounter : O2LazerHudComponent
                 .ScaleTo(1f).ScaleTo(4f, 200);
 
             displayedCountText.FadeTo(0.5f, 300);
-
-            if (Current.Value == 0)
-                displayedCountText.FlashColour(breakColour, 2000, Easing.OutQuint);
         }
 
+        // Hides displayed count if was increasing from 0 to 1 but didn't finish.
         if (DisplayedCount == 0 && Current.Value == 0)
             displayedCountText.FadeOut(fade_out_duration);
 

@@ -72,6 +72,7 @@ public partial class O2LazerRuleset : Ruleset, IO2LazerStyleUnrankedBadgeRuleset
     {
         O2LazerDifficultyIconPatcher.InstallOnce();
         O2LazerReplayPatcher.InstallOnce();
+        O2LazerReplaySettingsPatcher.InstallOnce();
         O2LazerEditorPatcher.InstallOnce();
         O2LazerSongSelectLampPatcher.InstallOnce();
         O2LazerBeatmapSearchPatcher.InstallOnce();
@@ -90,6 +91,9 @@ public partial class O2LazerRuleset : Ruleset, IO2LazerStyleUnrankedBadgeRuleset
 
     public override ScoreMultiplierCalculator CreateScoreMultiplierCalculator(ScoreMultiplierContext context) =>
         new O2LazerScoreMultiplierCalculator(context);
+
+    public override PerformanceCalculator? CreatePerformanceCalculator() =>
+        new O2LazerPerformanceCalculator(this);
 
     public override DrawableRuleset CreateDrawableRulesetWith(IBeatmap beatmap, IReadOnlyList<Mod>? mods = null) =>
         new O2LazerDrawableRuleset(this, beatmap, mods);
@@ -180,7 +184,7 @@ public partial class O2LazerRuleset : Ruleset, IO2LazerStyleUnrankedBadgeRuleset
     public override ISkin? CreateSkinTransformer(ISkin skin, IBeatmap beatmap) => skin switch
     {
         LegacyBeatmapSkin => new O2LazerIgnoredBeatmapSkinTransformer(skin),
-        ArgonSkin or ArgonProSkin or TrianglesSkin or DefaultLegacySkin or RetroSkin => new O2LazerBuiltInSkinTransformer(skin, beatmap),
+        ArgonSkin or ArgonProSkin or TrianglesSkin => new O2LazerBuiltInSkinTransformer(skin, beatmap),
         Skin => new O2LazerLegacySkinTransformer(skin, beatmap),
         _ => null,
     };

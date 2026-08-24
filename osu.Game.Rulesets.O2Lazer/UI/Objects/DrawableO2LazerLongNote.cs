@@ -15,6 +15,7 @@ using osu.Game.Rulesets.O2Lazer.UI.Objects.LnHelper;
 using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.Scoring;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Screens.Play;
 using osuTK;
 using osuTK.Graphics;
@@ -56,6 +57,9 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
     private O2JamManiaHoldNoteVisual o2jamVisual = null!;
 
     private bool isO2Jam => LayoutVariant == O2LazerLayoutVariant.O2Jam7K;
+
+    [Resolved]
+    private IScrollingInfo scrollingInfo { get; set; } = null!;
 
     [Resolved(CanBeNull = true)]
     private IO2LazerLnScoring? scoring { get; set; }
@@ -102,8 +106,9 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
 
             var o2jamMyY = Y;
             var o2jamHeadOffset = headY - o2jamMyY;
-            var fullHeight = Math.Max(0, rawHeadY - endY);
-            var consumedHeight = Math.Max(0, -o2jamHeadOffset);
+            var isUp = scrollingInfo.Direction.Value == ScrollingDirection.Up;
+            var fullHeight = Math.Max(0, isUp ? endY - rawHeadY : rawHeadY - endY);
+            var consumedHeight = Math.Max(0, isUp ? o2jamHeadOffset : -o2jamHeadOffset);
             var headHeight = NoteVisualHeight;
             var o2jamReleasedFast =
                 controller.LongNoteStarted && HitObject != null && Time.Current < ln.EndTime && !holdingBody;
@@ -263,7 +268,7 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
                 RelativeSizeAxes = Axes.X,
                 Alpha = 0,
                 AutoSizeHeight = LayoutVariant == O2LazerLayoutVariant.O2Jam7K,
-                ComponentAnchor = Anchor.BottomCentre,
+                ComponentAnchor = scrollingInfo.Direction.Value == ScrollingDirection.Up ? Anchor.TopCentre : Anchor.BottomCentre,
             },
         ]);
     }
@@ -277,6 +282,21 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
         }
 
         base.AddNoteContainer(noteContainer);
+    }
+
+    protected override void ApplyScrollDirection(ScrollingDirection newDirection)
+    {
+        base.ApplyScrollDirection(newDirection);
+
+        // A live flip changes the hit line's coordinate sign (negative for down, positive for up).
+        // Rebase any already-pinned head so it keeps sitting on the new line instead of inheriting
+        // the previous direction's stored coordinate.
+        visualState.PrepareHeadPin();
+        visualState.RebaseHeadPin(newDirection == ScrollingDirection.Up ? HitTargetPosition : -HitTargetPosition);
+
+        // The non-O2Jam tail is parented directly to the drawable, so unlike the O2Jam visual it
+        // does not receive direction changes through a wrapping hold-note hierarchy.
+        longNoteTail?.SetComponentAnchor(newDirection == ScrollingDirection.Up ? Anchor.TopCentre : Anchor.BottomCentre);
     }
 
     protected override void CheckForResult(bool userTriggered, double timeOffset)

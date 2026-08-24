@@ -61,7 +61,14 @@ public sealed partial class O2LazerManiaLongNoteBody : CompositeDrawable
         };
 
         AddInternal(bodyPiece);
-        fallback.Alpha = 0;
+    }
+
+    protected override void Update()
+    {
+        base.Update();
+
+        if (bodyPiece?.Drawable != null)
+            fallback.Alpha = 0;
     }
 
     public void ResetBody()

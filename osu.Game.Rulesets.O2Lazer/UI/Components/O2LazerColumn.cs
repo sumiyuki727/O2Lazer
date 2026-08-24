@@ -249,10 +249,14 @@ public partial class O2LazerColumn : Playfield, IO2LazerColumn
     /// own NewResult), LN head/tail endpoints, and the repeating hit light fired throughout an
     /// LN hold. Moved here from O2LazerPlayfield so the column owns its lane's hit-light visuals.
     /// </summary>
-    public void TriggerHitExplosion(bool isLongNote)
+    public void TriggerHitExplosion(bool isLongNote, JudgementResult? result = null)
     {
         var pool = isLongNote ? longNoteHitExplosionPool : normalHitExplosionPool;
-        HitExplosionArea.Add(pool.Get(explosion => explosion.ApplyPositionOffset(ParentPlayfield.Stage.HitTargetPositionOffset)));
+        HitExplosionArea.Add(pool.Get(explosion =>
+        {
+            explosion.Apply(result);
+            explosion.ApplyPositionOffset(ParentPlayfield.Stage.HitTargetPositionOffset);
+        }));
     }
 
     private sealed partial class O2LazerHitExplosionPool(O2LazerSkinComponentLookup lookup, int initialSize)
@@ -275,7 +279,7 @@ public partial class O2LazerColumn : Playfield, IO2LazerColumn
         // O2LAZER POOR is represented by framework Meh, which IsHit() considers successful even though
         // it must not produce the hit feedback reserved for BAD and better judgements.
         if (ShouldTriggerHitExplosion(result.Type))
-            TriggerHitExplosion(o2lazerHitObject.HitObject is O2LazerLongNote);
+            TriggerHitExplosion(o2lazerHitObject.HitObject is O2LazerLongNote, result);
     }
 
     internal static bool ShouldTriggerHitExplosion(HitResult result) => result != HitResult.Meh && result.IsHit();

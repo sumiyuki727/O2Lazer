@@ -1,11 +1,13 @@
 using System;
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Animations;
 using osu.Framework.Graphics.Containers;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
 using osu.Game.Rulesets.O2Lazer.Skinning.Legacy;
 using osu.Game.Rulesets.O2Lazer.UI.Components;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
 using osuTK;
 using osuTK.Graphics;
@@ -28,6 +30,7 @@ internal sealed partial class LegacyO2LazerHitExplosion : CompositeDrawable
     private readonly float hitPosition;
 
     private Drawable? hitExplosion;
+    private IBindable<ScrollingDirection> direction = null!;
 
     public LegacyO2LazerHitExplosion(O2LazerLegacySkinTransformer transformer, O2LazerSkinComponentLookup lookup)
     {
@@ -47,7 +50,7 @@ internal sealed partial class LegacyO2LazerHitExplosion : CompositeDrawable
     }
 
     [BackgroundDependencyLoader]
-    private void load(ISkinSource skin)
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
     {
         if (hitExplosion == null)
         {
@@ -55,6 +58,18 @@ internal sealed partial class LegacyO2LazerHitExplosion : CompositeDrawable
             if (hitExplosion == null)
                 InternalChild = Empty();
         }
+
+        direction = scrollingInfo.Direction.GetBoundCopy();
+        direction.BindValueChanged(_ => updatePosition(), true);
+    }
+
+    private void updatePosition()
+    {
+        if (hitExplosion == null)
+            return;
+
+        hitExplosion.Anchor = direction.Value == ScrollingDirection.Up ? Anchor.TopCentre : Anchor.BottomCentre;
+        hitExplosion.Y = direction.Value == ScrollingDirection.Up ? hitPosition : -hitPosition;
     }
 
     private void setAnimation(Func<double, Drawable?> getAnimation)

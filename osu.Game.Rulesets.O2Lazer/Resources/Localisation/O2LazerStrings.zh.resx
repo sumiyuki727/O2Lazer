@@ -28,6 +28,8 @@
   <data name="unlock_frame_rate_limit" xml:space="preserve"><value>解除帧率上限</value></data>
   <data name="unlock_frame_rate_limit_hint" xml:space="preserve"><value>在 O2Jam 游玩期间解除 osu! 的 1000 Hz 帧率与输入轮询上限。更大的 GC 和 GPU 压力可能造成额外卡顿，遇到时请关闭此选项。</value></data>
   <data name="fixed_scroll_speed" xml:space="preserve"><value>固定流速</value></data>
+  <data name="percy_long_note_body_repeat" xml:space="preserve"><value>投皮修复</value></data>
+  <data name="percy_long_note_body_repeat_description" xml:space="preserve"><value>当长条超过 body 素材的设计跨度时，只重复素材下半部分来延伸，让投皮尾部的淡出只绘制一次。</value></data>
   <data name="scroll_speed_tooltip_with_o2jam_grade" xml:space="preserve"><value>{0} · O2Jam {1}</value></data>
   <data name="import_path" xml:space="preserve"><value>导入路径</value></data>
   <data name="import_path_hint" xml:space="preserve"><value>上次导入 O2Jam 谱面使用的文件夹。点击可更换路径；所选文件夹中的谱面会自动读入谱面库。</value></data>
@@ -118,10 +120,6 @@
   <data name="light_position_offset_description" xml:space="preserve"><value>相对于皮肤位置移动列灯光。正值会将其向上移动。</value></data>
   <data name="scale_stage_width_by_columns" xml:space="preserve"><value>按列缩放游玩区域宽度</value></data>
   <data name="scale_stage_width_by_columns_description" xml:space="preserve"><value>将配置宽度相对于原始游玩区域宽度的比例应用到每列，使列数更多的布局使用更宽的游玩区域。</value></data>
-  <data name="auto_hide_delay" xml:space="preserve"><value>自动隐藏延迟</value></data>
-  <data name="auto_hide_delay_description" xml:space="preserve"><value>连击数停止增长后经过多少秒隐藏计数器。设为 -1 则永不自动隐藏。</value></data>
-  <data name="min_visible_combo" xml:space="preserve"><value>最低可见连击数</value></data>
-  <data name="min_visible_combo_description" xml:space="preserve"><value>显示计数器所需的最低连击数。</value></data>
   <data name="score_graph_current" xml:space="preserve"><value>当前成绩</value></data>
   <data name="score_graph_personal_best" xml:space="preserve"><value>个人最好</value></data>
   <data name="score_graph_personal_best_short" xml:space="preserve"><value>最好</value></data>

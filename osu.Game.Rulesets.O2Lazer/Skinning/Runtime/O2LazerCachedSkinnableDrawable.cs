@@ -9,7 +9,7 @@ namespace osu.Game.Rulesets.O2Lazer.Skinning.Runtime;
 
 internal partial class O2LazerCachedSkinnableDrawable : SkinReloadableDrawable
 {
-    public Anchor? ComponentAnchor { get; init; } = Anchor.Centre;
+    public Anchor? ComponentAnchor { get; set; } = Anchor.Centre;
 
     public bool AutoSizeHeight
     {
@@ -40,6 +40,17 @@ internal partial class O2LazerCachedSkinnableDrawable : SkinReloadableDrawable
     }
 
     public void ResetAnimation() => (Drawable as IFramedAnimation)?.GotoFrame(0);
+
+    internal void SetComponentAnchor(Anchor? anchor)
+    {
+        ComponentAnchor = anchor;
+
+        if (Drawable != null && ComponentAnchor.HasValue)
+        {
+            Drawable.Origin = ComponentAnchor.Value;
+            Drawable.Anchor = ComponentAnchor.Value;
+        }
+    }
 
     protected override void SkinChanged(ISkinSource skin)
     {

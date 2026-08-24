@@ -90,26 +90,6 @@ public static class O2LazerStrings
 
     public static LocalisableString ScaleStageWidthByColumnsDescription => get("scale_stage_width_by_columns_description");
 
-
-
-
-
-
-
-
-
-
-
-
-
-    public static LocalisableString AutoHideDelay => get("auto_hide_delay");
-
-    public static LocalisableString AutoHideDelayDescription => get("auto_hide_delay_description");
-
-    public static LocalisableString MinVisibleCombo => get("min_visible_combo");
-
-    public static LocalisableString MinVisibleComboDescription => get("min_visible_combo_description");
-
     public static LocalisableString ScoreGraphCurrent => get("score_graph_current");
 
     public static LocalisableString ScoreGraphPersonalBest => get("score_graph_personal_best");
@@ -190,6 +170,9 @@ public static class O2LazerStrings
 
     public static LocalisableString FixedScrollSpeed => get("fixed_scroll_speed");
 
+    public static LocalisableString PercyLongNoteBodyRepeat => get("percy_long_note_body_repeat");
+
+    public static LocalisableString PercyLongNoteBodyRepeatDescription => get("percy_long_note_body_repeat_description");
 
     public static LocalisableString ScrollSpeedTooltipWithO2JamGrade(LocalisableString tooltip, string grade) =>
         get("scroll_speed_tooltip_with_o2jam_grade", tooltip, grade);

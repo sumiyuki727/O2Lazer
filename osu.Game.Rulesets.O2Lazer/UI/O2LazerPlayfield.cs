@@ -23,6 +23,7 @@ using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Rulesets.UI;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
 using osuTK;
 
@@ -170,6 +171,9 @@ public sealed partial class O2LazerPlayfield : Playfield, IKeyBindingHandler<O2L
     [Resolved]
     private IO2LazerGameplayEvents gameplayEvents { get; set; } = null!;
 
+    [Resolved(CanBeNull = true)]
+    private IScrollingInfo? scrollingInfo { get; set; }
+
     #endregion
 
     #region Input
@@ -254,6 +258,17 @@ public sealed partial class O2LazerPlayfield : Playfield, IKeyBindingHandler<O2L
 
         parentSkin.SourceChanged += updateEmbeddedSkinFallback;
         updateEmbeddedSkinFallback();
+
+        if (scrollingInfo != null)
+        {
+            ScrollController.Direction = scrollingInfo.Direction.Value;
+            Stage.OnScrollDirectionChanged();
+            scrollingInfo.Direction.BindValueChanged(direction =>
+            {
+                ScrollController.Direction = direction.NewValue;
+                Stage.OnScrollDirectionChanged();
+            }, true);
+        }
     }
 
     protected override HitObjectLifetimeEntry CreateLifetimeEntry(HitObject hitObject) =>

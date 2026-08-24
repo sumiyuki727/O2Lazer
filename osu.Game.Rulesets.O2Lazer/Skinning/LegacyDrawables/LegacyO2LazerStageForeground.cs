@@ -1,7 +1,9 @@
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Game.Rulesets.O2Lazer.Skinning.Legacy;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
 using osuTK;
 
@@ -17,6 +19,8 @@ namespace osu.Game.Rulesets.O2Lazer.Skinning.LegacyDrawables;
 internal sealed partial class LegacyO2LazerStageForeground : CompositeDrawable
 {
     private readonly string imageName;
+    private Drawable? sprite;
+    private IBindable<ScrollingDirection> direction = null!;
 
     public LegacyO2LazerStageForeground(O2LazerLegacySkinTransformer transformer)
     {
@@ -25,13 +29,26 @@ internal sealed partial class LegacyO2LazerStageForeground : CompositeDrawable
     }
 
     [BackgroundDependencyLoader]
-    private void load(ISkinSource skin)
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
     {
-        InternalChild = skin.GetAnimation(imageName, true, true)?.With(d =>
+        sprite = skin.GetAnimation(imageName, true, true)?.With(d =>
         {
             d.Anchor = Anchor.BottomCentre;
             d.Origin = Anchor.BottomCentre;
             d.Scale = new Vector2(1.6f);
-        }) ?? Empty();
+        });
+
+        InternalChild = sprite ?? Empty();
+
+        direction = scrollingInfo.Direction.GetBoundCopy();
+        direction.BindValueChanged(change =>
+        {
+            if (sprite == null)
+                return;
+
+            sprite.Anchor = sprite.Origin = change.NewValue == ScrollingDirection.Up
+                ? Anchor.TopCentre
+                : Anchor.BottomCentre;
+        }, true);
     }
 }

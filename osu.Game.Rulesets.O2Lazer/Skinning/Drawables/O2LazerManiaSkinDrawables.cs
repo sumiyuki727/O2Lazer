@@ -11,11 +11,15 @@ using osu.Framework.Graphics.Sprites;
 using osu.Framework.Layout;
 using osu.Framework.Input.Bindings;
 using osu.Framework.Input.Events;
+using osu.Framework.Utils;
 using osu.Game.Rulesets.O2Lazer.Configuration;
 using osu.Game.Rulesets.O2Lazer.IO.Input;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
 using osu.Game.Rulesets.O2Lazer.Skinning.Configuration;
+using osu.Game.Rulesets.O2Lazer.UI.Components;
+using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.Objects.Drawables;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
 using osuTK;
 using osuTK.Graphics;
@@ -70,8 +74,13 @@ internal partial class O2LazerManiaDefaultNotePiece : CompositeDrawable
     }
 
     [BackgroundDependencyLoader(true)]
-    private void load(DrawableHitObject? drawableObject)
+    private void load(IScrollingInfo scrollingInfo, DrawableHitObject? drawableObject)
     {
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            colouredBox.Anchor = colouredBox.Origin = direction.NewValue == ScrollingDirection.Up ? Anchor.TopCentre : Anchor.BottomCentre;
+        }, true);
+
         if (drawableObject == null)
             return;
 
@@ -289,8 +298,14 @@ internal partial class O2LazerManiaArgonNotePiece : CompositeDrawable
     };
 
     [BackgroundDependencyLoader(true)]
-    private void load(DrawableHitObject? drawableObject)
+    private void load(IScrollingInfo scrollingInfo, DrawableHitObject? drawableObject)
     {
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            colouredBox.Anchor = colouredBox.Origin = direction.NewValue == ScrollingDirection.Up ? Anchor.TopCentre : Anchor.BottomCentre;
+            Scale = new Vector2(1, direction.NewValue == ScrollingDirection.Up ? -1 : 1);
+        }, true);
+
         if (drawableObject == null)
             return;
 
@@ -361,8 +376,13 @@ internal partial class O2LazerManiaArgonHoldTailPiece : CompositeDrawable, IO2La
     }
 
     [BackgroundDependencyLoader(true)]
-    private void load(DrawableHitObject? drawableObject)
+    private void load(IScrollingInfo scrollingInfo, DrawableHitObject? drawableObject)
     {
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            Scale = new Vector2(1, direction.NewValue == ScrollingDirection.Up ? -1 : 1);
+        }, true);
+
         if (drawableObject == null)
             return;
 
@@ -481,6 +501,17 @@ internal partial class O2LazerManiaDefaultStageBackground : CompositeDrawable
     {
         RelativeSizeAxes = Axes.Both;
     }
+
+    [BackgroundDependencyLoader]
+    private void load()
+    {
+        InternalChild = new Box
+        {
+            Name = "Background",
+            RelativeSizeAxes = Axes.Both,
+            Colour = Color4.Black,
+        };
+    }
 }
 
 internal partial class O2LazerManiaArgonColumnBackground : CompositeDrawable, IKeyBindingHandler<O2LazerAction>
@@ -500,7 +531,7 @@ internal partial class O2LazerManiaArgonColumnBackground : CompositeDrawable, IK
     }
 
     [BackgroundDependencyLoader]
-    private void load(ISkinSource skin)
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
     {
         InternalChildren =
         [
@@ -525,8 +556,20 @@ internal partial class O2LazerManiaArgonColumnBackground : CompositeDrawable, IK
         background.Colour = accent.Darken(3).Opacity(0.8f);
         brightColour = accent.Opacity(0.6f);
         dimColour = accent.Opacity(0);
-        backgroundOverlay.Colour = ColourInfo.GradientVertical(dimColour, brightColour);
-        backgroundOverlay.Anchor = backgroundOverlay.Origin = Anchor.BottomLeft;
+
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            if (direction.NewValue == ScrollingDirection.Up)
+            {
+                backgroundOverlay.Anchor = backgroundOverlay.Origin = Anchor.TopLeft;
+                backgroundOverlay.Colour = ColourInfo.GradientVertical(brightColour, dimColour);
+            }
+            else
+            {
+                backgroundOverlay.Anchor = backgroundOverlay.Origin = Anchor.BottomLeft;
+                backgroundOverlay.Colour = ColourInfo.GradientVertical(dimColour, brightColour);
+            }
+        }, true);
     }
 
     public bool OnPressed(KeyBindingPressEvent<O2LazerAction> e)
@@ -560,7 +603,7 @@ internal partial class O2LazerManiaDefaultColumnBackground : CompositeDrawable, 
     }
 
     [BackgroundDependencyLoader]
-    private void load(ISkinSource skin)
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
     {
         InternalChildren =
         [
@@ -585,8 +628,20 @@ internal partial class O2LazerManiaDefaultColumnBackground : CompositeDrawable, 
         background.Colour = accent.Darken(5);
         brightColour = accent.Opacity(0.6f);
         dimColour = accent.Opacity(0);
-        backgroundOverlay.Colour = ColourInfo.GradientVertical(dimColour, brightColour);
-        backgroundOverlay.Anchor = backgroundOverlay.Origin = Anchor.BottomLeft;
+
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            if (direction.NewValue == ScrollingDirection.Up)
+            {
+                backgroundOverlay.Anchor = backgroundOverlay.Origin = Anchor.TopLeft;
+                backgroundOverlay.Colour = ColourInfo.GradientVertical(brightColour, dimColour);
+            }
+            else
+            {
+                backgroundOverlay.Anchor = backgroundOverlay.Origin = Anchor.BottomLeft;
+                backgroundOverlay.Colour = ColourInfo.GradientVertical(dimColour, brightColour);
+            }
+        }, true);
     }
 
     public bool OnPressed(KeyBindingPressEvent<O2LazerAction> e)
@@ -608,6 +663,8 @@ internal partial class O2LazerManiaDefaultColumnBackground : CompositeDrawable, 
 internal partial class O2LazerManiaArgonKeyArea : CompositeDrawable, IKeyBindingHandler<O2LazerAction>
 {
     private readonly O2LazerSkinComponentLookup lookup;
+    private Container directionContainer = null!;
+    private Color4 accentColour;
     private Drawable background = null!;
     private Drawable hitTargetLine = null!;
     private Container<Circle> bottomIcon = null!;
@@ -620,13 +677,13 @@ internal partial class O2LazerManiaArgonKeyArea : CompositeDrawable, IKeyBinding
     }
 
     [BackgroundDependencyLoader]
-    private void load(ISkinSource skin)
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
     {
         const float icon_circle_size = 8;
         const float icon_spacing = 7;
         const float icon_vertical_offset = -30;
 
-        InternalChild = new Container
+        InternalChild = directionContainer = new Container
         {
             RelativeSizeAxes = Axes.X,
             Height = 110 + O2LazerManiaArgonNotePiece.CORNER_RADIUS * 2,
@@ -652,6 +709,8 @@ internal partial class O2LazerManiaArgonKeyArea : CompositeDrawable, IKeyBinding
                     Origin = Anchor.TopCentre,
                     Colour = Color4.Gray,
                     Height = O2LazerManiaArgonNotePiece.CORNER_RADIUS * 2,
+                    Masking = true,
+                    EdgeEffect = new EdgeEffectParameters { Type = EdgeEffectType.Glow },
                 },
                 bottomIcon = new Container<Circle>
                 {
@@ -662,9 +721,31 @@ internal partial class O2LazerManiaArgonKeyArea : CompositeDrawable, IKeyBinding
                     Y = icon_vertical_offset,
                     Children =
                     [
-                        new Circle { Size = new Vector2(icon_circle_size) },
-                        new Circle { X = -icon_spacing, Y = icon_spacing * 1.2f, Size = new Vector2(icon_circle_size) },
-                        new Circle { X = icon_spacing, Y = icon_spacing * 1.2f, Size = new Vector2(icon_circle_size) },
+                        new Circle
+                        {
+                            Size = new Vector2(icon_circle_size),
+                            Anchor = Anchor.BottomCentre,
+                            Origin = Anchor.Centre,
+                            EdgeEffect = new EdgeEffectParameters { Type = EdgeEffectType.Glow },
+                        },
+                        new Circle
+                        {
+                            X = -icon_spacing,
+                            Y = icon_spacing * 1.2f,
+                            Size = new Vector2(icon_circle_size),
+                            Anchor = Anchor.BottomCentre,
+                            Origin = Anchor.Centre,
+                            EdgeEffect = new EdgeEffectParameters { Type = EdgeEffectType.Glow },
+                        },
+                        new Circle
+                        {
+                            X = icon_spacing,
+                            Y = icon_spacing * 1.2f,
+                            Size = new Vector2(icon_circle_size),
+                            Anchor = Anchor.BottomCentre,
+                            Origin = Anchor.Centre,
+                            EdgeEffect = new EdgeEffectParameters { Type = EdgeEffectType.Glow },
+                        },
                     ],
                 },
                 topIcon = new CircularContainer
@@ -676,17 +757,34 @@ internal partial class O2LazerManiaArgonKeyArea : CompositeDrawable, IKeyBinding
                     Masking = true,
                     BorderThickness = 4,
                     BorderColour = Color4.White,
+                    EdgeEffect = new EdgeEffectParameters { Type = EdgeEffectType.Glow },
                     Child = new Box { RelativeSizeAxes = Axes.Both, Alpha = 0, AlwaysPresent = true },
                 },
             ],
         };
 
-        var accent = skin.GetConfig<O2LazerSkinConfigurationLookup, Color4>(
+        accentColour = skin.GetConfig<O2LazerSkinConfigurationLookup, Color4>(
             new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.ColumnBackgroundColour, lookup))?.Value
             ?? Color4.Black;
-        background.Colour = accent.Darken(0.2f);
-        bottomIcon.Colour = accent;
-        topIcon.Colour = accent;
+        background.Colour = accentColour.Darken(0.2f);
+        bottomIcon.Colour = accentColour;
+        topIcon.Colour = accentColour;
+
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            if (direction.NewValue == ScrollingDirection.Up)
+            {
+                directionContainer.Scale = new Vector2(1, -1);
+                directionContainer.Anchor = Anchor.TopLeft;
+                directionContainer.Origin = Anchor.BottomLeft;
+            }
+            else
+            {
+                directionContainer.Scale = Vector2.One;
+                directionContainer.Anchor = Anchor.BottomLeft;
+                directionContainer.Origin = Anchor.BottomLeft;
+            }
+        }, true);
     }
 
     public bool OnPressed(KeyBindingPressEvent<O2LazerAction> e)
@@ -694,10 +792,43 @@ internal partial class O2LazerManiaArgonKeyArea : CompositeDrawable, IKeyBinding
         if (O2LazerKeyBindingConfiguration.ActionToColumn(e.Action, lookup.LayoutVariant) != lookup.ColumnIndex)
             return false;
 
-        background.FadeTo(1, 70, Easing.OutQuint).Then().FadeTo(0.8f, 500);
-        hitTargetLine.FadeColour(Color4.White, 70, Easing.OutQuint);
-        bottomIcon.FadeColour(Color4.White, 70, Easing.OutQuint);
-        topIcon.ScaleTo(0.9f, 70, Easing.OutQuint);
+        const double lighting_fade_in_duration = 70;
+        var lightingColour = getLightingColour();
+
+        background
+            .FlashColour(accentColour.Lighten(0.8f), 200, Easing.OutQuint)
+            .FadeTo(1, lighting_fade_in_duration, Easing.OutQuint)
+            .Then()
+            .FadeTo(0.8f, 500);
+
+        hitTargetLine.FadeColour(Color4.White, lighting_fade_in_duration, Easing.OutQuint);
+        hitTargetLine.TransformTo(nameof(EdgeEffect), new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Colour = lightingColour.Opacity(0.4f),
+            Radius = 20,
+        }, lighting_fade_in_duration, Easing.OutQuint);
+
+        topIcon.ScaleTo(0.9f, lighting_fade_in_duration, Easing.OutQuint);
+        topIcon.TransformTo(nameof(EdgeEffect), new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Colour = lightingColour.Opacity(0.1f),
+            Radius = 20,
+        }, lighting_fade_in_duration, Easing.OutQuint);
+
+        bottomIcon.FadeColour(Color4.White, lighting_fade_in_duration, Easing.OutQuint);
+
+        foreach (var circle in bottomIcon)
+        {
+            circle.TransformTo(nameof(EdgeEffect), new EdgeEffectParameters
+            {
+                Type = EdgeEffectType.Glow,
+                Colour = lightingColour.Opacity(0.2f),
+                Radius = 60,
+            }, lighting_fade_in_duration, Easing.OutQuint);
+        }
+
         return false;
     }
 
@@ -706,16 +837,47 @@ internal partial class O2LazerManiaArgonKeyArea : CompositeDrawable, IKeyBinding
         if (O2LazerKeyBindingConfiguration.ActionToColumn(e.Action, lookup.LayoutVariant) != lookup.ColumnIndex)
             return;
 
+        const double lighting_fade_out_duration = 800;
+        var lightingColour = getLightingColour().Opacity(0);
+
         background.FadeTo(0.3f, 50, Easing.OutQuint).Then().FadeOut(800, Easing.OutQuint);
         hitTargetLine.FadeColour(Color4.Gray, 800, Easing.OutQuint);
-        bottomIcon.FadeColour(background.Colour, 800, Easing.OutQuint);
+        bottomIcon.FadeColour(accentColour, 800, Easing.OutQuint);
         topIcon.ScaleTo(1, 200, Easing.OutQuint);
+
+        hitTargetLine.TransformTo(nameof(EdgeEffect), new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Colour = lightingColour,
+            Radius = 25,
+        }, lighting_fade_out_duration, Easing.OutQuint);
+
+        topIcon.TransformTo(nameof(EdgeEffect), new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Colour = lightingColour,
+            Radius = 20,
+        }, lighting_fade_out_duration, Easing.OutQuint);
+
+        foreach (var circle in bottomIcon)
+        {
+            circle.TransformTo(nameof(EdgeEffect), new EdgeEffectParameters
+            {
+                Type = EdgeEffectType.Glow,
+                Colour = lightingColour,
+                Radius = 30,
+            }, lighting_fade_out_duration, Easing.OutQuint);
+        }
     }
+
+    private Color4 getLightingColour() => Interpolation.ValueAt(0.2f, accentColour, Color4.White, 0, 1);
 }
 
 internal partial class O2LazerManiaDefaultKeyArea : CompositeDrawable, IKeyBindingHandler<O2LazerAction>
 {
     private readonly O2LazerSkinComponentLookup lookup;
+    private Container directionContainer = null!;
+    private Drawable gradient = null!;
     private Container keyIcon = null!;
 
     public O2LazerManiaDefaultKeyArea(O2LazerSkinComponentLookup lookup)
@@ -725,7 +887,7 @@ internal partial class O2LazerManiaDefaultKeyArea : CompositeDrawable, IKeyBindi
     }
 
     [BackgroundDependencyLoader]
-    private void load(ISkinSource skin)
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
     {
         const float key_icon_size = 10;
         const float key_icon_corner_radius = 3;
@@ -734,7 +896,7 @@ internal partial class O2LazerManiaDefaultKeyArea : CompositeDrawable, IKeyBindi
             new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.ColumnBackgroundColour, lookup))?.Value
             ?? Color4.Black;
 
-        InternalChild = new Container
+        InternalChild = directionContainer = new Container
         {
             RelativeSizeAxes = Axes.X,
             Height = 110,
@@ -742,7 +904,7 @@ internal partial class O2LazerManiaDefaultKeyArea : CompositeDrawable, IKeyBindi
             Origin = Anchor.BottomLeft,
             Children =
             [
-                new Box
+                gradient = new Box
                 {
                     Name = "Key gradient",
                     RelativeSizeAxes = Axes.Both,
@@ -769,6 +931,24 @@ internal partial class O2LazerManiaDefaultKeyArea : CompositeDrawable, IKeyBindi
                 },
             ],
         };
+
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            if (direction.NewValue == ScrollingDirection.Up)
+            {
+                keyIcon.Anchor = Anchor.BottomCentre;
+                keyIcon.Y = -20;
+                directionContainer.Anchor = directionContainer.Origin = Anchor.TopLeft;
+                gradient.Colour = ColourInfo.GradientVertical(Color4.Black, Color4.Black.Opacity(0));
+            }
+            else
+            {
+                keyIcon.Anchor = Anchor.TopCentre;
+                keyIcon.Y = 20;
+                directionContainer.Anchor = directionContainer.Origin = Anchor.BottomLeft;
+                gradient.Colour = ColourInfo.GradientVertical(Color4.Black.Opacity(0), Color4.Black);
+            }
+        }, true);
     }
 
     public bool OnPressed(KeyBindingPressEvent<O2LazerAction> e)
@@ -805,33 +985,288 @@ internal partial class O2LazerManiaArgonHitTarget : CompositeDrawable
             Colour = Color4.White,
         };
     }
+
+    [BackgroundDependencyLoader]
+    private void load(IScrollingInfo scrollingInfo)
+    {
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            Anchor = Origin = direction.NewValue == ScrollingDirection.Up ? Anchor.TopLeft : Anchor.BottomLeft;
+        }, true);
+    }
 }
 
 internal partial class O2LazerManiaDefaultHitTarget : CompositeDrawable
 {
-    public O2LazerManiaDefaultHitTarget()
+    private readonly O2LazerSkinComponentLookup lookup;
+    private Box hitTargetBar = null!;
+    private Container hitTargetLine = null!;
+
+    public O2LazerManiaDefaultHitTarget(O2LazerSkinComponentLookup lookup)
     {
+        this.lookup = lookup;
+
         RelativeSizeAxes = Axes.X;
         Height = O2LazerManiaDefaultNotePiece.NOTE_HEIGHT;
         Anchor = Anchor.BottomLeft;
         Origin = Anchor.BottomLeft;
         InternalChildren =
         [
-            new Box
+            hitTargetBar = new Box
             {
                 RelativeSizeAxes = Axes.X,
                 Height = O2LazerManiaDefaultNotePiece.NOTE_HEIGHT,
                 Alpha = 0.6f,
                 Colour = Color4.Black,
             },
-            new Box
+            hitTargetLine = new Container
             {
                 RelativeSizeAxes = Axes.X,
                 Height = 2,
                 Anchor = Anchor.BottomLeft,
                 Origin = Anchor.BottomLeft,
-                Colour = Color4.White,
+                Masking = true,
+                Child = new Box
+                {
+                    RelativeSizeAxes = Axes.Both,
+                    Colour = Color4.White,
+                },
             },
         ];
+    }
+
+    [BackgroundDependencyLoader]
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
+    {
+        var accent = skin.GetConfig<O2LazerSkinConfigurationLookup, Color4>(
+            new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.ColumnBackgroundColour, lookup)
+        )?.Value ?? Color4.Black;
+
+        hitTargetLine.EdgeEffect = new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Radius = 5,
+            Colour = accent.Opacity(0.5f),
+        };
+
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            Anchor = Origin = direction.NewValue == ScrollingDirection.Up ? Anchor.TopLeft : Anchor.BottomLeft;
+            hitTargetBar.Anchor = hitTargetBar.Origin = direction.NewValue == ScrollingDirection.Up ? Anchor.TopLeft : Anchor.BottomLeft;
+            hitTargetLine.Anchor = hitTargetLine.Origin = direction.NewValue == ScrollingDirection.Up ? Anchor.TopLeft : Anchor.BottomLeft;
+        }, true);
+    }
+}
+
+internal partial class O2LazerManiaArgonHitExplosion : CompositeDrawable, IO2LazerHitExplosion
+{
+    public override bool RemoveWhenNotAlive => true;
+
+    private readonly O2LazerSkinComponentLookup lookup;
+    private Container largeFaint = null!;
+
+    public O2LazerManiaArgonHitExplosion(O2LazerSkinComponentLookup lookup)
+    {
+        this.lookup = lookup;
+
+        Origin = Anchor.Centre;
+        Anchor = Anchor.BottomCentre;
+        Y = -O2LazerManiaArgonNotePiece.NOTE_HEIGHT / 2;
+
+        RelativeSizeAxes = Axes.X;
+        Height = O2LazerManiaArgonNotePiece.NOTE_HEIGHT;
+    }
+
+    [BackgroundDependencyLoader]
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
+    {
+        InternalChildren =
+        [
+            largeFaint = new Container
+            {
+                RelativeSizeAxes = Axes.Both,
+                Height = O2LazerManiaArgonNotePiece.NOTE_ACCENT_RATIO,
+                Masking = true,
+                CornerRadius = O2LazerManiaArgonNotePiece.CORNER_RADIUS,
+                Blending = BlendingParameters.Additive,
+                Child = new Box
+                {
+                    Colour = Color4.White,
+                    RelativeSizeAxes = Axes.Both,
+                },
+            },
+        ];
+
+        var accent = skin.GetConfig<O2LazerSkinConfigurationLookup, Color4>(
+            new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.ColumnBackgroundColour, lookup)
+        )?.Value ?? Color4.Black;
+
+        largeFaint.Colour = Interpolation.ValueAt(0.8f, accent, Color4.White, 0, 1);
+        largeFaint.EdgeEffect = new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Colour = accent,
+            Roundness = 40,
+            Radius = 60,
+        };
+
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            if (direction.NewValue == ScrollingDirection.Up)
+            {
+                Anchor = Anchor.TopCentre;
+                largeFaint.Anchor = largeFaint.Origin = Anchor.TopCentre;
+                Y = O2LazerManiaArgonNotePiece.NOTE_HEIGHT / 2;
+            }
+            else
+            {
+                Anchor = Anchor.BottomCentre;
+                largeFaint.Anchor = largeFaint.Origin = Anchor.BottomCentre;
+                Y = -O2LazerManiaArgonNotePiece.NOTE_HEIGHT / 2;
+            }
+        }, true);
+    }
+
+    public void Animate(JudgementResult result) => this.FadeOutFromOne(O2LazerHitExplosion.DURATION, Easing.Out);
+}
+
+internal partial class O2LazerManiaDefaultHitExplosion : CompositeDrawable, IO2LazerHitExplosion
+{
+    private const float default_large_faint_size = 0.8f;
+
+    public override bool RemoveWhenNotAlive => true;
+
+    private readonly O2LazerSkinComponentLookup lookup;
+    private CircularContainer largeFaint = null!;
+    private CircularContainer mainGlow1 = null!;
+    private CircularContainer mainGlow2 = null!;
+    private CircularContainer mainGlow3 = null!;
+
+    public O2LazerManiaDefaultHitExplosion(O2LazerSkinComponentLookup lookup)
+    {
+        this.lookup = lookup;
+
+        Origin = Anchor.Centre;
+        Anchor = Anchor.BottomCentre;
+        Y = -O2LazerManiaDefaultNotePiece.NOTE_HEIGHT / 2;
+
+        RelativeSizeAxes = Axes.X;
+        Height = O2LazerManiaDefaultNotePiece.NOTE_HEIGHT;
+    }
+
+    [BackgroundDependencyLoader]
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
+    {
+        const float angle_variance = 15;
+        const float roundness = 80;
+        const float initial_height = 10;
+
+        InternalChildren =
+        [
+            largeFaint = new CircularContainer
+            {
+                Anchor = Anchor.Centre,
+                Origin = Anchor.Centre,
+                RelativeSizeAxes = Axes.Both,
+                Masking = true,
+                Size = new Vector2(default_large_faint_size),
+                Blending = BlendingParameters.Additive,
+            },
+            mainGlow1 = new CircularContainer
+            {
+                Anchor = Anchor.Centre,
+                Origin = Anchor.Centre,
+                RelativeSizeAxes = Axes.Both,
+                Masking = true,
+                Blending = BlendingParameters.Additive,
+            },
+            mainGlow2 = new CircularContainer
+            {
+                Anchor = Anchor.Centre,
+                Origin = Anchor.Centre,
+                RelativeSizeAxes = Axes.Both,
+                Masking = true,
+                Size = new Vector2(0.01f, initial_height),
+                Blending = BlendingParameters.Additive,
+                Rotation = RNG.NextSingle(-angle_variance, angle_variance),
+            },
+            mainGlow3 = new CircularContainer
+            {
+                Anchor = Anchor.Centre,
+                Origin = Anchor.Centre,
+                RelativeSizeAxes = Axes.Both,
+                Masking = true,
+                Size = new Vector2(0.01f, initial_height),
+                Blending = BlendingParameters.Additive,
+                Rotation = RNG.NextSingle(-angle_variance, angle_variance),
+            },
+        ];
+
+        var accent = skin.GetConfig<O2LazerSkinConfigurationLookup, Color4>(
+            new O2LazerSkinConfigurationLookup(LegacyManiaSkinConfigurationLookups.ColumnBackgroundColour, lookup)
+        )?.Value ?? Color4.Black;
+
+        largeFaint.EdgeEffect = new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Colour = Interpolation.ValueAt(0.1f, accent, Color4.White, 0, 1).Opacity(0.3f),
+            Roundness = 160,
+            Radius = 200,
+        };
+        mainGlow1.EdgeEffect = new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Colour = Interpolation.ValueAt(0.6f, accent, Color4.White, 0, 1),
+            Roundness = 20,
+            Radius = 50,
+        };
+        mainGlow2.EdgeEffect = new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Colour = Interpolation.ValueAt(0.4f, accent, Color4.White, 0, 1),
+            Roundness = roundness,
+            Radius = 40,
+        };
+        mainGlow3.EdgeEffect = new EdgeEffectParameters
+        {
+            Type = EdgeEffectType.Glow,
+            Colour = Interpolation.ValueAt(0.4f, accent, Color4.White, 0, 1),
+            Roundness = roundness,
+            Radius = 40,
+        };
+
+        scrollingInfo.Direction.BindValueChanged(direction =>
+        {
+            if (direction.NewValue == ScrollingDirection.Up)
+            {
+                Anchor = Anchor.TopCentre;
+                Y = O2LazerManiaDefaultNotePiece.NOTE_HEIGHT / 2;
+            }
+            else
+            {
+                Anchor = Anchor.BottomCentre;
+                Y = -O2LazerManiaDefaultNotePiece.NOTE_HEIGHT / 2;
+            }
+        }, true);
+    }
+
+    public void Animate(JudgementResult result)
+    {
+        Vector2 scale = new Vector2(1, 0.6f);
+
+        this.ScaleTo(scale);
+
+        largeFaint
+            .ResizeTo(default_large_faint_size)
+            .Then()
+            .ResizeTo(default_large_faint_size * new Vector2(5, 1), O2LazerHitExplosion.DURATION, Easing.OutQuint)
+            .FadeOut(O2LazerHitExplosion.DURATION * 2);
+
+        mainGlow1
+            .ScaleTo(1)
+            .Then()
+            .ScaleTo(1.4f, O2LazerHitExplosion.DURATION, Easing.OutQuint);
+
+        this.FadeOutFromOne(O2LazerHitExplosion.DURATION, Easing.Out);
     }
 }

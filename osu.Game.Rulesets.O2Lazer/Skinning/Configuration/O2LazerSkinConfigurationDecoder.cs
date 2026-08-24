@@ -174,6 +174,7 @@ public static class O2LazerSkinConfigurationDecoder
     {
         return value switch
         {
+            "O2JAM" or "O2JAM7K" or "207" => O2LazerLayoutVariant.O2Jam7K,
             "5K" or "MANIA5K" => O2LazerLayoutVariant.Mania5K,
             "7K" or "BME7K" => O2LazerLayoutVariant.Mania7K,
             "9K" or "PMS9K" => O2LazerLayoutVariant.Mania9K,

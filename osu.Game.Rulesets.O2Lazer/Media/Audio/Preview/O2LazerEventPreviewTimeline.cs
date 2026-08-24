@@ -15,11 +15,6 @@ internal sealed record O2LazerEventPreviewTimeline(
 {
     internal const double DEFAULT_LENGTH = 30000;
 
-    internal static O2LazerEventPreviewTimeline CreateSingleFile(string samplePath) => new(
-        [new O2LazerPreviewTimelineEntry(0, 0, samplePath, 100, true)],
-        DEFAULT_LENGTH,
-        DeriveLengthFromSamples: true);
-
     internal static O2LazerEventPreviewTimeline Create(
         Func<CancellationToken, IReadOnlyList<O2LazerPreviewSampleEvent>> sampleEventFactory,
         IReadOnlyDictionary<ushort, string> sampleDefinitions,

@@ -8,6 +8,7 @@ using osu.Framework.Graphics.Containers;
 using osu.Game.Rulesets.O2Lazer.Parsing;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
 using osu.Game.Rulesets.O2Lazer.Skinning.Configuration;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
 using osuTK;
 using osuTK.Graphics;
@@ -97,6 +98,7 @@ public sealed partial class O2LazerStage : CompositeDrawable
     private readonly BindableFloat barLineHeight = new(1);
     private readonly Bindable<Color4> barLineColour = new(Color4.White.Opacity(0.35f));
     private readonly SkinnableDrawable hitTarget;
+    private readonly Container hitTargetContainer;
 
     private readonly FillFlowContainer keyAreaOverNotesLayer = new()
     {
@@ -173,13 +175,20 @@ public sealed partial class O2LazerStage : CompositeDrawable
                 RelativeSizeAxes = Axes.Both,
             },
             columnBackgroundLayer,
-            hitTarget = new SkinnableDrawable(new O2LazerSkinComponentLookup(O2LazerSkinComponents.HitTarget, layoutVariant), _ => Empty())
+            hitTargetContainer = new Container
             {
-                RelativeSizeAxes = Axes.X,
-                AutoSizeAxes = Axes.Y,
-                Anchor = Anchor.BottomCentre,
-                Origin = Anchor.Centre,
-                CentreComponent = false,
+                RelativeSizeAxes = Axes.Both,
+                Children =
+                [
+                    hitTarget = new SkinnableDrawable(new O2LazerSkinComponentLookup(O2LazerSkinComponents.HitTarget, layoutVariant), _ => Empty())
+                    {
+                        RelativeSizeAxes = Axes.X,
+                        AutoSizeAxes = Axes.Y,
+                        Anchor = Anchor.BottomCentre,
+                        Origin = Anchor.BottomLeft,
+                        CentreComponent = false,
+                    },
+                ],
             },
             columnLightLayer,
             MeasureLineArea = new O2LazerMeasureLineContainer
@@ -247,6 +256,7 @@ public sealed partial class O2LazerStage : CompositeDrawable
         positionKeyAreas();
         positionColumnLayers();
         positionHitExplosionAreas();
+        applyHitTargetPosition();
     }
 
     private void positionColumnLayers()
@@ -340,13 +350,22 @@ public sealed partial class O2LazerStage : CompositeDrawable
         LightPositionOffsetChanged?.Invoke(offset);
     }
 
+    internal void OnScrollDirectionChanged() => applyHitTargetPosition(true);
+
     private void applyHitTargetPosition(bool notifySkinPositionChanged = false)
     {
         var position = Math.Max(0, SkinHitTargetPosition + HitTargetPositionOffset);
         var changed = hitTargetPosition.Value != position;
 
         hitTargetPosition.Value = position;
-        hitTarget.Y = -position;
+        var isUp = playfield.ScrollController.Direction == ScrollingDirection.Up;
+        hitTargetContainer.Padding = new MarginPadding
+        {
+            Top = isUp ? position : 0,
+            Bottom = isUp ? 0 : position,
+        };
+        hitTarget.Anchor = hitTarget.Origin = isUp ? Anchor.TopLeft : Anchor.BottomLeft;
+        hitTarget.Y = 0;
 
         if (changed && notifySkinPositionChanged)
             SkinHitTargetPositionChanged?.Invoke(SkinHitTargetPosition);

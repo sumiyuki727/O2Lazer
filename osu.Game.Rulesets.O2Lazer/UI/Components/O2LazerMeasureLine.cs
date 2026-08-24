@@ -1,15 +1,20 @@
 using System;
 using osu.Framework.Graphics;
+using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
 using osu.Game.Rulesets.O2Lazer.UI.Gameplay;
+using osuTK;
+using osuTK.Graphics;
 
 namespace osu.Game.Rulesets.O2Lazer.UI.Components;
 
 public sealed partial class O2LazerMeasureLine : CompositeDrawable
 {
 
-    private readonly Box line;
+    private readonly Box mainLine;
+    private readonly Box leftAnchor;
+    private readonly Box rightAnchor;
     private O2LazerGameplayScrollController? scrollController;
     private O2LazerStage? stage;
 
@@ -25,10 +30,41 @@ public sealed partial class O2LazerMeasureLine : CompositeDrawable
         Anchor = Anchor.TopLeft;
         Origin = Anchor.TopLeft;
 
-        InternalChild = line = new Box
-        {
-            RelativeSizeAxes = Axes.Both,
-        };
+        var edgeSmoothness = new Vector2(0.3f);
+
+        InternalChildren =
+        [
+            mainLine = new Box
+            {
+                Name = "Bar line",
+                EdgeSmoothness = edgeSmoothness,
+                Anchor = Anchor.BottomCentre,
+                Origin = Anchor.BottomCentre,
+                RelativeSizeAxes = Axes.Both,
+            },
+            leftAnchor = new Box
+            {
+                Name = "Left anchor",
+                EdgeSmoothness = edgeSmoothness,
+                Blending = BlendingParameters.Additive,
+                Anchor = Anchor.CentreLeft,
+                Origin = Anchor.CentreRight,
+                Width = 10,
+                RelativeSizeAxes = Axes.Y,
+                Colour = ColourInfo.GradientHorizontal(Color4.Transparent, Color4.White),
+            },
+            rightAnchor = new Box
+            {
+                Name = "Right anchor",
+                EdgeSmoothness = edgeSmoothness,
+                Blending = BlendingParameters.Additive,
+                Anchor = Anchor.CentreRight,
+                Origin = Anchor.CentreLeft,
+                Width = 10,
+                RelativeSizeAxes = Axes.Y,
+                Colour = ColourInfo.GradientHorizontal(Color4.White, Color4.Transparent),
+            },
+        ];
     }
 
     internal void Apply(O2LazerMeasureLineContainer.MeasureLineInfo info, O2LazerGameplayScrollController scrollController, O2LazerStage stage)
@@ -74,6 +110,8 @@ public sealed partial class O2LazerMeasureLine : CompositeDrawable
         Width = Math.Max(1, stage.DrawWidth);
         Height = Math.Max(0, stage.BarLineHeight);
         Alpha = Height > 0 ? 1 : 0;
-        line.Colour = stage.BarLineColour;
+        mainLine.Colour = stage.BarLineColour;
+        mainLine.Alpha = 0.5f;
+        leftAnchor.Alpha = rightAnchor.Alpha = mainLine.Alpha * 0.3f;
     }
 }

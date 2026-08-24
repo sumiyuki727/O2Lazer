@@ -38,8 +38,6 @@ public interface IO2LazerBeatmap
 
     O2LazerLongNoteMode LockedLongNoteMode { get; set; }
 
-    string? PreviewFile { get; set; }
-
     string? StageFile { get; set; }
 
     string? BackBmp { get; set; }
@@ -64,7 +62,6 @@ internal static class O2LazerBeatmapExtensions
         target.TextEvents = source.TextEvents;
         target.Bga = source.Bga;
         target.LockedLongNoteMode = source.LockedLongNoteMode;
-        target.PreviewFile = source.PreviewFile;
         target.StageFile = source.StageFile;
         target.BackBmp = source.BackBmp;
         target.Banner = source.Banner;

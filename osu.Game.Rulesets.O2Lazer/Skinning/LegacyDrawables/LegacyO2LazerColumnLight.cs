@@ -1,4 +1,5 @@
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Input.Bindings;
@@ -8,6 +9,7 @@ using osu.Game.Rulesets.O2Lazer.IO.Input;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
 using osu.Game.Rulesets.O2Lazer.Skinning.Legacy;
 using osu.Game.Rulesets.O2Lazer.UI;
+using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
 using osuTK;
 using osuTK.Graphics;
@@ -26,6 +28,7 @@ internal sealed partial class LegacyO2LazerColumnLight : CompositeDrawable, IKey
     private readonly float lightPosition;
 
     private Drawable? light;
+    private IBindable<ScrollingDirection> direction = null!;
 
     [Resolved(CanBeNull = true)]
     private O2LazerPlayfield? playfield { get; set; }
@@ -43,7 +46,7 @@ internal sealed partial class LegacyO2LazerColumnLight : CompositeDrawable, IKey
     }
 
     [BackgroundDependencyLoader]
-    private void load(ISkinSource skin)
+    private void load(ISkinSource skin, IScrollingInfo scrollingInfo)
     {
         // The active source includes the embedded legacy assets used when a user skin omits mania-stage-light.
         InternalChild = light = skin.GetAnimation(lightImage, true, true, frameLength: lightFrameLength)?.With(d =>
@@ -56,6 +59,9 @@ internal sealed partial class LegacyO2LazerColumnLight : CompositeDrawable, IKey
             d.Colour = LegacyColourCompatibility.DisallowZeroAlpha(lightColour);
             d.Alpha = 0;
         }) ?? Empty();
+
+        direction = scrollingInfo.Direction.GetBoundCopy();
+        direction.BindValueChanged(_ => updateLightPosition(playfield?.Stage.LightPositionOffset ?? 0), true);
     }
 
     protected override void LoadComplete()
@@ -79,7 +85,11 @@ internal sealed partial class LegacyO2LazerColumnLight : CompositeDrawable, IKey
 
     private void updateLightPosition(float offset)
     {
-        light?.Y = -(lightPosition + offset);
+        if (light == null)
+            return;
+
+        light.Anchor = direction.Value == ScrollingDirection.Up ? Anchor.TopCentre : Anchor.BottomCentre;
+        light.Y = direction.Value == ScrollingDirection.Up ? lightPosition + offset : -(lightPosition + offset);
     }
 
     public bool OnPressed(KeyBindingPressEvent<O2LazerAction> e)
