@@ -197,13 +197,14 @@ internal sealed partial class O2JamManiaHoldNoteVisual : CompositeDrawable
             return;
 
         dropped = true;
-        this.FadeColour(Color4.DarkGray, 60);
+        Body.SetDropped(true);
     }
 
     internal void ResetVisual()
     {
         ClearTransforms();
         Colour = Color4.White;
+        Body.SetDropped(false);
         Alpha = 1;
         sizingContainer.Height = 1;
         wasPinned = false;

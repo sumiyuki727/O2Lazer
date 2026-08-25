@@ -327,6 +327,15 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
             return;
         }
 
+        // A missed O2Jam LN keeps scrolling past the judgement line greyed out, matching mania's
+        // missing-start-time dim instead of the base class's red fade-out.
+        if (state == ArmedState.Miss && isO2Jam)
+        {
+            Alpha = 1;
+            o2jamVisual.MarkDropped();
+            return;
+        }
+
         base.UpdateHitStateTransforms(state);
     }
 
@@ -388,8 +397,18 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
 
     void IO2LazerLongNoteHooks.ClearVisualIfTailWasNotPoor(HitResult tailResult)
     {
-        if (tailResult == HitResult.Meh)
+        // Missed tails (and POOR) leave the greyed hold scrolling past like mania; only a
+        // successful tail judgement retires the drawable immediately.
+        if (!tailResult.IsHit())
+        {
+            // The drawable is already judged by the head, so the miss state transform is skipped;
+            // grey the visual here instead of relying on it.
+            if (isO2Jam)
+                o2jamVisual.MarkDropped();
+            else
+                longNoteBody.SetDropped(true);
             return;
+        }
 
         visualState.Reset();
 

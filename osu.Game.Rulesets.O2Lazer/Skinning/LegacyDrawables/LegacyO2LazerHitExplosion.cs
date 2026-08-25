@@ -4,6 +4,7 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Animations;
 using osu.Framework.Graphics.Containers;
+using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
 using osu.Game.Rulesets.O2Lazer.Skinning.Legacy;
 using osu.Game.Rulesets.O2Lazer.UI.Components;
@@ -21,7 +22,7 @@ namespace osu.Game.Rulesets.O2Lazer.Skinning.LegacyDrawables;
 /// O2LAZER uses normal hit lights for notes and LN hit lights for held notes. Frame length is derived
 /// from the animation frame count so short animations still finish near the expected stable timing.
 /// </remarks>
-internal sealed partial class LegacyO2LazerHitExplosion : CompositeDrawable
+internal sealed partial class LegacyO2LazerHitExplosion : CompositeDrawable, IO2LazerHitExplosion
 {
     public float ResolvedScale { get; }
 
@@ -47,6 +48,12 @@ internal sealed partial class LegacyO2LazerHitExplosion : CompositeDrawable
         ResolvedScale = scale;
 
         setAnimation(frameLength => transformer.GetAnimation(imageName, true, false, frameLength: frameLength));
+    }
+
+    public void Animate(JudgementResult result)
+    {
+        (hitExplosion as IFramedAnimation)?.GotoAndPlay(0);
+        hitExplosion?.FadeInFromZero(80).Then().FadeOut(120);
     }
 
     [BackgroundDependencyLoader]

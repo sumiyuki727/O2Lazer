@@ -1,6 +1,7 @@
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
+using osu.Framework.Graphics.Animations;
 using osu.Framework.Graphics.Pooling;
 using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
@@ -77,7 +78,10 @@ public sealed partial class O2LazerHitExplosion : PoolableDrawable
             this.Delay(DURATION).Then().Expire();
         }
         else
+        {
+            (skinnableExplosion.Drawable as IFramedAnimation)?.GotoAndPlay(0);
             this.FadeInFromZero(80).Then().FadeOut(120).Expire();
+        }
     }
 
     protected override void FreeAfterUse()

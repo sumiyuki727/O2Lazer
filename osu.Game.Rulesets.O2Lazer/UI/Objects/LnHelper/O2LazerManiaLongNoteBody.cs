@@ -73,11 +73,23 @@ public sealed partial class O2LazerManiaLongNoteBody : CompositeDrawable
 
     public void ResetBody()
     {
+        ClearTransforms();
         Colour = Color4.White;
         if (bodyPiece?.Drawable is IO2LazerManiaHoldNoteVisualPiece piece)
         {
             piece.SetHolding(false);
             piece.Recycle();
+        }
+    }
+
+    public void SetDropped(bool isDropped)
+    {
+        if (isDropped)
+            this.FadeColour(Color4.DarkGray, 60);
+        else
+        {
+            ClearTransforms();
+            Colour = Color4.White;
         }
     }
 

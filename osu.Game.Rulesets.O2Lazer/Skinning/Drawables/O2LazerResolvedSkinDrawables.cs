@@ -239,8 +239,12 @@ internal sealed partial class O2LazerLegacyStretchedHoldNoteBodyPiece : Composit
         if (bodySprite == null)
             return;
 
+        // The legacy path is identical to osu!mania up to the fixed stretch span. Entering the
+        // tiled path for shorter bodies scales the full texture to one full span and lets the
+        // mask expose only a middle window, so repeat mode is reserved for bodies past the span.
         if (bodySprite is Sprite sprite
             && bodyStyle != LegacyManiaSkinConfiguration.LegacyNoteBodyStyle.Stretch
+            && bodyHeight > full_span
             && (O2LazerRulesetRuntime.ConfigManager?.Get<bool>(O2LazerRulesetSetting.PercyLongNoteBodyRepeat) ?? false))
         {
             ensureTiledLayout(sprite);
@@ -315,9 +319,10 @@ internal sealed partial class O2LazerLegacyStretchedHoldNoteBodyPiece : Composit
         if (tileContainer == null || firstSegmentSprite == null || lowerHalfTexture == null)
             return;
 
-        var firstHeight = Math.Min(bodyHeight, full_span);
-        firstSegmentSprite.Height = firstHeight;
-        firstSegmentSprite.Scale = new Vector2(1, (tailAtTop ? 1 : -1) * full_span / Math.Max(1, firstHeight));
+        // Match the legacy single sprite's geometry for the first span: the sprite occupies the
+        // full body and is stretched so its draw quad is one full span tall.
+        firstSegmentSprite.Height = bodyHeight;
+        firstSegmentSprite.Scale = new Vector2(1, (tailAtTop ? 1 : -1) * full_span / Math.Max(1, bodyHeight));
         firstSegmentSprite.Anchor = tailAtTop ? Anchor.TopCentre : Anchor.BottomCentre;
         firstSegmentSprite.Origin = Anchor.TopCentre;
         firstSegmentSprite.Y = 0;
