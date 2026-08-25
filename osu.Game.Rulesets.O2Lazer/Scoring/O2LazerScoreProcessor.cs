@@ -19,6 +19,7 @@ namespace osu.Game.Rulesets.O2Lazer.Scoring;
 public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset())
 {
     private static readonly Action<JudgementResult, int> set_combo_after = createComboAfterSetter();
+    private static readonly Action<JudgementResult, int> set_highest_combo_after = createHighestComboAfterSetter();
 
     private double latestEndTime = double.MaxValue;
     private readonly List<O2LazerJudgementEvent> judgementEvents = [];
@@ -28,8 +29,6 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
     private readonly List<JudgementResult> o2JamResults = [];
     private readonly O2JamScoreState o2JamScore = new();
     private bool isO2Jam;
-
-    internal bool IsCorrectingO2JamCombo { get; private set; }
 
     public IReadOnlyList<O2LazerJudgementEvent> JudgementEvents => judgementEvents;
 
@@ -190,25 +189,13 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
             o2JamResults.Add(result);
             o2JamScore.Apply(result.Type);
 
-            var nativeCombo = Math.Max(0, o2JamScore.Combo - 1);
-
-            // Native O2Jam displays a zero combo after the first COOL/GOOD. osu!'s generic
-            // ComboEffects interprets only that successful-hit 1 -> 0 correction as a miss.
-            // BAD must remain observable because it is a real O2Jam combo break even though
-            // the framework initially treats HitResult.Ok as a combo-increasing hit.
-            IsCorrectingO2JamCombo = nativeCombo == 0
-                                     && Combo.Value == 1
-                                     && result.Type is HitResult.Perfect or HitResult.Good;
-            try
-            {
-                Combo.Value = nativeCombo;
-            }
-            finally
-            {
-                IsCorrectingO2JamCombo = false;
-            }
+            // Keep the displayed combo aligned with consecutive COOL/GOOD hits. BAD/POOR reset
+            // through o2JamScore, so the framework's temporary combo increment is overwritten here.
+            Combo.Value = o2JamScore.Combo;
+            HighestCombo.Value = Math.Max(o2JamScore.MaximumCombo, o2JamScore.Combo);
 
             set_combo_after(result, Combo.Value);
+            set_highest_combo_after(result, HighestCombo.Value);
             return;
         }
 
@@ -229,7 +216,8 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
             o2JamScore.Reset();
             foreach (var remaining in o2JamResults)
                 o2JamScore.Apply(remaining.Type);
-            Combo.Value = Math.Max(0, o2JamScore.Combo - 1);
+            Combo.Value = o2JamScore.Combo;
+            HighestCombo.Value = o2JamScore.MaximumCombo;
         }
 
         if (eventsByResult.Remove(result, out var judgementEvent))
@@ -350,16 +338,22 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
     }
 
     private static Action<JudgementResult, int> createComboAfterSetter()
+        => createResultIntSetter("<ComboAfterJudgement>k__BackingField", "ComboAfterJudgement");
+
+    private static Action<JudgementResult, int> createHighestComboAfterSetter()
+        => createResultIntSetter("<HighestComboAfterJudgement>k__BackingField", "HighestComboAfterJudgement");
+
+    private static Action<JudgementResult, int> createResultIntSetter(string fieldName, string displayName)
     {
         try
         {
-            var field = typeof(JudgementResult).GetField("<ComboAfterJudgement>k__BackingField",
+            var field = typeof(JudgementResult).GetField(fieldName,
                 BindingFlags.Instance | BindingFlags.NonPublic);
 
             if (field == null)
             {
                 O2LazerLogger.Log(
-                    "O2LAZER ScoreProcessor: Could not find JudgementResult.ComboAfterJudgement backing field. "
+                    $"O2LAZER ScoreProcessor: Could not find JudgementResult.{displayName} backing field. "
                     + "The osu! framework may have changed; BAD/POOR combo-break revert will not function correctly.",
                     level: LogLevel.Error);
                 return (_, _) => { };
@@ -369,7 +363,7 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
         }
         catch (Exception ex)
         {
-            O2LazerLogger.Error(ex, "O2LAZER ScoreProcessor: Failed to bind ComboAfterJudgement setter via reflection. "
+            O2LazerLogger.Error(ex, $"O2LAZER ScoreProcessor: Failed to bind {displayName} setter via reflection. "
                              + "BAD/POOR combo-break revert will not function correctly.");
             return (_, _) => { };
         }

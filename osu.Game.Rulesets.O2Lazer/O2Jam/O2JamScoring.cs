@@ -120,7 +120,7 @@ public sealed class O2JamScoreState
                 break;
         }
 
-        MaximumCombo = Math.Max(MaximumCombo, Math.Max(0, Combo - 1));
+        MaximumCombo = Math.Max(MaximumCombo, Combo);
     }
 
     private void advanceJam()

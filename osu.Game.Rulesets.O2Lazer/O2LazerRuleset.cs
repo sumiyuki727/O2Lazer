@@ -85,7 +85,6 @@ public partial class O2LazerRuleset : Ruleset, IO2LazerStyleUnrankedBadgeRuleset
         O2LazerBeatmapCompatibilityPatcher.InstallOnce();
         O2LazerDifficultyStatisticsPatcher.InstallOnce();
         O2LazerFrameStatisticsPatcher.InstallOnce();
-        O2LazerComboEffectsPatcher.InstallOnce();
         O2LazerHitErrorTimeOffsetPatcher.InstallOnce();
     }
 
