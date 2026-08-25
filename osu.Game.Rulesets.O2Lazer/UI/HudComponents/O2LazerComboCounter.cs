@@ -15,7 +15,7 @@ namespace osu.Game.Rulesets.O2Lazer.UI.HudComponents;
 
 public partial class O2LazerComboCounter : O2LazerHudComponent
 {
-    public Bindable<int> Current { get; } = new BindableInt { MinValue = 0 };
+    public Bindable<int> Current { get; } = new BindableInt();
 
     /// <summary>
     /// Value shown at the current moment.
@@ -101,9 +101,9 @@ public partial class O2LazerComboCounter : O2LazerHudComponent
     {
         base.LoadComplete();
 
-        displayedCountText.Text = popOutCountText.Text = Current.Value.ToString(CultureInfo.InvariantCulture);
+        displayedCountText.Text = popOutCountText.Text = getDisplayedCombo().ToString(CultureInfo.InvariantCulture);
 
-        Current.BindValueChanged(combo => updateCount(combo.NewValue == 0), true);
+        Current.BindValueChanged(combo => updateCount(combo.NewValue <= 0), true);
 
         counterContainer.Size = displayedCountText.Size;
 
@@ -148,7 +148,7 @@ public partial class O2LazerComboCounter : O2LazerHudComponent
     {
         popOutCountText.Hide();
 
-        DisplayedCount = Current.Value;
+        DisplayedCount = getDisplayedCombo();
         displayedCountText.ScaleTo(new Vector2(1f, 1.4f))
             .ScaleTo(new Vector2(1f), 300, Easing.Out)
             .FadeIn(120);
@@ -158,10 +158,10 @@ public partial class O2LazerComboCounter : O2LazerHudComponent
     {
         popOutCountText.Hide();
 
-        if (Current.Value == 0)
+        if (Current.Value <= 0)
             displayedCountText.FadeOut();
 
-        DisplayedCount = Current.Value;
+        DisplayedCount = getDisplayedCombo();
 
         displayedCountText.ScaleTo(1f);
     }
@@ -178,11 +178,14 @@ public partial class O2LazerComboCounter : O2LazerHudComponent
         }
 
         // Hides displayed count if was increasing from 0 to 1 but didn't finish.
-        if (DisplayedCount == 0 && Current.Value == 0)
+        if (DisplayedCount == 0 && Current.Value <= 0)
             displayedCountText.FadeOut(fade_out_duration);
 
-        this.TransformTo(nameof(DisplayedCount), Current.Value, getProportionalDuration(DisplayedCount, Current.Value));
+        var displayedCombo = getDisplayedCombo();
+        this.TransformTo(nameof(DisplayedCount), displayedCombo, getProportionalDuration(DisplayedCount, displayedCombo));
     }
+
+    private int getDisplayedCombo() => Math.Max(0, Current.Value);
 
     private double getProportionalDuration(int currentValue, int newValue)
     {

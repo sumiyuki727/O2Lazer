@@ -666,9 +666,9 @@ internal partial class O2LazerManiaArgonKeyArea : CompositeDrawable, IKeyBinding
     private Container directionContainer = null!;
     private Color4 accentColour;
     private Drawable background = null!;
-    private Drawable hitTargetLine = null!;
+    private Circle hitTargetLine = null!;
     private Container<Circle> bottomIcon = null!;
-    private Drawable topIcon = null!;
+    private CircularContainer topIcon = null!;
 
     public O2LazerManiaArgonKeyArea(O2LazerSkinComponentLookup lookup)
     {

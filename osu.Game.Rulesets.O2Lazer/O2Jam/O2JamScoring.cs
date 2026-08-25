@@ -66,7 +66,7 @@ public sealed class O2JamScoreState
     public void Reset()
     {
         Score = 0;
-        Combo = 0;
+        Combo = -1;
         MaximumCombo = 0;
         JamProgress = 0;
         JamCombo = 0;
@@ -136,7 +136,7 @@ public sealed class O2JamScoreState
 
     private void breakCombo()
     {
-        Combo = 0;
+        Combo = -1;
         bufferProgress = 0;
         JamProgress = 0;
         JamCombo = 0;

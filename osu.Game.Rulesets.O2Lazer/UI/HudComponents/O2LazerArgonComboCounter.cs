@@ -11,6 +11,12 @@ public partial class O2LazerArgonComboCounter : ArgonComboCounter
 {
     protected override bool DisplayXSymbol => false;
 
+    public override int DisplayedCount
+    {
+        get => base.DisplayedCount;
+        set => base.DisplayedCount = Math.Max(0, value);
+    }
+
     [Resolved]
     private IScrollingInfo scrollingInfo { get; set; } = null!;
 

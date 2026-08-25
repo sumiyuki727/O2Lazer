@@ -86,6 +86,8 @@ public partial class O2LazerRuleset : Ruleset, IO2LazerStyleUnrankedBadgeRuleset
         O2LazerDifficultyStatisticsPatcher.InstallOnce();
         O2LazerFrameStatisticsPatcher.InstallOnce();
         O2LazerHitErrorTimeOffsetPatcher.InstallOnce();
+        O2LazerComboEffectsPatcher.InstallOnce();
+        O2LazerComboCounterDisplayPatcher.InstallOnce();
     }
 
     public override ScoreMultiplierCalculator CreateScoreMultiplierCalculator(ScoreMultiplierContext context) =>

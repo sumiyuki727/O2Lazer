@@ -30,6 +30,9 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
     private readonly O2JamScoreState o2JamScore = new();
     private bool isO2Jam;
 
+    internal bool IsResettingComboSentinel { get; private set; }
+    internal bool IsO2Jam => isO2Jam;
+
     public IReadOnlyList<O2LazerJudgementEvent> JudgementEvents => judgementEvents;
 
     public int ScoringJudgementEventCount { get; private set; }
@@ -132,6 +135,10 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
     public override void PopulateScore(ScoreInfo score)
     {
         base.PopulateScore(score);
+
+        if (isO2Jam)
+            applyO2JamMaximumComboOffset(score);
+
         score.HitEvents = timingHitEvents;
         O2LazerJudgementEventStore.SetView(score, judgementEvents);
 
@@ -140,6 +147,14 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
         foreach (var mod in Mods.Value.OfType<IApplicableToScorePopulation>())
             mod.ApplyToScore(score);
 
+    }
+
+    private static void applyO2JamMaximumComboOffset(ScoreInfo score)
+    {
+        var firstComboResult = score.MaximumStatistics.FirstOrDefault(kvp => kvp.Key.AffectsCombo() && kvp.Value > 0);
+
+        if (firstComboResult.Key != HitResult.None)
+            score.MaximumStatistics[firstComboResult.Key]--;
     }
 
     protected override void Update()
@@ -163,6 +178,20 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
         ScoringJudgementEventCount = 0;
         o2JamResults.Clear();
         o2JamScore.Reset();
+        setComboValue(-1);
+    }
+
+    private void setComboValue(int value)
+    {
+        IsResettingComboSentinel = true;
+        try
+        {
+            Combo.Value = value;
+        }
+        finally
+        {
+            IsResettingComboSentinel = false;
+        }
     }
 
     /// <summary>
@@ -189,8 +218,9 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
             o2JamResults.Add(result);
             o2JamScore.Apply(result.Type);
 
-            // Keep the displayed combo aligned with consecutive COOL/GOOD hits. BAD/POOR reset
-            // through o2JamScore, so the framework's temporary combo increment is overwritten here.
+            // O2Jam starts from a -1 sentinel so the first COOL/GOOD lands on 0 and the second
+            // lands on 1, matching the original display offset. BAD/POOR reset back to -1.
+            // The framework's temporary combo changes are overwritten with the O2Jam state here.
             Combo.Value = o2JamScore.Combo;
             HighestCombo.Value = Math.Max(o2JamScore.MaximumCombo, o2JamScore.Combo);
 
