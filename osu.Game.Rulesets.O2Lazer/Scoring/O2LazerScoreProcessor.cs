@@ -35,6 +35,8 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
 
     internal bool TryConsumePillForBad() => isO2Jam && o2JamScore.TryConsumePillForBad();
 
+    internal int PillCount => o2JamScore.Buffer;
+
     public IReadOnlyList<O2LazerJudgementEvent> JudgementEvents => judgementEvents;
 
     public int ScoringJudgementEventCount { get; private set; }

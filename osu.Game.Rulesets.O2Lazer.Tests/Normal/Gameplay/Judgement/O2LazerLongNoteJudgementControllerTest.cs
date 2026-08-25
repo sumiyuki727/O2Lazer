@@ -165,6 +165,10 @@ public class O2LazerLongNoteJudgementControllerTest
 
         public bool RescueNextBadWithPill { get; set; }
 
+        public int PillCount => RescueNextBadWithPill ? 1 : 0;
+
+        public int Combo { get; set; }
+
         public void OnUserHeadJudged() => UserHeadJudgedCount++;
 
         public void OnHellChargeHeadPoor(double eventTime, double lifetimeEnd) => HellChargeHeadPoor.Add((eventTime, lifetimeEnd));
