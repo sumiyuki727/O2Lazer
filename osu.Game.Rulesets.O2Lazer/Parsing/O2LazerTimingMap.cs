@@ -238,6 +238,17 @@ public sealed class O2LazerTimingMap
     }
 
     /// <summary>
+    /// Returns the active absolute BPM at the given projected time.
+    /// </summary>
+    public double GetBpmAtTime(double time)
+    {
+        if (points.Length == 0)
+            return ScrollReferenceBpm;
+
+        return points[findPoint(time)].Bpm;
+    }
+
+    /// <summary>
     ///     Returns the projected osu! time in milliseconds for a native O2LAZER tick,
     ///     accounting for all BPM changes and STOP segments.
     /// </summary>

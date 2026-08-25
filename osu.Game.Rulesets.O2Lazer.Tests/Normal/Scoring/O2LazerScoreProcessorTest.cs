@@ -85,6 +85,28 @@ public class O2LazerScoreProcessorTest
     }
 
     [Test]
+    public void TestPillConvertsBadWithoutBreakingCombo()
+    {
+        var beatmap = createBeatmap(count: 17);
+        var processor = new O2LazerScoreProcessor();
+        processor.ApplyBeatmap(beatmap);
+
+        for (var i = 0; i < 15; i++)
+            applyResult(processor, beatmap, i, HitResult.Perfect);
+
+        Assert.That(processor.Combo.Value, Is.EqualTo(14));
+
+        // The 15th COOL grants one pill, so this BAD is converted instead of breaking combo.
+        applyResult(processor, beatmap, 15, HitResult.Ok);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(processor.Combo.Value, Is.EqualTo(15));
+            Assert.That(processor.HighestCombo.Value, Is.EqualTo(15));
+        });
+    }
+
+    [Test]
     public void TestMaximumAchievableComboHasFirstNoteOffset()
     {
         var beatmap = createBeatmap(count: 2);

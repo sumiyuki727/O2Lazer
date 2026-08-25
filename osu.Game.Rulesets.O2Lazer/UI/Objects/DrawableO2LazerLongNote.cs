@@ -395,6 +395,8 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
     void IO2LazerLongNoteHooks.ApplySyntheticEndpoint(HitResult result, O2LazerLongNoteEndpointResult endpoint)
         => scoring?.ApplySyntheticLongNoteEndpoint(this, endpoint);
 
+    bool IO2LazerLongNoteHooks.TryConsumePillForBad() => ScoreProcessor?.TryConsumePillForBad() == true;
+
     void IO2LazerLongNoteHooks.ClearVisualIfTailWasNotPoor(HitResult tailResult)
     {
         // Missed tails (and POOR) leave the greyed hold scrolling past like mania; only a

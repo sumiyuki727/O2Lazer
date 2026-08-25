@@ -170,7 +170,7 @@ internal sealed class O2LazerHitObjectLifetimeEntry(
     /// </summary>
     private static double getFastInputWindow(O2LazerHitObject hitObject)
     {
-        var table = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: false);
+        var table = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: false, hitObject.BpmAtStartTime);
         return Math.Max(table.FastWindowFor(HitResult.Ok), table.FastWindowFor(HitResult.Miss));
     }
 
@@ -298,11 +298,11 @@ internal sealed class O2LazerHitObjectLifetimeEntry(
     {
         if (hitObject is O2LazerLongNote)
         {
-            var tailTable = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: true);
+            var tailTable = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: true, hitObject.BpmAtEndTime);
             return tailTable.SlowWindowFor(HitResult.Ok) + passive_poor_lifetime_margin;
         }
 
-        var table = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: false);
+        var table = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: false, hitObject.BpmAtStartTime);
         return table.SlowWindowFor(HitResult.Ok) + passive_poor_lifetime_margin;
     }
 

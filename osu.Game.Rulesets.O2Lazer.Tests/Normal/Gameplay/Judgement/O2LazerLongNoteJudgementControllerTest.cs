@@ -121,6 +121,24 @@ public class O2LazerLongNoteJudgementControllerTest
         });
     }
 
+    [Test]
+    public void TestO2JamPillRescuesBadTailForVisualAndScoring()
+    {
+        var (controller, hooks) = makeController(1000, 500);
+
+        Assert.That(controller.TryHit(1000, HitResult.Perfect), Is.True);
+
+        hooks.RescueNextBadWithPill = true;
+        Assert.That(controller.TryRelease(1500, tailTable().SlowWindowFor(HitResult.Ok), tailTable()), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hooks.SyntheticJudgements.Select(result => result.result), Is.EqualTo(new[] { HitResult.Perfect }));
+            Assert.That(hooks.ClearedTails, Is.EqualTo(new[] { HitResult.Perfect }));
+            Assert.That(controller.TailJudged, Is.True);
+        });
+    }
+
     private sealed class FakeLongNoteHooks : IO2LazerLongNoteHooks
     {
         public List<(HitResult result, IReadOnlyList<O2LazerLongNoteEndpointResult> endpoints)> AppliedJudgements { get; } = [];
@@ -145,6 +163,8 @@ public class O2LazerLongNoteJudgementControllerTest
 
         public int RetireCount;
 
+        public bool RescueNextBadWithPill { get; set; }
+
         public void OnUserHeadJudged() => UserHeadJudgedCount++;
 
         public void OnHellChargeHeadPoor(double eventTime, double lifetimeEnd) => HellChargeHeadPoor.Add((eventTime, lifetimeEnd));
@@ -162,6 +182,15 @@ public class O2LazerLongNoteJudgementControllerTest
 
         public void ApplySyntheticEndpoint(HitResult result, O2LazerLongNoteEndpointResult endpoint)
             => SyntheticJudgements.Add((result, endpoint));
+
+        public bool TryConsumePillForBad()
+        {
+            if (!RescueNextBadWithPill)
+                return false;
+
+            RescueNextBadWithPill = false;
+            return true;
+        }
 
         public void ApplyHellChargeTick(bool holding, double scale) => HellChargeTicks.Add((holding, scale));
 

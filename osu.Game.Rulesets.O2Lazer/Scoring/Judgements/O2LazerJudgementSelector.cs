@@ -61,7 +61,7 @@ public static class O2LazerJudgementSelector
         for (var i = 0; i < count; i++)
         {
             var candidate = candidates[i];
-            var table = O2LazerJudgementProfileProvider.GetTable(layout, candidate.Column, candidate.JudgementRate, tail: false);
+            var table = O2LazerJudgementProfileProvider.GetTable(layout, candidate.Column, candidate.JudgementRate, tail: false, candidate.Bpm);
             var offset = inputTime - candidate.StartTime;
             var result = table.ResultForOffset(offset);
 

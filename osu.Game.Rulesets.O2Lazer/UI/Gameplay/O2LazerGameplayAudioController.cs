@@ -150,14 +150,16 @@ internal sealed class O2LazerGameplayAudioController
             hitObject.Beatmap.LayoutVariant,
             hitObject.Column,
             hitObject.EffectiveJudgementRate,
-            tail: false).FastWindowFor(HitResult.Ok);
+            tail: false,
+            hitObject.BpmAtStartTime).FastWindowFor(HitResult.Ok);
 
     private static double getSlowJudgementWindow(O2LazerHitObject hitObject) =>
         O2LazerJudgementProfileProvider.GetTable(
             hitObject.Beatmap.LayoutVariant,
             hitObject.Column,
             hitObject.EffectiveJudgementRate,
-            tail: false).SlowWindowFor(HitResult.Ok);
+            tail: false,
+            hitObject.BpmAtStartTime).SlowWindowFor(HitResult.Ok);
 }
 
 

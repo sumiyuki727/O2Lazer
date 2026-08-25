@@ -19,6 +19,7 @@ using osu.Game.Graphics.Sprites;
 using osu.Game.Localisation.HUD;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Beatmaps.Objects;
+using osu.Game.Rulesets.O2Lazer.O2Jam;
 using osu.Game.Rulesets.O2Lazer.Parsing;
 using osu.Game.Rulesets.O2Lazer.Localisation;
 using osu.Game.Rulesets.O2Lazer.Scoring;
@@ -128,11 +129,13 @@ public partial class O2LazerHitErrorMeter : HitErrorMeter
         var beatmap = (drawableRuleset as O2LazerDrawableRuleset)?.Beatmap as O2LazerBeatmap;
         this.scoreProcessor = scoreProcessor as O2LazerScoreProcessor;
         var layout = O2LazerLayoutVariant.O2Jam7K;
-        var judgementRate = beatmap?.HitObjects.FirstOrDefault()?.EffectiveJudgementRate
+        var firstHitObject = beatmap?.HitObjects.FirstOrDefault();
+        var judgementRate = firstHitObject?.EffectiveJudgementRate
                             ?? O2LazerJudgementProfileProvider.RateForRank(layout, beatmap?.Rank ?? 2);
-        domain = CreateDomain(layout, judgementRate);
+        var bpm = firstHitObject?.BpmAtStartTime ?? O2JamScoring.DefaultBpm;
+        domain = CreateDomain(layout, judgementRate, bpm);
 
-        var headWindows = O2LazerJudgementProfileProvider.GetTable(layout, 1, judgementRate, tail: false);
+        var headWindows = O2LazerJudgementProfileProvider.GetTable(layout, 1, judgementRate, tail: false, bpm);
         fastPoorDisplayOffset = -headWindows.FastWindowFor(HitResult.Ok);
         slowPoorDisplayOffset = headWindows.SlowWindowFor(HitResult.Ok);
 
@@ -489,13 +492,13 @@ public partial class O2LazerHitErrorMeter : HitErrorMeter
 
     internal static bool AffectsMovingAverage(HitResult result) => result.IsHit() && result != HitResult.Meh;
 
-    internal static O2LazerHitErrorMeterDomain CreateDomain(O2LazerLayoutVariant layout, double judgementRate)
+    internal static O2LazerHitErrorMeterDomain CreateDomain(O2LazerLayoutVariant layout, double judgementRate, double bpm = O2JamScoring.DefaultBpm)
     {
         int[] columns = O2LazerLayout.IsScratchColumn(0, layout) ? [0, 1] : [1];
         var tables = columns.SelectMany(column => new[]
         {
-            O2LazerJudgementProfileProvider.GetTable(layout, column, judgementRate, tail: false),
-            O2LazerJudgementProfileProvider.GetTable(layout, column, judgementRate, tail: true),
+            O2LazerJudgementProfileProvider.GetTable(layout, column, judgementRate, tail: false, bpm),
+            O2LazerJudgementProfileProvider.GetTable(layout, column, judgementRate, tail: true, bpm),
         });
 
         var fastExtent = tables.Max(table => Math.Max(table.FastWindowFor(HitResult.Ok), table.FastWindowFor(HitResult.Miss)));

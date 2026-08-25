@@ -7,7 +7,8 @@ public readonly record struct O2LazerJudgementCandidate(
     double EndTime,
     int Column,
     double JudgementRate,
-    bool IsLongNote);
+    bool IsLongNote,
+    double Bpm);
 
 public readonly record struct O2LazerJudgementSelection(
     O2LazerJudgementCandidate? Candidate,

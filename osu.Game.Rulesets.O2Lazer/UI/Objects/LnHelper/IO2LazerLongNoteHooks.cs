@@ -18,6 +18,9 @@ internal interface IO2LazerLongNoteHooks
     /// <summary>Apply a separate CN/HCN scoring result without completing the drawable.</summary>
     void ApplySyntheticEndpoint(HitResult result, O2LazerLongNoteEndpointResult endpoint);
 
+    /// <summary>Consume one O2Jam pill to rescue a BAD endpoint before visual/scoring, returning true when consumed.</summary>
+    bool TryConsumePillForBad();
+
     /// <summary>Clear the body/tail visuals when the tail result is not POOR (was <c>clearVisualIfTailWasNotPoor</c>).</summary>
     void ClearVisualIfTailWasNotPoor(HitResult result);
 

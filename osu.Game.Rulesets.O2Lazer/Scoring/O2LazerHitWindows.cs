@@ -1,16 +1,18 @@
 using osu.Game.Rulesets.O2Lazer.Parsing;
+using osu.Game.Rulesets.O2Lazer.O2Jam;
 using osu.Game.Rulesets.O2Lazer.Scoring.Judgements;
 using osu.Game.Rulesets.Scoring;
 
 namespace osu.Game.Rulesets.O2Lazer.Scoring;
 
-public class O2LazerHitWindows(int rank = 2, O2LazerLayoutVariant layout = O2LazerLayoutVariant.O2Jam7K, int column = 1, double? judgementRate = null) : HitWindows
+public class O2LazerHitWindows(int rank = 2, O2LazerLayoutVariant layout = O2LazerLayoutVariant.O2Jam7K, int column = 1, double? judgementRate = null, double bpm = O2JamScoring.DefaultBpm) : HitWindows
 {
     /// <summary>Fallback BAD window (ms) used when <see cref="HitWindows" /> is unavailable.</summary>
     public const double FALLBACK_BAD_WINDOW = 280;
 
     private readonly double judgementRate = resolveRate(rank, layout, judgementRate);
-    private O2LazerJudgementWindowTable table = createTable(resolveRate(rank, layout, judgementRate), layout, column);
+    private readonly double bpm = bpm;
+    private O2LazerJudgementWindowTable table = createTable(resolveRate(rank, layout, judgementRate), layout, column, bpm);
 
     public override bool IsHitResultAllowed(HitResult result) => result switch
     {
@@ -20,7 +22,7 @@ public class O2LazerHitWindows(int rank = 2, O2LazerLayoutVariant layout = O2Laz
 
     public override void SetDifficulty(double difficulty)
     {
-        table = createTable(judgementRate, layout, column);
+        table = createTable(judgementRate, layout, column, bpm);
     }
 
     /// <summary>
@@ -42,8 +44,8 @@ public class O2LazerHitWindows(int rank = 2, O2LazerLayoutVariant layout = O2Laz
         _ => 0,
     };
 
-    private static O2LazerJudgementWindowTable createTable(double judgementRate, O2LazerLayoutVariant layout, int column)
-        => O2LazerJudgementProfileProvider.GetTable(layout, column, judgementRate, tail: false);
+    private static O2LazerJudgementWindowTable createTable(double judgementRate, O2LazerLayoutVariant layout, int column, double bpm)
+        => O2LazerJudgementProfileProvider.GetTable(layout, column, judgementRate, tail: false, bpm);
 
     private static double resolveRate(int rank, O2LazerLayoutVariant layout, double? judgementRate) =>
         judgementRate ?? O2LazerJudgementProfileProvider.RateForRank(layout, rank);

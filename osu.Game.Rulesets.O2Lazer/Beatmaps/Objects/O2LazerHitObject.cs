@@ -1,4 +1,5 @@
 using osu.Game.Rulesets.O2Lazer.Scoring;
+using osu.Game.Rulesets.O2Lazer.O2Jam;
 using osu.Game.Rulesets.O2Lazer.Scoring.Judgements;
 using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.Objects;
@@ -26,6 +27,16 @@ public class O2LazerHitObject : HitObject
         : JudgementRate;
 
     /// <summary>
+    /// Active absolute BPM at the head judgement time, used to convert O2Jam's beat-based windows to milliseconds.
+    /// </summary>
+    public double BpmAtStartTime => getBpmAtTime(StartTime);
+
+    /// <summary>
+    /// Active absolute BPM at the tail judgement time, used to convert O2Jam's beat-based windows to milliseconds.
+    /// </summary>
+    public double BpmAtEndTime => getBpmAtTime(HitObjectExtensions.GetEndTime(this));
+
+    /// <summary>
     ///     Precomputed scroll position at <see cref="HitObject.StartTime"/>.
     ///     Computed once during beatmap loading via <see cref="Parsing.O2LazerTimingMap.GetScrollPositionAtTime"/>.
     ///     Eliminates per-frame calls to the full timing-map lookup chain in the drawable hot path.
@@ -46,7 +57,9 @@ public class O2LazerHitObject : HitObject
 
     public override Judgement CreateJudgement() => new O2LazerJudgement();
 
-    protected override O2LazerHitWindows CreateHitWindows() => new(Beatmap.Rank, Beatmap.LayoutVariant, Column, EffectiveJudgementRate);
+    protected override O2LazerHitWindows CreateHitWindows() => new(Beatmap.Rank, Beatmap.LayoutVariant, Column, EffectiveJudgementRate, BpmAtStartTime);
+
+    private double getBpmAtTime(double time) => Beatmap.TimingMap?.GetBpmAtTime(time) ?? O2JamScoring.DefaultBpm;
 
     protected virtual void CopyTo(O2LazerHitObject target)
     {

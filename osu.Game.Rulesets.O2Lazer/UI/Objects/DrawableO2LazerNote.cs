@@ -21,7 +21,7 @@ public sealed partial class DrawableO2LazerNote<TCol> : DrawableO2LazerHitObject
     {
         base.OnApply();
 
-        var table = O2LazerJudgementProfileProvider.GetTable(HitObject.Beatmap.LayoutVariant, HitObject.Column, HitObject.EffectiveJudgementRate, tail: false);
+        var table = O2LazerJudgementProfileProvider.GetTable(HitObject.Beatmap.LayoutVariant, HitObject.Column, HitObject.EffectiveJudgementRate, tail: false, HitObject.BpmAtStartTime);
         passivePoorOffset = table.SlowWindowFor(HitResult.Ok);
     }
 

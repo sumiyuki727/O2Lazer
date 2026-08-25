@@ -33,6 +33,8 @@ public partial class O2LazerScoreProcessor() : ScoreProcessor(new O2LazerRuleset
     internal bool IsResettingComboSentinel { get; private set; }
     internal bool IsO2Jam => isO2Jam;
 
+    internal bool TryConsumePillForBad() => isO2Jam && o2JamScore.TryConsumePillForBad();
+
     public IReadOnlyList<O2LazerJudgementEvent> JudgementEvents => judgementEvents;
 
     public int ScoringJudgementEventCount { get; private set; }

@@ -5,6 +5,7 @@ using osu.Framework.Graphics.Containers;
 using osu.Game.Rulesets.O2Lazer.Beatmaps.Objects;
 using osu.Game.Rulesets.O2Lazer.Parsing;
 using osu.Game.Rulesets.O2Lazer.Objects;
+using osu.Game.Rulesets.O2Lazer.Scoring;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
 using osu.Game.Rulesets.O2Lazer.Skinning.Drawables;
 using osu.Game.Rulesets.O2Lazer.Skinning.Runtime;
@@ -46,6 +47,9 @@ public abstract partial class DrawableO2LazerHitObject : DrawableHitObject<O2Laz
     [Resolved(CanBeNull = true)]
     protected O2LazerColumn? ParentColumn { get; private set; }
 
+    [Resolved(CanBeNull = true)]
+    protected O2LazerScoreProcessor? ScoreProcessor { get; private set; }
+
     protected DrawableO2LazerHitObject()
         : base(null!)
     {
@@ -83,6 +87,21 @@ public abstract partial class DrawableO2LazerHitObject : DrawableHitObject<O2Laz
 
         ApplyResult(result);
         return true;
+    }
+
+    /// <summary>
+    /// Applies a judgement, rescuing a BAD with an O2Jam pill before it reaches display and scoring.
+    /// </summary>
+    public new void ApplyResult(HitResult result)
+    {
+        if (result == HitResult.Ok
+            && LayoutVariant == O2LazerLayoutVariant.O2Jam7K
+            && ScoreProcessor?.TryConsumePillForBad() == true)
+        {
+            result = HitResult.Perfect;
+        }
+
+        base.ApplyResult(result);
     }
 
     public override void PlaySamples()

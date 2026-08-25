@@ -40,8 +40,8 @@ internal sealed class O2LazerLongNoteJudgementController
     {
         ln = hitObject;
         this.hooks = hooks;
-        headTable = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: false);
-        tailTable = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: true);
+        headTable = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: false, hitObject.BpmAtStartTime);
+        tailTable = O2LazerJudgementProfileProvider.GetTable(hitObject.Beatmap.LayoutVariant, hitObject.Column, hitObject.EffectiveJudgementRate, tail: true, hitObject.BpmAtEndTime);
         refreshMode();
     }
 
@@ -272,6 +272,9 @@ internal sealed class O2LazerLongNoteJudgementController
 
         var result = tailTable.ResultForOffset(tailOffset);
         var endpointResult = result == HitResult.None ? IsO2Jam ? HitResult.Miss : HitResult.Meh : result;
+
+        if (IsO2Jam && endpointResult == HitResult.Ok && hooks.TryConsumePillForBad())
+            endpointResult = HitResult.Perfect;
 
         hooks.ApplySyntheticEndpoint(endpointResult,
             endpoint(O2LazerLongNoteEndpointKind.Tail, eventTime, gameplayRate, endpointResult));

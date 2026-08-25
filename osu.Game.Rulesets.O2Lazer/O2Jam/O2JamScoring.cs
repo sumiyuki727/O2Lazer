@@ -6,10 +6,21 @@ namespace osu.Game.Rulesets.O2Lazer.O2Jam;
 
 public static class O2JamScoring
 {
-    public const double CoolWindow = 1000d / 60 * 3.2;
-    public const double GoodWindow = 1000d / 60 * 8;
-    public const double BadWindow = 1000d / 60 * 15;
+    public const double DefaultBpm = 130;
+
+    /// <summary>
+    /// Full O2Jam judgment area in beats (64px judgment bar / 385px measure at 1x hi-speed).
+    /// </summary>
+    public const double JudgmentAreaBeats = 0.664;
+
+    public const double CoolBeatThreshold = 0.2;
+    public const double GoodBeatThreshold = 0.5;
+    public const double BadBeatThreshold = 0.8;
+
     public const double MaximumLife = 1000;
+
+    public static double BeatWindowForBpm(double bpm, double beatThreshold)
+        => beatThreshold * JudgmentAreaBeats * 60000 / (bpm > 0 ? bpm : DefaultBpm);
 
     public static OjnDifficulty DifficultyFor(IBeatmapInfo beatmap)
     {
@@ -74,6 +85,20 @@ public sealed class O2JamScoreState
         Buffer = 0;
         jams = 0;
         bufferProgress = 0;
+    }
+
+    /// <summary>
+    /// Consumes one pill to rescue an incoming BAD before it reaches scoring/display.
+    /// Returns false when no pill is available.
+    /// </summary>
+    public bool TryConsumePillForBad()
+    {
+        if (Buffer <= 0)
+            return false;
+
+        Buffer--;
+        bufferProgress = 0;
+        return true;
     }
 
     private void applySingle(HitResult result)

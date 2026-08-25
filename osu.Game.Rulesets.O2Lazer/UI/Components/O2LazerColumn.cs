@@ -310,7 +310,8 @@ public partial class O2LazerColumn : Playfield, IO2LazerColumn
                 d.HitObject.GetEndTime(),
                 d.HitObject.Column,
                 d.HitObject.EffectiveJudgementRate,
-                d.HitObject is O2LazerLongNote);
+                d.HitObject is O2LazerLongNote,
+                d.HitObject.BpmAtStartTime);
             pressCandidates.Add((d, candidate));
             pressJudgementCandidates.Add(candidate);
         }
@@ -392,7 +393,7 @@ public partial class O2LazerColumn : Playfield, IO2LazerColumn
 
         if (heldNote is ILongNoteHolder ln2)
         {
-            var tailTable = O2LazerJudgementProfileProvider.GetTable(LayoutVariant, Index, heldNote.HitObject.EffectiveJudgementRate, tail: true);
+            var tailTable = O2LazerJudgementProfileProvider.GetTable(LayoutVariant, Index, heldNote.HitObject.EffectiveJudgementRate, tail: true, heldNote.HitObject.BpmAtEndTime);
             var releaseOffset = time - heldNote.HitObject.GetEndTime();
 
             // O2Jam release events do not carry a playback sound; the LN tail is a
