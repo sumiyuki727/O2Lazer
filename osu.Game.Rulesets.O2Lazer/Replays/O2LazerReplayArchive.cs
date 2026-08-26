@@ -1,13 +1,17 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using osu.Framework.Extensions;
 using osu.Framework.IO.Stores;
 using osu.Game.Extensions;
 using osu.Game.IO.Archives;
 using osu.Game.IO.Serialization;
+using osu.Game.Online.API;
+using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Replays;
 using osu.Game.Rulesets.O2Lazer.Scoring;
 using osu.Game.Rulesets.Scoring;
@@ -24,7 +28,18 @@ public static class O2LazerReplayArchive
     // load instead of crashing — no version handshake needed.
     private const byte gzip_magic_1 = 0x1f;
     private const byte gzip_magic_2 = 0x8b;
-    private const int current_version = 3;
+    private const int current_version = 4;
+
+    private static readonly ConditionalWeakTable<ScoreInfo, EmbeddedScoreDataMarker> embedded_score_data = new();
+
+    internal static bool HasEmbeddedScoreData(ScoreInfo scoreInfo) => embedded_score_data.TryGetValue(scoreInfo, out _);
+
+    public static bool IsPayload(byte[] bytes)
+        => bytes.Length >= 2 && bytes[0] == gzip_magic_1 && bytes[1] == gzip_magic_2
+           || bytes.Length > 0 && bytes[0] == (byte)'{';
+
+    public static string GetNativeFilename(ScoreInfo scoreInfo)
+        => $"{scoreInfo.GetDisplayString()} ({scoreInfo.Date.LocalDateTime:yyyy-MM-dd_HH-mm}).osr".GetValidFilename();
 
     public static ArchiveReader Create(Score score)
         => new ByteArrayArchiveReader(createReplayData(score), FILENAME);
@@ -55,6 +70,18 @@ public static class O2LazerReplayArchive
             HasReceivedAllFrames = score.Replay.HasReceivedAllFrames,
             Frames = score.Replay.Frames.OfType<O2LazerReplayFrame>().ToList(),
             JudgementEvents = judgementEvents.Select(JudgementEventData.From).ToList(),
+            TotalScore = score.ScoreInfo.TotalScore,
+            MaxCombo = score.ScoreInfo.MaxCombo,
+            Accuracy = score.ScoreInfo.Accuracy,
+            Date = score.ScoreInfo.Date,
+            Statistics = score.ScoreInfo.Statistics,
+            MaximumStatistics = score.ScoreInfo.MaximumStatistics,
+            Mods = score.ScoreInfo.APIMods,
+            ClientVersion = score.ScoreInfo.ClientVersion,
+            Rank = score.ScoreInfo.Rank,
+            TotalScoreWithoutMods = score.ScoreInfo.TotalScoreWithoutMods > 0 ? score.ScoreInfo.TotalScoreWithoutMods : null,
+            Pauses = score.ScoreInfo.Pauses.ToArray(),
+            UserID = score.ScoreInfo.User.OnlineID,
         };
 
         return Encoding.UTF8.GetBytes(payload.Serialize());
@@ -62,27 +89,36 @@ public static class O2LazerReplayArchive
 
     public static Score ReadScore(ScoreInfo scoreInfo, IResourceStore<byte[]> store)
     {
-        var score = new Score
-        {
-            ScoreInfo = scoreInfo,
-        };
-
         var replayFile = scoreInfo.Files.FirstOrDefault(f => f.Filename == FILENAME);
 
         if (replayFile == null)
-            return score;
+            return new Score { ScoreInfo = scoreInfo };
 
         using var stream = store.GetStream(replayFile.File.GetStoragePath());
 
         if (stream == null)
-            return score;
+            return new Score { ScoreInfo = scoreInfo };
 
         using var ms = new MemoryStream();
         stream.CopyTo(ms);
         var bytes = ms.ToArray();
 
-        if (bytes.Length == 0)
-            return score;
+        return TryReadScore(scoreInfo, bytes, out var score) ? score : new Score { ScoreInfo = scoreInfo };
+    }
+
+    internal static bool TryReadScore(ScoreInfo scoreInfo, byte[] bytes, out Score score)
+        => TryReadScore(scoreInfo, bytes, out score, out _);
+
+    internal static bool TryReadScore(ScoreInfo scoreInfo, byte[] bytes, out Score score, out bool hasEmbeddedScoreData)
+    {
+        score = new Score
+        {
+            ScoreInfo = scoreInfo,
+        };
+        hasEmbeddedScoreData = false;
+
+        if (!IsPayload(bytes))
+            return false;
 
         // gzip-wrapped JSON for new archives; plain JSON for archives written before the gzip
         // switch. Falling back keeps old scores/replays working instead of throwing.
@@ -108,13 +144,12 @@ public static class O2LazerReplayArchive
             Frames = (payload.Frames ?? []).Cast<osu.Game.Rulesets.Replays.ReplayFrame>().ToList(),
         };
 
-        if (payload.Version == current_version)
+        if (payload.Version >= 3)
         {
             // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
             var judgementEvents = (payload.JudgementEvents ?? []).Select(e => e.ToJudgementEvent()).ToArray();
             score.ScoreInfo.HitEvents = O2LazerJudgementEventProjection.CreateTimingHitEvents(judgementEvents);
             O2LazerJudgementEventStore.Set(score.ScoreInfo, judgementEvents);
-
         }
         else
         {
@@ -124,7 +159,45 @@ public static class O2LazerReplayArchive
             O2LazerJudgementEventStore.Clear(score.ScoreInfo);
         }
 
-        return score;
+        if (payload.Version >= 4)
+        {
+            hasEmbeddedScoreData = true;
+            score.ScoreInfo.TotalScore = payload.TotalScore;
+            score.ScoreInfo.MaxCombo = payload.MaxCombo;
+            score.ScoreInfo.Accuracy = payload.Accuracy;
+
+            if (payload.Date != null)
+                score.ScoreInfo.Date = payload.Date.Value;
+
+            score.ScoreInfo.Statistics = payload.Statistics ?? [];
+            score.ScoreInfo.MaximumStatistics = payload.MaximumStatistics ?? [];
+            score.ScoreInfo.APIMods = payload.Mods ?? [];
+            score.ScoreInfo.ClientVersion = payload.ClientVersion ?? string.Empty;
+
+            if (payload.Rank != null)
+                score.ScoreInfo.Rank = payload.Rank.Value;
+
+            if (payload.TotalScoreWithoutMods is long totalScoreWithoutMods)
+                score.ScoreInfo.TotalScoreWithoutMods = totalScoreWithoutMods;
+
+            if (payload.Pauses != null)
+                score.ScoreInfo.Pauses.AddRange(payload.Pauses);
+
+            if (payload.UserID > 1)
+                score.ScoreInfo.RealmUser.OnlineID = payload.UserID;
+        }
+
+        MarkEmbeddedScoreData(score.ScoreInfo, hasEmbeddedScoreData);
+
+        return true;
+    }
+
+    internal static void MarkEmbeddedScoreData(ScoreInfo scoreInfo, bool hasEmbeddedScoreData)
+    {
+        embedded_score_data.Remove(scoreInfo);
+
+        if (hasEmbeddedScoreData)
+            embedded_score_data.Add(scoreInfo, new EmbeddedScoreDataMarker());
     }
 
     private class Payload
@@ -137,6 +210,30 @@ public static class O2LazerReplayArchive
         public List<O2LazerReplayFrame> Frames { get; init; } = [];
 
         public List<JudgementEventData> JudgementEvents { get; init; } = [];
+
+        public long TotalScore { get; init; }
+
+        public int MaxCombo { get; init; }
+
+        public double Accuracy { get; init; }
+
+        public DateTimeOffset? Date { get; init; }
+
+        public Dictionary<HitResult, int> Statistics { get; init; } = [];
+
+        public Dictionary<HitResult, int> MaximumStatistics { get; init; } = [];
+
+        public APIMod[] Mods { get; init; } = [];
+
+        public string ClientVersion { get; init; } = string.Empty;
+
+        public ScoreRank? Rank { get; init; }
+
+        public long? TotalScoreWithoutMods { get; init; }
+
+        public int[] Pauses { get; init; } = [];
+
+        public int UserID { get; init; } = -1;
 
     }
 
@@ -214,5 +311,7 @@ public static class O2LazerReplayArchive
             Kind,
             Duration);
     }
+
+    private sealed class EmbeddedScoreDataMarker;
 
 }

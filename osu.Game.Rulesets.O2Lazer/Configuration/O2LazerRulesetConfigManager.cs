@@ -35,6 +35,7 @@ public class O2LazerRulesetConfigManager : RulesetConfigManager<O2LazerRulesetSe
         SetDefault(O2LazerRulesetSetting.PreviewPlayKeysounds, true);
         SetDefault(O2LazerRulesetSetting.UnlockFrameRateLimit, false);
         SetDefault(O2LazerRulesetSetting.PercyLongNoteBodyRepeat, false);
+        SetDefault(O2LazerRulesetSetting.O2JamStyleDroppedHold, false);
     }
 
     public override TrackedSettings CreateTrackedSettings() => new()
@@ -63,6 +64,7 @@ public enum O2LazerRulesetSetting
     PreviewPlayKeysounds,
     UnlockFrameRateLimit,
     PercyLongNoteBodyRepeat,
+    O2JamStyleDroppedHold,
 }
 
 

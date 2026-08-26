@@ -30,6 +30,8 @@
   <data name="fixed_scroll_speed" xml:space="preserve"><value>Fixed scroll speed</value></data>
   <data name="percy_long_note_body_repeat" xml:space="preserve"><value>Percy long note fix</value></data>
   <data name="percy_long_note_body_repeat_description" xml:space="preserve"><value>When a hold is longer than the body texture's designed span, repeat only the plain lower half to extend it, keeping the percy tail fade drawn once.</value></data>
+  <data name="o2jam_long_note_visual" xml:space="preserve"><value>O2Jam long note visual</value></data>
+  <data name="o2jam_long_note_visual_description" xml:space="preserve"><value>Restore O2Jam long note miss visual effect.</value></data>
   <data name="scroll_speed_tooltip_with_o2jam_grade" xml:space="preserve"><value>{0} · O2Jam {1}</value></data>
   <data name="import_path" xml:space="preserve"><value>Import path</value></data>
   <data name="import_path_hint" xml:space="preserve"><value>Folder used by the last O2Jam import. Click to choose a different folder; beatmaps from the selected folder are read into the library automatically.</value></data>

@@ -174,6 +174,10 @@ public static class O2LazerStrings
 
     public static LocalisableString PercyLongNoteBodyRepeatDescription => get("percy_long_note_body_repeat_description");
 
+    public static LocalisableString O2JamLongNoteVisual => get("o2jam_long_note_visual");
+
+    public static LocalisableString O2JamLongNoteVisualDescription => get("o2jam_long_note_visual_description");
+
     public static LocalisableString ScrollSpeedTooltipWithO2JamGrade(LocalisableString tooltip, string grade) =>
         get("scroll_speed_tooltip_with_o2jam_grade", tooltip, grade);
 

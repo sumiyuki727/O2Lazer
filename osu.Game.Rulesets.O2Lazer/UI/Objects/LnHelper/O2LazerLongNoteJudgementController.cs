@@ -1,7 +1,6 @@
 using System;
 using osu.Game.Rulesets.O2Lazer.Beatmaps.Objects;
 using osu.Game.Rulesets.O2Lazer.Parsing;
-using osu.Game.Rulesets.O2Lazer.Scoring;
 using osu.Game.Rulesets.O2Lazer.Scoring.Judgements;
 using osu.Game.Rulesets.Scoring;
 
@@ -273,39 +272,16 @@ internal sealed class O2LazerLongNoteJudgementController
 
         var result = tailTable.ResultForOffset(tailOffset);
         var endpointResult = result == HitResult.None ? IsO2Jam ? HitResult.Miss : HitResult.Meh : result;
-        var rawResult = endpointResult;
-        var pillBefore = hooks.PillCount;
-        var comboBefore = hooks.Combo;
 
         if (IsO2Jam && endpointResult == HitResult.Ok && hooks.TryConsumePillForBad())
             endpointResult = HitResult.Perfect;
 
-        var pillAfter = hooks.PillCount;
-
         hooks.ApplySyntheticEndpoint(endpointResult,
             endpoint(O2LazerLongNoteEndpointKind.Tail, eventTime, gameplayRate, endpointResult));
-        var comboAfter = hooks.Combo;
         TailJudged = true;
         if (endpointResult != HitResult.Meh)
             LongNoteStarted = false;
         hooks.ClearVisualIfTailWasNotPoor(endpointResult);
-
-        if (IsO2Jam)
-        {
-            O2LazerJudgementAuditLogger.Record(
-                kind: O2LazerTimingObservationKind.LongNoteTail,
-                column: ln.Column,
-                expectedTime: ln.EndTime,
-                actualTime: eventTime,
-                rawResult: rawResult,
-                displayedResult: endpointResult,
-                pillBefore: pillBefore,
-                pillAfter: pillAfter,
-                bpm: ln.BpmAtEndTime,
-                gameplayRate: gameplayRate,
-                comboBefore: comboBefore,
-                comboAfter: comboAfter);
-        }
     }
 
     private O2LazerLongNoteEndpointResult endpoint(

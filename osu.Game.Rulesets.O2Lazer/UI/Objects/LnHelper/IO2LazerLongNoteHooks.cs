@@ -21,12 +21,6 @@ internal interface IO2LazerLongNoteHooks
     /// <summary>Consume one O2Jam pill to rescue a BAD endpoint before visual/scoring, returning true when consumed.</summary>
     bool TryConsumePillForBad();
 
-    /// <summary>Current number of O2Jam pills available before the endpoint judgement consumes one.</summary>
-    int PillCount { get; }
-
-    /// <summary>Current combo value used by the O2Jam score state.</summary>
-    int Combo { get; }
-
     /// <summary>Clear the body/tail visuals when the tail result is not POOR (was <c>clearVisualIfTailWasNotPoor</c>).</summary>
     void ClearVisualIfTailWasNotPoor(HitResult result);
 

@@ -96,10 +96,6 @@ public abstract partial class DrawableO2LazerHitObject : DrawableHitObject<O2Laz
     /// </summary>
     public new void ApplyResult(HitResult result)
     {
-        var auditRawResult = result;
-        var auditPillBefore = ScoreProcessor?.PillCount ?? -1;
-        var auditComboBefore = ScoreProcessor?.Combo.Value ?? -1;
-
         if (result == HitResult.Ok
             && LayoutVariant == O2LazerLayoutVariant.O2Jam7K
             && ScoreProcessor?.TryConsumePillForBad() == true)
@@ -108,23 +104,6 @@ public abstract partial class DrawableO2LazerHitObject : DrawableHitObject<O2Laz
         }
 
         base.ApplyResult(result);
-
-        if (LayoutVariant == O2LazerLayoutVariant.O2Jam7K && HitObject != null)
-        {
-            O2LazerJudgementAuditLogger.Record(
-                kind: HitObject is O2LazerLongNote ? O2LazerTimingObservationKind.LongNoteHead : O2LazerTimingObservationKind.Note,
-                column: HitObject.Column,
-                expectedTime: HitObject.StartTime,
-                actualTime: Time.Current,
-                rawResult: auditRawResult,
-                displayedResult: Result.Type,
-                pillBefore: auditPillBefore,
-                pillAfter: ScoreProcessor?.PillCount ?? -1,
-                bpm: HitObject.BpmAtStartTime,
-                gameplayRate: Result.GameplayRate ?? Clock.Rate,
-                comboBefore: auditComboBefore,
-                comboAfter: ScoreProcessor?.Combo.Value ?? -1);
-        }
     }
 
     public override void PlaySamples()

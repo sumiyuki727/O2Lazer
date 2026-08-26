@@ -218,6 +218,12 @@ public partial class O2LazerSettingsSubsection(O2LazerRuleset ruleset) : Ruleset
             }),
             new SettingsItemV2(new FormCheckBox
             {
+                Caption = O2LazerStrings.O2JamLongNoteVisual,
+                HintText = O2LazerStrings.O2JamLongNoteVisualDescription,
+                Current = manager.GetBindable<bool>(O2LazerRulesetSetting.O2JamStyleDroppedHold),
+            }),
+            new SettingsItemV2(new FormCheckBox
+            {
                 Caption = O2LazerStrings.UnlockFrameRateLimit,
                 HintText = O2LazerStrings.UnlockFrameRateLimitHint,
                 Current = manager.GetBindable<bool>(O2LazerRulesetSetting.UnlockFrameRateLimit),

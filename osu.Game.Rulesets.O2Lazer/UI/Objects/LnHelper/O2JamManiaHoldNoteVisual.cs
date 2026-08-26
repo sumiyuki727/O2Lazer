@@ -5,6 +5,7 @@ using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
+using osu.Game.Rulesets.O2Lazer.Configuration;
 using osu.Game.Rulesets.O2Lazer.Parsing;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;
 using osu.Game.Rulesets.O2Lazer.Skinning.Drawables;
@@ -36,8 +37,20 @@ internal sealed partial class O2JamManiaHoldNoteVisual : CompositeDrawable
 
     private IBindable<ScrollingDirection> direction = null!;
 
+    private IBindable<bool> o2JamStyleDroppedHold = new BindableBool();
+
+    [Resolved(CanBeNull = true)]
+    private O2LazerRulesetConfigManager? config { get; set; }
+
     [Resolved]
     private IScrollingInfo scrollingInfo { get; set; } = null!;
+
+    [BackgroundDependencyLoader]
+    private void load()
+    {
+        o2JamStyleDroppedHold = config?.GetBindable<bool>(O2LazerRulesetSetting.O2JamStyleDroppedHold)?.GetBoundCopy()
+                                ?? new BindableBool();
+    }
 
     private bool headAttached;
     private bool wasPinned;
@@ -197,7 +210,20 @@ internal sealed partial class O2JamManiaHoldNoteVisual : CompositeDrawable
             return;
 
         dropped = true;
-        Body.SetDropped(true);
+
+        if (o2JamStyleDroppedHold.Value != true)
+            Body.SetDropped(true);
+    }
+
+    internal void HideAfterTailSuccess()
+    {
+        Alpha = 0;
+        sizingContainer.Alpha = 0;
+        maskingContainer.Alpha = 0;
+        headHost.Alpha = 0;
+        tailHost.Alpha = 0;
+        Body.Alpha = 0;
+        Tail.Alpha = 0;
     }
 
     internal void ResetVisual()
@@ -206,6 +232,10 @@ internal sealed partial class O2JamManiaHoldNoteVisual : CompositeDrawable
         Colour = Color4.White;
         Body.SetDropped(false);
         Alpha = 1;
+        sizingContainer.Alpha = 1;
+        maskingContainer.Alpha = 1;
+        headHost.Alpha = 1;
+        tailHost.Alpha = 1;
         sizingContainer.Height = 1;
         wasPinned = false;
         dropped = false;

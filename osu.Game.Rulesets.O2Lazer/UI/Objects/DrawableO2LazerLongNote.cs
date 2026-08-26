@@ -52,6 +52,7 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
     private float lastVisualTailHeight;
     private bool lastHoldingBody;
     private bool lastReleasedFast;
+    private bool tailVisualCleared;
     private O2LazerManiaLongNoteBody longNoteBody = null!;
     private O2LazerCachedSkinnableDrawable longNoteTail = null!;
     private O2JamManiaHoldNoteVisual o2jamVisual = null!;
@@ -87,6 +88,21 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
         if (hitObject == null)
             return;
 
+        if (tailVisualCleared)
+        {
+            if (isO2Jam)
+                o2jamVisual.HideAfterTailSuccess();
+            else
+            {
+                longNoteBody.Alpha = 0;
+                longNoteTail.Alpha = 0;
+                Alpha = 0;
+            }
+
+            Expire();
+            return;
+        }
+
         var holdingBody = isHoldingBody();
         var visualOffset = ParentColumn?.VisualOffset ?? 0;
 
@@ -112,6 +128,12 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
             var headHeight = NoteVisualHeight;
             var o2jamReleasedFast =
                 controller.LongNoteStarted && HitObject != null && Time.Current < ln.EndTime && !holdingBody;
+
+            if (holdingBody && Time.Current >= ln.EndTime)
+            {
+                o2jamVisual.HideAfterTailSuccess();
+                return;
+            }
 
             o2jamVisual.UpdateGeometry(
                 fullHeight,
@@ -211,6 +233,7 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
         controller.Reset();
         visualState.Reset();
         bodyGeometryValid = false;
+        tailVisualCleared = false;
 
         if (isO2Jam)
         {
@@ -397,10 +420,6 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
 
     bool IO2LazerLongNoteHooks.TryConsumePillForBad() => ScoreProcessor?.TryConsumePillForBad() == true;
 
-    int IO2LazerLongNoteHooks.PillCount => ScoreProcessor?.PillCount ?? 0;
-
-    int IO2LazerLongNoteHooks.Combo => ScoreProcessor?.Combo.Value ?? -1;
-
     void IO2LazerLongNoteHooks.ClearVisualIfTailWasNotPoor(HitResult tailResult)
     {
         // Missed tails (and POOR) leave the greyed hold scrolling past like mania; only a
@@ -420,16 +439,17 @@ public sealed partial class DrawableO2LazerLongNote<TCol> : DrawableO2LazerHitOb
 
         if (isO2Jam)
         {
+            tailVisualCleared = true;
             o2jamVisual.ResetVisual();
-            this.FadeOut();
-            LifetimeEnd = Time.Current;
+            o2jamVisual.HideAfterTailSuccess();
+            Expire();
             return;
         }
 
+        tailVisualCleared = true;
         longNoteBody.Alpha = 0;
         longNoteTail.Alpha = 0;
-        this.FadeOut();
-        LifetimeEnd = Time.Current;
+        Expire();
     }
 
     void IO2LazerLongNoteHooks.ApplyHellChargeTick(bool holding, double scale)
