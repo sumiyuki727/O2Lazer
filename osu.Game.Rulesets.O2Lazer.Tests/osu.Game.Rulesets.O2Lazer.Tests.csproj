@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>14</LangVersion>
         <NoWarn>$(NoWarn);MSB3277</NoWarn>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     </PropertyGroup>
     <ItemGroup Label="Package References">
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0"/>
@@ -15,9 +16,20 @@
     <ItemGroup>
         <ProjectReference Include="..\osu.Game.Rulesets.O2Lazer\osu.Game.Rulesets.O2Lazer.csproj"/>
     </ItemGroup>
+    <ItemGroup>
+        <Compile Include="Normal\Core\**\*.cs" />
+        <Compile Include="Normal\Clean\**\*.cs" />
+    </ItemGroup>
     <ItemGroup Condition="'$(UseLocalOsuBinary)' == 'true'">
+        <!-- Match the host's Realm helper dependency, not a separately shipped ruleset library.
+             Keep the NuGet audit visible; see docs/development.md for the current advisory. -->
+        <PackageReference Include="AutoMapper" Version="13.0.1" PrivateAssets="all" />
         <Reference Include="osu.Game">
             <HintPath>$(OsuGameProjectPath)</HintPath>
+            <Private>true</Private>
+        </Reference>
+        <Reference Include="osu.Game.Rulesets.Mania">
+            <HintPath>$(OsuManiaAssemblyPath)</HintPath>
             <Private>true</Private>
         </Reference>
     </ItemGroup>

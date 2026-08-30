@@ -1,5 +1,4 @@
 <Solution>
-  <Project Path="osu.Game.Rulesets.O2Lazer.SourceGeneration/osu.Game.Rulesets.O2Lazer.SourceGeneration.csproj" />
   <Project Path="osu.Game.Rulesets.O2Lazer/osu.Game.Rulesets.O2Lazer.csproj" />
   <Project Path="osu.Game.Rulesets.O2Lazer.Tests/osu.Game.Rulesets.O2Lazer.Tests.csproj" />
 </Solution>

@@ -9,38 +9,80 @@ An osu!lazer ruleset for playing native O2Jam libraries directly from `.ojn` and
 - Reads classic and newly encrypted OJN files with EX, NX, and HX difficulties.
 - Decodes M30, OMC, and OJM keysounds and background music in memory.
 - Supports seven-key notes, long notes, BPM changes, keysounds, and BGM events.
-- Displays native O2Jam difficulty names and levels.
+- Displays native O2Jam difficulty names and levels. Song select shows the o2ma identifier to the left of the O2Jam level instead of CS/AR/OD/HP. The identifier bar is always full; the level bar fills proportionally up to 150, while higher levels still display their actual value.
 - Imports embedded OJN cover art as the beatmap background and continues past unreadable charts.
 - Keeps score displays separate for EX, NX, and HX difficulties.
-- Decodes Korean metadata as CP949 and Chinese O2Jam 2.9 metadata as GBK/CP936, with UTF-8 fallback.
-- Uses native O2Jam COOL/GOOD/BAD/MISS windows, raw score, and independently judged long-note endpoints.
-- Provides dedicated O2Jam settings, file import, current-folder import, and recursive library import.
-- Keeps gameplay HUD and mods aligned with the suitable osu!mania basics, including Random, Daycore and Nightcore.
+- Automatically distinguishes CP949, GBK/CP936 and UTF-8 metadata using field validation and conservative folder hints; the OJN version alone is not an encoding marker.
+- Uses O2Jam-style COOL/GOOD/BAD/MISS judgement in chart-position space, including BPM changes within a song, raw score, life, Jam, pills and independently judged LN endpoints.
+- Displays the OJN difficulty level divided by 10 as the default star rating, not mania strain difficulty.
+- Provides a persistent library path with incremental refresh and removal of imported O2Jam beatmaps.
+- Reuses osu!mania's native playfield and stable-skin presentation while keeping O2Jam judgement and scoring state independent.
+- Supports clean-format replay recording/playback and O2Jam-specific HUD/playfield skin-editor layers.
+- Includes native autoplay for playback/editor integration; Mirror, Random, rate mods and a mania-scoring mode remain future work.
 
-The default key bindings are `S D F Space J K L`. Use Up/Down during play to adjust scroll speed.
+The default key bindings are `S D F Space J K L`.
 
 ## Install
 
-Build or obtain `osu.Game.Rulesets.O2Lazer.dll`, place it in osu!lazer's `rulesets` directory, and restart osu!lazer.
+This source branch targets osu!lazer **2026.804.2**. Build or obtain a compatible
+`osu.Game.Rulesets.O2Lazer.dll`, close lazer, replace the DLL in its data directory's `rulesets`
+folder, and restart. Keep DLL backups outside `rulesets`; do not install two O2Lazer versions there.
+The persisted ruleset identity is unchanged, so existing imports and score associations are retained.
+Pre-rewrite replays are not supported; existing score records are not deleted.
 
 ## Importing a library
 
-Keep each `.ojn` beside its corresponding `.ojm`, `.omc`, or `.m30` file. Open **Settings -> O2Lazer**, then choose a file, import the current folder, or recursively import a library folder. The audio archive remains external, so keep the original library available after importing.
+Keep each `.ojn` beside its corresponding `.ojm`, `.omc`, or `.m30` file. Open **Settings -> O2Jam**,
+choose the persistent library path, then use **Update beatmaps**. Updates import new/changed charts
+and remove imports whose source files disappeared; unchanged charts still count toward progress.
+**Clear beatmap imports** removes the in-game imports, not the source files. Keep the original
+library available because audio archives remain externally referenced.
+
+Folder-based collections are optional and off by default. When enabled they synchronise with library
+updates; disabling the option removes the collections managed by this feature, not unrelated collections.
+Song-select preview always mixes BGM and playable keysounds. Compatible difficulties share playback;
+difficulties with different background arrangements start their own preview. LN tails are silent.
+
+## Gameplay and skin options
+
+Scroll speed uses mania's visual scale and also shows an O2Jam-equivalent multiplier. Fixed scroll
+speed is optional and does not change BPM-dependent judgement. The O2Jam LN visual option is off by
+default. When enabled, released LNs remain in their original colour: final COOL/GOOD (including
+pill-rescued COOL) continue clipping; BAD/MISS stop clipping and let the remainder scroll past the
+line. This does not delay scoring or keep the hold light active. A separate Percy-body fix extends
+overlong legacy hold textures and follows their animation frames.
+
+The gameplay model is based on reference implementations and player checks, not a claim of complete
+original-client equivalence. See the [behaviour specification](docs/o2jam-behaviour-spec.md) for
+evidence and limitations. Dedicated Jam/pill HUD widgets and further preview-performance work remain.
+
+## Searching beatmaps
+
+Combine these filters in the O2Lazer song-select search box:
+
+- `ln>50`: LN percentage strictly above 50%; `ln>=50` also includes exactly 50%.
+- `note>50`: tap-note percentage above 50%. Percentages use each difficulty's object counts: LN count / (tap count + LN count). Each hold counts once, regardless of duration or its two judgements.
+- Percentages support `=`, `!=`, `<`, `<=`, `>`, `>=`, decimals, and an optional `%`, for example `ln>=25 ln<75`.
+- `level>=50` or `lv>=50`: filters by the native O2Jam level. Both keywords are case-insensitive and support osu!'s comparison operators (`=`, `!=`, `<`, `<=`, `>`, `>=`, including their `:` variants). Conditions can be combined, such as `LEVEL>=50 lv<100`; searches are not capped at level 150.
+- `o2ma100`: matches only the complete `o2ma100` identifier tag, not `o2ma1000` or `o2ma1001`. Matching is case-insensitive.
+- A bare number such as `100` can still match ordinary titles, creators, difficulty names, and other metadata, but not O2Jam identifiers, identifier-based filenames, or internal import tags.
+
+For example, `o2ma100 ln>50` selects that song's difficulties with more than 50% LNs. Search uses existing imported metadata without reimporting or decoding charts.
 
 ## Build
 
-The ruleset targets .NET 8 and the osu!lazer `2026.804.2` source tree in the sibling `../osu` directory.
+Use a **.NET 10 SDK** to compile C# 14, with a .NET 8 runtime for tests. Reference matching existing
+lazer binaries; the build does not modify sibling source checkouts.
 
 ```powershell
-dotnet build osu.Game.Rulesets.O2Lazer.slnx
+$lazerBinaries = Join-Path $env:LOCALAPPDATA 'osulazer/current'
+dotnet build osu.Game.Rulesets.O2Lazer.slnx -c Release "-p:OsuBinaryDirectory=$lazerBinaries"
+./scripts/verify.ps1 -OsuBinaryDirectory $lazerBinaries
 ```
 
-To build against an already-built `osu.Game.dll` without writing to the osu checkout:
-
-```powershell
-dotnet build osu.Game.Rulesets.O2Lazer.slnx -p:OsuGameProjectPath=D:\osu\osu.Game\bin\Debug\net8.0\osu.Game.dll
-```
+See [development and testing](docs/development.md) for alternate binary paths, filtered tests and
+optional local diagnostics. Architecture is documented in [clean-rewrite-architecture.md](docs/clean-rewrite-architecture.md).
 
 ## Credits and license
 
-This project is derived from [QingQiz/BmsRuleset](https://github.com/QingQiz/BmsRuleset) and is licensed under AGPL-3.0. O2Jam decoding work references the MIT-licensed [O2MusicBox](https://github.com/SirusDoma/O2MusicBox), [CXO2](https://github.com/SirusDoma/CXO2), and public Open2Jam format documentation. See [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).
+The current ruleset is a clean implementation and does not compile or include the archived BMS-derived implementation. The pre-rewrite project remains available separately for behavioural reference. O2Jam format work references the MIT-licensed [O2MusicBox](https://github.com/SirusDoma/O2MusicBox), [CXO2](https://github.com/SirusDoma/CXO2), and public Open2Jam format documentation. The project is licensed under AGPL-3.0; see [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).

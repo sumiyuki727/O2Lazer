@@ -7,6 +7,9 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <NoWarn>$(NoWarn);CS1591</NoWarn>
     </PropertyGroup>
+    <PropertyGroup Condition="'$(O2JamSyncDiagnostics)' == 'true'">
+        <DefineConstants>$(DefineConstants);O2JAM_SYNC_DIAGNOSTICS</DefineConstants>
+    </PropertyGroup>
     <PropertyGroup Label="Osu dependency">
         <!-- Shared year.milestone base; bump this to move osu + ruleset together. -->
         <OsuBase Condition="'$(OsuBase)' == ''">2026.804</OsuBase>
@@ -16,11 +19,20 @@
         <RulesetRevision Condition="'$(RulesetRevision)' == ''">1</RulesetRevision>
         <!-- Version passed to osu (nuget ref / local checkout target). -->
         <OsuVersion>$(OsuBase).$(OsuRevision)</OsuVersion>
-        <!-- Defaults true: target a local osu checkout (../osu). Pass UseLocalOsu=false once a
-             matching ppy.osu.Game package is published. To build against an existing osu.Game.dll
-             without writing to the osu checkout, pass OsuGameProjectPath=D:\osu\osu.Game\bin\Debug\net8.0\osu.Game.dll. -->
+        <!-- Reference an explicit binary directory so a clone never builds or modifies sibling
+             checkouts and never depends on ignored reference artifacts from another machine. -->
         <UseLocalOsu Condition="'$(UseLocalOsu)' == ''">true</UseLocalOsu>
-        <OsuGameProjectPath Condition="'$(OsuGameProjectPath)' == ''">$(MSBuildThisFileDirectory)..\osu\osu.Game\osu.Game.csproj</OsuGameProjectPath>
-        <UseLocalOsuBinary Condition="'$(UseLocalOsu)' == 'true' and '$(OsuGameProjectPath.EndsWith(&quot;.dll&quot;))' == 'true'">true</UseLocalOsuBinary>
+        <OsuGameProjectPath Condition="'$(OsuGameProjectPath)' == '' and '$(OsuBinaryDirectory)' != ''">$([System.IO.Path]::Combine('$(OsuBinaryDirectory)', 'osu.Game.dll'))</OsuGameProjectPath>
+        <UseLocalOsuBinary Condition="'$(UseLocalOsu)' == 'true'">true</UseLocalOsuBinary>
+        <OsuManiaAssemblyPath Condition="'$(UseLocalOsuBinary)' == 'true' and '$(OsuManiaAssemblyPath)' == '' and '$(OsuGameProjectPath)' != ''">$([System.IO.Path]::Combine($([System.IO.Path]::GetDirectoryName('$(OsuGameProjectPath)')), 'osu.Game.Rulesets.Mania.dll'))</OsuManiaAssemblyPath>
     </PropertyGroup>
+    <Target Name="ValidateO2LazerReferences" BeforeTargets="ResolveAssemblyReferences" Condition="'$(UseLocalOsuBinary)' == 'true'">
+        <PropertyGroup>
+            <_O2LazerGameReferenceExtension>$([System.IO.Path]::GetExtension('$(OsuGameProjectPath)'))</_O2LazerGameReferenceExtension>
+        </PropertyGroup>
+        <Error Condition="'$(OsuGameProjectPath)' == ''" Text="Set OsuBinaryDirectory to the matching osu!lazer binary directory. See docs/development.md." />
+        <Error Condition="'$(OsuGameProjectPath)' != '' and '$(_O2LazerGameReferenceExtension)' != '.dll'" Text="OsuGameProjectPath must reference an existing DLL, not a project. Sibling checkouts are read-only references." />
+        <Error Condition="!Exists('$(OsuGameProjectPath)')" Text="osu.Game.dll was not found at $(OsuGameProjectPath)." />
+        <Error Condition="!Exists('$(OsuManiaAssemblyPath)')" Text="osu.Game.Rulesets.Mania.dll was not found at $(OsuManiaAssemblyPath). Set OsuManiaAssemblyPath if it is not beside osu.Game.dll." />
+    </Target>
 </Project>
