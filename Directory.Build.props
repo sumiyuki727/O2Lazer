@@ -11,13 +11,9 @@
         <DefineConstants>$(DefineConstants);O2JAM_SYNC_DIAGNOSTICS</DefineConstants>
     </PropertyGroup>
     <PropertyGroup Label="Osu dependency">
-        <!-- Shared year.milestone base; bump this to move osu + ruleset together. -->
+        <!-- Host compatibility is independent of the ruleset's semantic release version. -->
         <OsuBase Condition="'$(OsuBase)' == ''">2026.804</OsuBase>
-        <!-- Official osu!lazer tag revision used by the local osu checkout and OsuVersion. -->
         <OsuRevision Condition="'$(OsuRevision)' == ''">2</OsuRevision>
-        <!-- O2Lazer release revision; new lazer bases start at the official lazer revision. -->
-        <RulesetRevision Condition="'$(RulesetRevision)' == ''">1</RulesetRevision>
-        <!-- Version passed to osu (nuget ref / local checkout target). -->
         <OsuVersion>$(OsuBase).$(OsuRevision)</OsuVersion>
         <!-- Reference an explicit binary directory so a clone never builds or modifies sibling
              checkouts and never depends on ignored reference artifacts from another machine. -->

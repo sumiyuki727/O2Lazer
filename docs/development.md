@@ -33,6 +33,13 @@ Harmony is internalised into it. Do not copy Game, Mania, framework, Realm, test
 standalone `0Harmony.dll` into `rulesets`. Back up an old ruleset DLL outside that folder, not under
 a second filename inside it. No new release version or tag is implied by a source-branch build.
 
+The clean rewrite starts at version `1.0.0`, independent of the host's `2026.804.2` compatibility
+version. The project `Version` is the single release-version source; the SDK derives assembly/file
+version `1.0.0.0` and the informational version (which may include a Git commit suffix).
+The ruleset assembly name, entry type and short name remain unchanged. Native `RealmRulesetStore`
+updates the existing short-name record when the assembly version changes; do not install both
+the old and new DLL at once. Historical tags are maintained separately and are not rewritten by builds.
+
 For separately located binaries, these properties remain supported:
 
 ```powershell
@@ -73,6 +80,17 @@ Run the forced-GC setting-subscription check in its own process, away from Realm
 dotnet test osu.Game.Rulesets.O2Lazer.Tests -c Release --no-build `
   "-p:OsuBinaryDirectory=$lazerBinaries" `
   --filter 'FullyQualifiedName~O2JamRuntimeOptionsTest.RuntimeProjectionSurvivesGarbageCollection'
+```
+
+The native ruleset-store version-migration check also runs in its own process. Mixing its full
+store bootstrap with later Realm lifetime tests has triggered a native Realm transaction assertion
+in the shared test host; a separate invocation preserves this coverage without destabilising the
+routine checks. It uses a temporary database, never the player's library.
+
+```powershell
+dotnet test osu.Game.Rulesets.O2Lazer.Tests -c Release --no-build `
+  "-p:OsuBinaryDirectory=$lazerBinaries" `
+  --filter 'FullyQualifiedName~NativeRulesetStorePreservesAssociationsAfterVersionRestart'
 ```
 
 Never run benchmarks or full-corpus decodes as a routine verification step. Those expensive

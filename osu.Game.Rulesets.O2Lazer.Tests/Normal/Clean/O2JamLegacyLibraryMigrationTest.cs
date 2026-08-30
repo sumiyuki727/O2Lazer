@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -20,6 +21,64 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 [TestFixture]
 public partial class O2JamLegacyLibraryMigrationTest
 {
+    [Test]
+    [Category("Isolated")]
+    [Explicit("Bootstraps the native ruleset store; run separately from subsequent Realm lifetime tests in a shared test host.")]
+    public void NativeRulesetStorePreservesAssociationsAfterVersionRestart()
+    {
+        using var host = new TestRunHeadlessGameHost($"{nameof(O2JamLegacyLibraryMigrationTest)}-{Guid.NewGuid():N}");
+        Exception? failure = null;
+
+        host.Run(new MigrationTestGame(() =>
+        {
+            try
+            {
+                using var storage = new TemporaryNativeStorage($"{nameof(O2JamLegacyLibraryMigrationTest)}-{Guid.NewGuid():N}", host);
+                using var realm = new RealmAccess(storage, "client.realm");
+                var current = new O2LazerRuleset().RulesetInfo;
+                var formerAssembly = new AssemblyName(typeof(O2LazerRuleset).Assembly.FullName!) { Version = new Version(2026, 804, 1, 0) };
+                var formerInstantiation = $"{typeof(O2LazerRuleset).FullName}, {formerAssembly.FullName}";
+                var beatmapId = Guid.NewGuid();
+                var scoreId = Guid.NewGuid();
+
+                realm.Write(database =>
+                {
+                    var formerRuleset = database.Add(new RulesetInfo(current.ShortName, current.Name, formerInstantiation, current.OnlineID));
+                    var beatmap = database.Add(new BeatmapInfo { ID = beatmapId, Ruleset = formerRuleset });
+                    database.Add(new ScoreInfo { ID = scoreId, Ruleset = formerRuleset, BeatmapInfo = beatmap, MaxCombo = 123 });
+                });
+
+                using var store = new RealmRulesetStore(realm);
+                Assert.That(store.GetRuleset(current.ShortName)?.Available, Is.True);
+
+                realm.Run(database =>
+                {
+                    var ruleset = database.All<RulesetInfo>().Single(info => info.ShortName == current.ShortName);
+                    var beatmap = database.Find<BeatmapInfo>(beatmapId)!;
+                    var score = database.Find<ScoreInfo>(scoreId)!;
+
+                    Assert.Multiple(() =>
+                    {
+                        Assert.That(ruleset.InstantiationInfo, Is.EqualTo(current.InstantiationInfo));
+                        Assert.That(beatmap.Ruleset, Is.EqualTo(ruleset));
+                        Assert.That(score.Ruleset, Is.EqualTo(ruleset));
+                        Assert.That(score.BeatmapInfo?.ID, Is.EqualTo(beatmapId));
+                        Assert.That(score.MaxCombo, Is.EqualTo(123));
+                    });
+                });
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+
+            return Task.CompletedTask;
+        }));
+
+        if (failure != null)
+            throw failure;
+    }
+
     [Test]
     public void RefreshSkipsUnchangedSourcesAndDeletesMissingSources()
     {

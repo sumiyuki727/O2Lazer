@@ -8,10 +8,7 @@
         <RootNamespace>osu.Game.Rulesets.O2Lazer</RootNamespace>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <Version>1.2.2</Version>
-        <AssemblyVersion>2026.804.1.0</AssemblyVersion>
-        <FileVersion>1.2.2</FileVersion>
-        <InformationalVersion>1.2.2</InformationalVersion>
+        <Version>1.0.0</Version>
         <LangVersion>14</LangVersion>
         <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
         <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
@@ -20,9 +17,13 @@
         <NoWarn>$(NoWarn);MSB3277</NoWarn>
     </PropertyGroup>
     <ItemGroup>
-        <EmbeddedResource Include="..\o2jamruleset.png"
-                          Link="Resources\Textures\o2jamruleset.png"
-                          LogicalName="$(RootNamespace).Resources.Textures.o2jamruleset.png"
+        <EmbeddedResource Include="..\RulesetO2Jam.png"
+                          Link="Resources\Textures\Icons\RulesetO2Jam.png"
+                          LogicalName="$(RootNamespace).Resources.Textures.Icons.RulesetO2Jam.png"
+                          WithCulture="false" />
+        <EmbeddedResource Include="..\mod-mania-score.png"
+                          Link="Resources\Textures\Icons\Mods\mod-mania-score.png"
+                          LogicalName="$(RootNamespace).Resources.Textures.Icons.Mods.mod-mania-score.png"
                           WithCulture="false" />
         <EmbeddedResource Include="Resources\Samples\UI\ruleset-select-o2lazer.wav" WithCulture="false"/>
         <EmbeddedResource Update="Resources\Localisation\O2LazerStrings.resx" WithCulture="false" />

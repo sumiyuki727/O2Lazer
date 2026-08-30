@@ -302,7 +302,10 @@ key-sample triggering.
 
 The rewrite preserves the installed ruleset identity used by existing osu! databases: assembly and
 ruleset class identity, short name, variant value and action values remain compatible.
-The ruleset icon comes from the bundled O2Jam-specific `o2jamruleset.png` resource.
+The ruleset icon comes from the bundled O2Jam-specific `RulesetO2Jam.png`, under
+`Textures/Icons/RulesetO2Jam`. The reserved mania-scoring icon `mod-mania-score.png` is bundled under
+`Textures/Icons/Mods/mod-mania-score`; this asset does not expose or implement a new mod.
+Both follow osu!'s native icon naming/layout without changing the ruleset identity.
 
 WorkingBeatmap integration uses an O2Lazer-specific Harmony ID and is guarded by the clean ruleset
 type. The statistics/icon adapters can register through BmsRuleset's already-loaded Harmony runtime

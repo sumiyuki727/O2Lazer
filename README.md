@@ -24,7 +24,7 @@ The default key bindings are `S D F Space J K L`.
 
 ## Install
 
-This source branch targets osu!lazer **2026.804.2**. Build or obtain a compatible
+The clean rewrite is version **1.0.0**, targeting osu!lazer **2026.804.2**. Build or obtain a compatible
 `osu.Game.Rulesets.O2Lazer.dll`, close lazer, replace the DLL in its data directory's `rulesets`
 folder, and restart. Keep DLL backups outside `rulesets`; do not install two O2Lazer versions there.
 The persisted ruleset identity is unchanged, so existing imports and score associations are retained.

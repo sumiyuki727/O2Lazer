@@ -1,7 +1,10 @@
+using System;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using osu.Framework.Graphics.Textures;
 using osu.Framework.Input.Bindings;
+using osu.Framework.IO.Stores;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
@@ -15,6 +18,21 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 [TestFixture]
 public class O2LazerIdentityTest
 {
+    [Test]
+    public void ReleaseVersionsRemainConsistent()
+    {
+        var assembly = typeof(O2LazerRuleset).Assembly;
+        var version = assembly.GetName().Version!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(version, Is.EqualTo(new Version(1, 0, 0, 0)));
+            Assert.That(assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version, Is.EqualTo(version.ToString()));
+            Assert.That(assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0],
+                Is.EqualTo(version.ToString(3)));
+        });
+    }
+
     [Test]
     public void PreservesRulesetIdentity()
     {
@@ -63,8 +81,21 @@ public class O2LazerIdentityTest
         Assert.Multiple(() =>
         {
             Assert.That(ruleset.CreateIcon(), Is.TypeOf<O2JamRulesetIcon>());
-            Assert.That(resources, Does.Contain("osu.Game.Rulesets.O2Lazer.Resources.Textures.o2jamruleset.png"));
+            Assert.That(resources, Does.Contain("osu.Game.Rulesets.O2Lazer.Resources.Textures.Icons.RulesetO2Jam.png"));
         });
+    }
+
+    [TestCase("Textures/Icons/RulesetO2Jam")]
+    [TestCase("Textures/Icons/Mods/mod-mania-score")]
+    public void BundledIconsDecodeAtTheirNativeStyleResourcePaths(string path)
+    {
+        using var resources = new NamespacedResourceStore<byte[]>(new DllResourceStore(typeof(O2LazerRuleset).Assembly), "Resources");
+        using var textures = new TextureLoaderStore(resources);
+        using var texture = textures.Get(path);
+
+        Assert.That(texture, Is.Not.Null);
+        Assert.That(texture!.Width, Is.GreaterThan(0));
+        Assert.That(texture.Height, Is.GreaterThan(0));
     }
 
     [Test]
@@ -126,6 +157,7 @@ public class O2LazerIdentityTest
         Assert.That(resources.Any(resource => resource.Contains(".Skins.")
                                               || resource.Contains(".Fonts.")
                                               || resource.Contains(".Textures.")
-                                              && !resource.EndsWith(".Textures.o2jamruleset.png", System.StringComparison.Ordinal)), Is.False);
+                                              && resource != "osu.Game.Rulesets.O2Lazer.Resources.Textures.Icons.RulesetO2Jam.png"
+                                              && resource != "osu.Game.Rulesets.O2Lazer.Resources.Textures.Icons.Mods.mod-mania-score.png"), Is.False);
     }
 }
