@@ -161,9 +161,10 @@ based on note/hold endpoints, not mania's duration-based legacy combo.
 `O2JamStarRatingDisplayPatch` replaces one difficulty lookup only inside osu!'s display-bindable
 update path. It leaves native scheduling, mod tracking, cancellation and invalidation intact,
 and forwards other rulesets to the original lookup. Direct difficulty calculations and all native
-search/sort code remain untouched. A second, validated adapter replaces only the star-display
-constructor in the native results panel. It applies `O2JamDisplayedDifficulty` using the score's
-recorded mods, including scores absent from the local library. Neither adapter changes stored
+search/sort code remain untouched. A second, validated adapter replaces the star-display and
+difficulty-icon constructors in both native results panel layouts. It applies `O2JamDisplayedDifficulty`
+using the score's recorded mods to the badge, icon colour and icon tooltip, including scores absent
+from the local library. Neither adapter changes stored
 ratings or PP calculation. The public song-select attribute provider reads stored mania stars
 directly. Old libraries should
 run **Refresh beatmaps** once to populate the independent

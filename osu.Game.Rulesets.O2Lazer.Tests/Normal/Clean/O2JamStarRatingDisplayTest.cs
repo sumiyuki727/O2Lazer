@@ -63,7 +63,13 @@ public partial class O2JamStarRatingDisplayTest
         typeof(ExpandedPanelMiddleContent).GetMethod("load", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [realm, cache]);
 
         var display = panel.ChildrenOfType<StarRatingDisplay>().Single();
-        Assert.That(display.Current.Value.Stars, Is.EqualTo(expected));
+        var icon = panel.ChildrenOfType<DifficultyIcon>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(display.Current.Value.Stars, Is.EqualTo(expected));
+            Assert.That(icon.Current.Value.Stars, Is.EqualTo(expected), "The ruleset icon colour must use the displayed score difficulty.");
+            Assert.That(getTooltipStars(icon), Is.EqualTo(expected), "The ruleset icon tooltip must use the displayed score difficulty.");
+        });
         Assert.That(beatmap.StarRating, Is.EqualTo(3.25), "The display must never overwrite native mania stars.");
         Assert.That(cache.NativeLookups, Is.EqualTo(inLibrary ? 1 : 0));
     }
@@ -131,6 +137,15 @@ public partial class O2JamStarRatingDisplayTest
 
     private static void assertDisplayed(TestDifficultyCache cache, IBindable<StarDifficulty> binding, double expected) =>
         Assert.That(() => { cache.Pump(); return binding.Value.Stars; }, Is.EqualTo(expected).Within(0.000001).After(3000, 10));
+
+    private static double getTooltipStars(DifficultyIcon icon)
+    {
+        var tooltipContentProperty = typeof(DifficultyIcon).GetProperties(BindingFlags.Instance | BindingFlags.NonPublic)
+                                                                 .Single(property => property.Name.EndsWith(".TooltipContent", StringComparison.Ordinal));
+        var content = tooltipContentProperty.GetValue(icon)!;
+        var difficulty = (IBindable<StarDifficulty>)content.GetType().GetField("Difficulty")!.GetValue(content)!;
+        return difficulty.Value.Stars;
+    }
 
     private sealed partial class TestDifficultyCache : BeatmapDifficultyCache
     {

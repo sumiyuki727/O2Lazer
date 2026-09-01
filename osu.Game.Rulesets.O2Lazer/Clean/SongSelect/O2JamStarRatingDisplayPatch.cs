@@ -8,8 +8,10 @@ using HarmonyLib;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
 using osu.Game.Beatmaps.Drawables;
+using osu.Game.Rulesets;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Scoring;
+using osu.Game.Screens.Ranking.Contracted;
 using osu.Game.Screens.Ranking.Expanded;
 
 namespace osu.Game.Rulesets.O2Lazer.SongSelect;
@@ -33,12 +35,16 @@ internal static class O2JamStarRatingDisplayPatch
             {
                 var target = AccessTools.Method(typeof(BeatmapDifficultyCache), "updateBindable");
                 var transpiler = AccessTools.Method(typeof(O2JamStarRatingDisplayPatch), nameof(useDisplayLookup));
-                if (target == null || transpiler == null)
-                    return false;
+                var expandedResultsLoad = AccessTools.Method(typeof(ExpandedPanelMiddleContent), "load");
+                var contractedResultsLoad = AccessTools.Method(typeof(ContractedPanelMiddleContent), "load");
+                if (target == null || transpiler == null || expandedResultsLoad == null || contractedResultsLoad == null)
+                    throw new MissingMemberException("The native star display API has changed.");
 
                 harmony.Patch(target, transpiler: new HarmonyMethod(transpiler));
-                harmony.Patch(AccessTools.Method(typeof(ExpandedPanelMiddleContent), "load"),
+                harmony.Patch(expandedResultsLoad,
                     transpiler: new HarmonyMethod(AccessTools.Method(typeof(O2JamStarRatingDisplayPatch), nameof(useScoreDisplay))));
+                harmony.Patch(contractedResultsLoad,
+                    transpiler: new HarmonyMethod(AccessTools.Method(typeof(O2JamStarRatingDisplayPatch), nameof(useContractedScoreIcon))));
                 IsInstalled = true;
                 return true;
             }
@@ -53,10 +59,50 @@ internal static class O2JamStarRatingDisplayPatch
 
     private static IEnumerable<CodeInstruction> useScoreDisplay(IEnumerable<CodeInstruction> instructions)
     {
-        var constructor = AccessTools.Constructor(typeof(StarRatingDisplay), [typeof(StarDifficulty), typeof(StarRatingDisplaySize), typeof(bool)]);
+        var starDisplayConstructor = AccessTools.Constructor(typeof(StarRatingDisplay), [typeof(StarDifficulty), typeof(StarRatingDisplaySize), typeof(bool)]);
+        var difficultyIconConstructor = AccessTools.Constructor(typeof(DifficultyIcon), [typeof(IBeatmapInfo), typeof(IRulesetInfo), typeof(Mod[])]);
         var scoreField = AccessTools.Field(typeof(ExpandedPanelMiddleContent), "score");
         var result = new List<CodeInstruction>();
+        var starDisplayCalls = 0;
+        var difficultyIconCalls = 0;
+        foreach (var instruction in instructions)
+        {
+            if (instruction.opcode == OpCodes.Newobj && Equals(instruction.operand, starDisplayConstructor))
+            {
+                var loadPanel = new CodeInstruction(OpCodes.Ldarg_0);
+                loadPanel.labels.AddRange(instruction.labels);
+                loadPanel.blocks.AddRange(instruction.blocks);
+                result.Add(loadPanel);
+                result.Add(new CodeInstruction(OpCodes.Ldfld, scoreField));
+                result.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(O2JamStarRatingDisplayPatch), nameof(createScoreDisplay))));
+                starDisplayCalls++;
+            }
+            else if (instruction.opcode == OpCodes.Newobj && Equals(instruction.operand, difficultyIconConstructor))
+            {
+                var loadPanel = new CodeInstruction(OpCodes.Ldarg_0);
+                loadPanel.labels.AddRange(instruction.labels);
+                loadPanel.blocks.AddRange(instruction.blocks);
+                result.Add(loadPanel);
+                result.Add(new CodeInstruction(OpCodes.Ldfld, scoreField));
+                result.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(O2JamStarRatingDisplayPatch), nameof(createScoreIcon))));
+                difficultyIconCalls++;
+            }
+            else
+                result.Add(instruction);
+        }
+
+        if (starDisplayCalls != 1 || difficultyIconCalls != 1 || scoreField == null)
+            throw new MissingMemberException("The native results star display has changed.");
+        return result;
+    }
+
+    private static IEnumerable<CodeInstruction> useContractedScoreIcon(IEnumerable<CodeInstruction> instructions)
+    {
+        var constructor = AccessTools.Constructor(typeof(DifficultyIcon), [typeof(IBeatmapInfo), typeof(IRulesetInfo), typeof(Mod[])]);
+        var scoreField = AccessTools.Field(typeof(ContractedPanelMiddleContent), "score");
+        var result = new List<CodeInstruction>();
         var calls = 0;
+
         foreach (var instruction in instructions)
         {
             if (instruction.opcode == OpCodes.Newobj && Equals(instruction.operand, constructor))
@@ -66,7 +112,7 @@ internal static class O2JamStarRatingDisplayPatch
                 loadPanel.blocks.AddRange(instruction.blocks);
                 result.Add(loadPanel);
                 result.Add(new CodeInstruction(OpCodes.Ldfld, scoreField));
-                result.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(O2JamStarRatingDisplayPatch), nameof(createScoreDisplay))));
+                result.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(O2JamStarRatingDisplayPatch), nameof(createScoreIcon))));
                 calls++;
             }
             else
@@ -74,7 +120,7 @@ internal static class O2JamStarRatingDisplayPatch
         }
 
         if (calls != 1 || scoreField == null)
-            throw new MissingMemberException("The native results star display has changed.");
+            throw new MissingMemberException("The native contracted results difficulty icon has changed.");
         return result;
     }
 
@@ -86,6 +132,18 @@ internal static class O2JamStarRatingDisplayPatch
             difficulty = new StarDifficulty(O2JamDisplayedDifficulty.GetStars(score.BeatmapInfo, score.Mods), difficulty.MaxCombo);
 
         return new StarRatingDisplay(difficulty, size, animated);
+    }
+
+    private static DifficultyIcon createScoreIcon(IBeatmapInfo beatmap, IRulesetInfo? ruleset, Mod[]? mods, ScoreInfo score)
+    {
+        var icon = new DifficultyIcon(beatmap, ruleset, mods);
+
+        // DifficultyIcon does not share the adjacent StarRatingDisplay's value. Give both
+        // controls the same score-specific rating so their text and colour cannot diverge.
+        if (score.Ruleset.ShortName == O2LazerIdentity.ShortName && beatmap.Ruleset.ShortName == O2LazerIdentity.ShortName)
+            icon.Current.Value = new StarDifficulty(O2JamDisplayedDifficulty.GetStars(beatmap, score.Mods), 0);
+
+        return icon;
     }
 
     private static IEnumerable<CodeInstruction> useDisplayLookup(IEnumerable<CodeInstruction> instructions)

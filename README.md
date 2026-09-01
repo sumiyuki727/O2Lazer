@@ -15,7 +15,7 @@ An osu!lazer ruleset for playing native O2Jam libraries directly from `.ojn` and
 - Keeps score displays separate for EX, NX, and HX difficulties.
 - Automatically distinguishes CP949, GBK/CP936 and UTF-8 metadata using field validation and conservative folder hints; the OJN version alone is not an encoding marker.
 - Uses O2Jam-style COOL/GOOD/BAD/MISS judgement in chart-position space, including BPM changes within a song, raw score, life, Jam, pills and independently judged LN endpoints.
-- Song-select and results star badges display OJN level / 10 without MS and stored mania stars with MS; results use the score's recorded mods. Native `StarRating` stores mania difficulty for searching and sorting; O2Jam stars are stored independently. MS remains a hidden placeholder until mania scoring is implemented.
+- Song-select and results star badges display OJN level / 10 without MS and stored mania stars with MS; results use the score's recorded mods. The adjacent ruleset icon colour and tooltip use the same displayed rating. Native `StarRating` stores mania difficulty for searching and sorting; O2Jam stars are stored independently. MS remains a hidden placeholder until mania scoring is implemented.
 - Disables the native beatmap editor for O2Lazer to protect imported charts; the skin editor remains available. OJM keysounds are independent of the native beatmap hitsounds switch and global effect volume.
 - Provides a persistent library path with incremental refresh and removal of imported O2Jam beatmaps.
 - Reuses osu!mania's native playfield and stable-skin presentation while keeping O2Jam judgement and scoring state independent.
