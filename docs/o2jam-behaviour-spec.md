@@ -55,6 +55,49 @@ At a BPM boundary the window can be asymmetric in milliseconds. The position com
 symmetric and integrates each BPM segment traversed by the early or late side. This is required
 for charts which change BPM during a judgement window.
 
+### Timing discretisation in reference clients
+
+Static inspection of the locally supplied DPJAM `O2Hook2.dll` found a separate compatibility
+behaviour which must not be conflated with the native tick constants. Its timing hook calculates a
+floating-point chart position, converts that position to an integer with a truncating conversion,
+then compares the integer distance against 6, 18 and 25 ticks. For non-negative chart positions,
+this conversion is equivalent to `floor`.
+
+For an endpoint at integer tick `T`, the resulting DPJAM COOL interval in continuous position is:
+
+```text
+T - 6 <= position < T + 7
+```
+
+The continuous interpretation implemented by O2Lazer is instead:
+
+```text
+T - 6 <= position <= T + 6
+```
+
+DPJAM can therefore classify almost one additional late tick as COOL. One tick is `1250 / BPM`
+milliseconds (approximately 10.42 ms at BPM 120, 8.33 ms at BPM 150 and 6.25 ms at BPM 200), so
+this difference can materially move clustered late inputs across the COOL/GOOD boundary even
+though the displayed constants are identical.
+
+This integer-tick truncation is not common to the inspected open-source clients:
+
+| Client | Judgement domain | Explicit integer-tick truncation | Remaining discretisation |
+|---|---|---:|---|
+| DPJAM / O2Hook2 | chart ticks | yes | truncated positive chart position |
+| [Open2Jam](https://github.com/open2jamorg/open2jam/blob/11384b3ca957828ae66a72c9e28edd42c97952d5/src/org/open2jam/game/judgment/BeatJudgment.java) | beat distance (`double`) | no | update/input sampling |
+| [O2Game](https://github.com/Estrol/O2Game/blob/7cf8f5b52ebff2a7e46e02b51122271a1c182304/Game/src/Engine/Judgements/BeatBasedJudge.cpp) | milliseconds (`double`) | no | frame-delta clock and input sampling |
+| [CXO2](https://github.com/SirusDoma/CXO2/blob/e976ac25e74cb45b537e9817dcb24bda7801f80a/src/CXO2/Core/Judgements/RenderPositionJudgementStrategy.cpp) | render position (`double`) | no | integer-millisecond clock and frame input polling |
+| [raindrop](https://github.com/zardoru/raindrop/blob/662dd11f05994f6f36493575b04ecb64b04dcd7b/src/VSRGMechanics.cpp) | beat distance (`double`) | no | update/input sampling |
+
+Integer milliseconds and frame sampling can still quantise observations, add jitter or create an
+offset, but they do not create DPJAM's fixed late-side one-tick expansion. The DPJAM hook is also
+not direct evidence that every official OTwo version used the same conversion: it replaces the
+client timing routine rather than exposing the original implementation. O2Lazer consequently
+retains continuous integrated-position judgement as the behavioural default. A future DPJAM
+compatibility option may isolate integer-tick truncation at the position-clock/judgement boundary
+without changing the authored 6/18/25/24 constants.
+
 ## Playback rate
 
 The gameplay position clock integrates effective BPM. For a constant rate modifier:
