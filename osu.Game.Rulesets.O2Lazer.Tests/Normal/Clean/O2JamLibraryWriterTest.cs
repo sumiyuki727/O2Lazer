@@ -7,6 +7,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Models;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.O2Lazer.Core;
+using osu.Game.Rulesets.O2Lazer.Difficulty;
 using osu.Game.Rulesets.O2Lazer.Import;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
@@ -73,7 +74,9 @@ public class O2JamLibraryWriterTest
             Assert.That(beatmap.Metadata.Author.Username, Is.EqualTo("Charter"));
             Assert.That(beatmap.Metadata.AudioFile, Is.EqualTo(plan.FileName));
             Assert.That(beatmap.Metadata.Tags, Does.Contain(O2JamLibraryWriter.MetadataMarker));
-            Assert.That(beatmap.StarRating, Is.EqualTo(4.1).Within(0.000001));
+            Assert.That(beatmap.StarRating, Is.EqualTo(3.25));
+            Assert.That(O2JamStarRatingMetadata.ReadO2Jam(beatmap.Metadata.Tags), Is.EqualTo(4.1).Within(0.000001));
+            Assert.That(O2JamStarRatingMetadata.HasCurrentManiaVersion(beatmap.Metadata.Tags), Is.True);
             Assert.That(beatmap.Hash, Is.EqualTo(O2JamBeatmapIdentity.FromSource(plan.SourceHash, O2JamDifficulty.EX)));
             Assert.That(set.Hash, Is.EqualTo(plan.SetHash));
             Assert.That(beatmap.ID, Is.EqualTo(originalId));
@@ -90,13 +93,34 @@ public class O2JamLibraryWriterTest
         beatmap.Metadata.Artist = plan.Artist;
         beatmap.Metadata.Author.Username = plan.Author;
         beatmap.Metadata.AudioFile = plan.FileName;
-        beatmap.Metadata.Tags = $"{O2JamLibraryWriter.MetadataMarker} {O2JamLibraryWriter.EncodingMarker} o2lazer-source-size:{plan.SourceData.LongLength}";
+        beatmap.Metadata.Tags = $"{O2JamLibraryWriter.MetadataMarker} {O2JamLibraryWriter.EncodingMarker} o2lazer-source-size:{plan.SourceData.LongLength} {O2JamStarRatingMetadata.CreateO2JamTag(plan.Charts.Single().Level)} {O2JamStarRatingMetadata.ManiaVersionTag}";
         beatmap.LastLocalUpdate = O2JamLibraryWriter.getSourceTimestamp(plan.SourcePath);
-        beatmap.StarRating = O2JamDifficultyRating.FromLevel(plan.Charts.Single().Level);
+        beatmap.StarRating = plan.Charts.Single().ManiaStarRating;
         beatmap.Hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, plan.Charts.Single().Difficulty);
         set.Hash = plan.SetHash;
 
         Assert.That(O2JamLibraryWriter.refreshMetadata(set, plan), Is.False);
+    }
+
+    [Test]
+    public void DifficultiesStoreIndependentManiaAndO2JamRatings()
+    {
+        var set = createSet("source", "chart.ojn");
+        var ex = set.Beatmaps.Single();
+        var nx = new BeatmapInfo(ex.Ruleset) { DifficultyName = "NX Lv.119", BeatmapSet = set };
+        set.Beatmaps.Add(nx);
+        var plan = createPlan("Title", "Artist", "Charter");
+        plan = plan with { Charts = [plan.Charts[0], new O2JamImportChart(O2JamDifficulty.NX, 119, "nx-md5", 1000, 20, 5, 6.123456789012345)] };
+
+        O2JamLibraryWriter.refreshMetadata(set, plan);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.StarRating, Is.EqualTo(3.25));
+            Assert.That(nx.StarRating, Is.EqualTo(6.123456789012345));
+            Assert.That(O2JamStarRatingMetadata.ReadO2Jam(ex.Metadata.Tags), Is.EqualTo(4.1).Within(0.000001));
+            Assert.That(O2JamStarRatingMetadata.ReadO2Jam(nx.Metadata.Tags), Is.EqualTo(11.9).Within(0.000001));
+            Assert.That(ex.Metadata, Is.Not.SameAs(nx.Metadata));
+        });
     }
 
     [Test]
@@ -112,6 +136,26 @@ public class O2JamLibraryWriterTest
             Assert.That(ex, Has.Length.EqualTo(64));
             Assert.That(new[] { ex, nx, hx }.Distinct().ToArray(), Has.Length.EqualTo(3));
             Assert.That(O2JamBeatmapIdentity.FromSource(sourceHash.ToUpperInvariant(), O2JamDifficulty.EX), Is.EqualTo(ex));
+        });
+    }
+
+    [Test]
+    public void RefreshReplacesOldManiaCacheWithoutTouchingUserTags()
+    {
+        var set = createSet("source", "chart.ojn");
+        var beatmap = set.Beatmaps.Single();
+        beatmap.Metadata.Tags = "o2ma100 keep-this-tag o2lazer-mania-version:1:0 o2lazer-o2jam-stars:0:2";
+        var plan = createPlan("Title", "Artist", "Charter");
+
+        Assert.That(O2JamLibraryWriter.refreshMetadata(set, plan), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(O2JamStarRatingMetadata.ReadMania(beatmap), Is.EqualTo(3.25));
+            Assert.That(beatmap.Metadata.Tags.Split(' ').Count(tag => tag.StartsWith(O2JamStarRatingMetadata.ManiaVersionPrefix)), Is.EqualTo(1));
+            Assert.That(beatmap.Metadata.Tags.Split(' ').Count(tag => tag.StartsWith(O2JamStarRatingMetadata.O2JamTagPrefix)), Is.EqualTo(1));
+            Assert.That(beatmap.Metadata.Tags, Does.Contain("keep-this-tag"));
+            Assert.That(beatmap.Metadata.Tags, Does.Contain("o2ma100"));
+            Assert.That(O2JamLibraryWriter.refreshMetadata(set, plan), Is.False);
         });
     }
 
@@ -254,5 +298,5 @@ public class O2JamLibraryWriterTest
         author,
         120,
         [],
-        [new O2JamImportChart(O2JamDifficulty.EX, 41, "md5", 1000, 1, 0)]);
+        [new O2JamImportChart(O2JamDifficulty.EX, 41, "md5", 1000, 1, 0, 3.25)]);
 }

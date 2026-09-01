@@ -42,6 +42,7 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
     public const int CoolHitsPerPill = 15;
 
     private readonly O2JamDifficulty difficulty;
+    private readonly bool continueAfterLifeDepletion;
 
     private long score;
     private int combo = -1;
@@ -55,9 +56,10 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
     private bool scoringEnabled = true;
     private bool hasFailed;
 
-    public O2JamGameplayState(O2JamDifficulty difficulty)
+    public O2JamGameplayState(O2JamDifficulty difficulty, bool continueAfterLifeDepletion = false)
     {
         this.difficulty = difficulty;
+        this.continueAfterLifeDepletion = continueAfterLifeDepletion;
     }
 
     public O2JamGameplaySnapshot Current => new(
@@ -120,7 +122,7 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
         applyComboAndJam(resolvedAccuracy);
         applyLife(resolvedAccuracy);
 
-        if (life == 0)
+        if (life == 0 && !continueAfterLifeDepletion)
         {
             scoringEnabled = false;
             hasFailed = difficulty != O2JamDifficulty.EX;

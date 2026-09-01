@@ -18,17 +18,41 @@
   <data name="ruleset_name" xml:space="preserve">
     <value>O2Jam</value>
   </data>
+  <data name="editor_unavailable" xml:space="preserve">
+    <value>The osu! beatmap editor is unavailable for O2Lazer. Please edit the source chart externally and refresh the beatmap library.</value>
+  </data>
   <data name="o2ma" xml:space="preserve">
     <value>o2ma</value>
   </data>
   <data name="o2jam_level" xml:space="preserve">
     <value>O2Jam level</value>
   </data>
+  <data name="level" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="o2jam_level_group_range" xml:space="preserve">
+    <value>Lv.{0} - {1}</value>
+  </data>
+  <data name="o2jam_level_group_over" xml:space="preserve">
+    <value>Over Lv.{0}</value>
+  </data>
   <data name="o2jam_level_acronym" xml:space="preserve">
     <value>LV</value>
   </data>
-  <data name="fixed_scroll_speed" xml:space="preserve">
-    <value>Fixed scroll speed</value>
+  <data name="star_rating" xml:space="preserve">
+    <value>mania stars</value>
+  </data>
+  <data name="star_rating_acronym" xml:space="preserve">
+    <value>SR</value>
+  </data>
+  <data name="missing_mania_star_rating_description" xml:space="preserve">
+    <value>Mania star rating is not calculated (-1). Use Refresh beatmaps in O2Lazer settings to update the stored rating.</value>
+  </data>
+  <data name="mania_star_rating_description" xml:space="preserve">
+    <value>Stored osu!mania star rating, independent of MS.</value>
+  </data>
+  <data name="o2jam_star_rating_description" xml:space="preserve">
+    <value>O2Jam level divided by ten while MS is inactive.</value>
   </data>
   <data name="sync_source_folder_collections" xml:space="preserve">
     <value>Create local collections by source folder</value>
@@ -188,5 +212,80 @@
   </data>
   <data name="cross_ruleset_conversion_unsupported" xml:space="preserve">
     <value>O2Jam charts do not support cross-ruleset conversion.</value>
+  </data>
+  <data name="mod_no_fail_description" xml:space="preserve">
+    <value>You can't fail, no matter what.</value>
+  </data>
+  <data name="mod_half_time_description" xml:space="preserve">
+    <value>Less zoom...</value>
+  </data>
+  <data name="mod_daycore_description" xml:space="preserve">
+    <value>Whoaaaaa...</value>
+  </data>
+  <data name="mod_no_release_description" xml:space="preserve">
+    <value>No more timing the end of hold notes.</value>
+  </data>
+  <data name="mod_sudden_death_description" xml:space="preserve">
+    <value>Miss and fail.</value>
+  </data>
+  <data name="mod_perfect_description" xml:space="preserve">
+    <value>SS or quit.</value>
+  </data>
+  <data name="mod_double_time_description" xml:space="preserve">
+    <value>Zoooooooooom...</value>
+  </data>
+  <data name="mod_nightcore_description" xml:space="preserve">
+    <value>Uguuuuuuuu...</value>
+  </data>
+  <data name="mod_fade_in_description" xml:space="preserve">
+    <value>Keys appear out of nowhere!</value>
+  </data>
+  <data name="mod_hidden_description" xml:space="preserve">
+    <value>Keys fade out before you hit them!</value>
+  </data>
+  <data name="mod_cover_description" xml:space="preserve">
+    <value>Decrease the playfield's viewing area.</value>
+  </data>
+  <data name="mod_flashlight_description" xml:space="preserve">
+    <value>Restricted view area.</value>
+  </data>
+  <data name="mod_accuracy_challenge_description" xml:space="preserve">
+    <value>Fail if your accuracy drops too low!</value>
+  </data>
+  <data name="mod_perfect_require_perfect_hits" xml:space="preserve">
+    <value>Require perfect hits</value>
+  </data>
+  <data name="mod_constant_speed_description" xml:space="preserve">
+    <value>No more tricky speed changes!</value>
+  </data>
+  <data name="mod_mirror_description" xml:space="preserve">
+    <value>Notes are flipped horizontally.</value>
+  </data>
+  <data name="mod_random_description" xml:space="preserve">
+    <value>Shuffle around the keys!</value>
+  </data>
+  <data name="mod_invert_description" xml:space="preserve">
+    <value>Hold the keys. To the beat.</value>
+  </data>
+  <data name="mod_wind_up_description" xml:space="preserve">
+    <value>Can you keep up?</value>
+  </data>
+  <data name="mod_wind_down_description" xml:space="preserve">
+    <value>Sloooow doooown...</value>
+  </data>
+  <data name="mod_muted_description" xml:space="preserve">
+    <value>Can you still feel the rhythm without music?</value>
+  </data>
+  <data name="mod_adaptive_speed_description" xml:space="preserve">
+    <value>Let track speed adapt to you.</value>
+  </data>
+  <data name="mod_mania_score_name" xml:space="preserve">
+    <value>Mania Score</value>
+  </data>
+  <data name="mod_mania_score_acronym" xml:space="preserve">
+    <value>MS</value>
+  </data>
+  <data name="mod_mania_score_description" xml:space="preserve">
+    <value>For pp farmers.</value>
   </data>
 </root>

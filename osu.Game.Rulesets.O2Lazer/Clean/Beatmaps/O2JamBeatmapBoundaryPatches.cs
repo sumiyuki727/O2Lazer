@@ -110,8 +110,10 @@ internal static class O2JamBeatmapBoundaryPatches
             if (priority != null)
             {
                 var priorityField = harmonyMethodType.GetField("priority", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                priorityField?.SetValue(harmonyPrefix, priority.Value);
-                priorityField?.SetValue(harmonyPostfix, priority.Value);
+                if (harmonyPrefix != null)
+                    priorityField?.SetValue(harmonyPrefix, priority.Value);
+                if (harmonyPostfix != null)
+                    priorityField?.SetValue(harmonyPostfix, priority.Value);
             }
 
             var patch = harmonyType.GetMethods(BindingFlags.Instance | BindingFlags.Public)

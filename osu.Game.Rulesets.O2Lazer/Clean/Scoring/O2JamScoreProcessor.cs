@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Linq;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Judgements;
+using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.Objects;
@@ -31,7 +33,9 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
         if (beatmap is O2JamBeatmap o2JamBeatmap)
         {
             difficulty = o2JamBeatmap.O2JamDifficulty;
-            gameplayState = new O2JamGameplayState(difficulty);
+            // The native fail override prevents exiting gameplay; the domain must also keep
+            // scoring and recovering life instead of entering O2Jam's frozen post-depletion state.
+            gameplayState = new O2JamGameplayState(difficulty, continueAfterLifeDepletion: Mods.Value.Any(mod => mod is ModNoFail));
         }
 
         base.ApplyBeatmap(beatmap);
@@ -129,7 +133,6 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
         base.PopulateScore(score);
         score.Combo = System.Math.Max(0, gameplayState.Current.Combo);
         score.MaxCombo = System.Math.Max(0, gameplayState.Current.MaximumCombo);
-        score.TotalScore = score.TotalScoreWithoutMods = gameplayState.Current.Score;
     }
 
     private void rebuildGameplayState()

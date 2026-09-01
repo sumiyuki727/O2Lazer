@@ -29,6 +29,9 @@ public partial class O2JamDrawableHoldHead : DrawableHoldNoteHead
     {
     }
 
+    [BackgroundDependencyLoader(true)]
+    private void load(O2JamHitSoundRateAdjustments? rateAdjustments) => rateAdjustments?.Bind(Samples);
+
     protected override float SamplePlaybackPosition => HitObject.Samples.OfType<O2JamHitSampleInfo>().FirstOrDefault() is { } sample
         ? Math.Clamp((sample.Pan + 1) / 2, 0, 1)
         : base.SamplePlaybackPosition;
@@ -74,6 +77,9 @@ public partial class O2JamDrawableHoldTail : DrawableHoldNoteTail
     {
     }
 
+    [BackgroundDependencyLoader(true)]
+    private void load(O2JamHitSoundRateAdjustments? rateAdjustments) => rateAdjustments?.Bind(Samples);
+
     protected override float SamplePlaybackPosition => HitObject.Samples.OfType<O2JamHitSampleInfo>().FirstOrDefault() is { } sample
         ? Math.Clamp((sample.Pan + 1) / 2, 0, 1)
         : base.SamplePlaybackPosition;
@@ -86,6 +92,12 @@ public partial class O2JamDrawableHoldTail : DrawableHoldNoteTail
 
     protected override void CheckForResult(bool userTriggered, double timeOffset)
     {
+        if (HitObject.ReleaseTimingDisabled && HoldNote.IsHolding.Value && timeOffset >= 0)
+        {
+            apply(O2JamAccuracy.Cool);
+            return;
+        }
+
         var judgement = HitObject.Judge(Time.Current, userTriggered);
 
         if (!userTriggered && judgement.Accuracy != O2JamAccuracy.Miss)

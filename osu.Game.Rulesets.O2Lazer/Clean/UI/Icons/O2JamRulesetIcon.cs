@@ -25,8 +25,9 @@ public sealed partial class O2JamRulesetIcon : Sprite
     }
 
     [BackgroundDependencyLoader]
-    private void load(IRenderer renderer)
+    private void load(IRenderer renderer, FontStore fonts)
     {
+        O2JamModIcons.Register(fonts, renderer);
         Texture = getSharedTextureStore(renderer).Get("Textures/Icons/RulesetO2Jam");
     }
 

@@ -34,7 +34,6 @@ public sealed class O2JamRulesetConfigManager : RulesetConfigManager<O2JamRulese
         SetDefault(O2JamRulesetSetting.LastImportPath, string.Empty);
         SetDefault(O2JamRulesetSetting.ScrollSpeed, DefaultScrollSpeed, MinimumScrollSpeed, MaximumScrollSpeed, 0.1);
         SetDefault(O2JamRulesetSetting.ScrollDirection, ManiaScrollingDirection.Down);
-        SetDefault(O2JamRulesetSetting.ConstantScrollSpeed, false);
         SetDefault(O2JamRulesetSetting.SyncSourceFolderCollections, false);
         SetDefault(O2JamRulesetSetting.O2JamStyleDroppedHold, false);
         SetDefault(O2JamRulesetSetting.PercyLongNoteBodyRepeat, false);
@@ -60,7 +59,6 @@ public enum O2JamRulesetSetting
     LastImportPath,
     ScrollSpeed,
     ScrollDirection,
-    ConstantScrollSpeed,
     SyncSourceFolderCollections,
     O2JamStyleDroppedHold,
     PercyLongNoteBodyRepeat,

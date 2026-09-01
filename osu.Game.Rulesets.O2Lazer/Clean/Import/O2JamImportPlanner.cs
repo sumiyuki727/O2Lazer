@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using osu.Game.Rulesets.O2Lazer.Difficulty;
 using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
@@ -34,7 +35,8 @@ public sealed class O2JamImportPlanner
                                      calculateDifficultyMd5(sourceData, chart.Difficulty),
                                      Math.Max(objectLength, declaredLength),
                                      playable.Length,
-                                     playable.Count(note => note.EndPosition != null));
+                                     playable.Count(note => note.EndPosition != null),
+                                     O2JamManiaStarRating.Calculate(new OjnBeatmapFactory().Create(document, chart.Difficulty)));
                              })
                              .ToArray();
 

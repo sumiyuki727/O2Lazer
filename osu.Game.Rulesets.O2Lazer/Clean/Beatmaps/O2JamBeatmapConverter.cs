@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using osu.Game.Beatmaps;
@@ -18,6 +19,46 @@ public sealed class O2JamBeatmapConverter : BeatmapConverter<ManiaHitObject>
     }
 
     public override bool CanConvert() => Beatmap is O2JamBeatmap;
+
+    protected override Beatmap<ManiaHitObject> ConvertBeatmap(IBeatmap original, CancellationToken cancellationToken)
+    {
+        var beatmap = base.ConvertBeatmap(original, cancellationToken);
+        var objects = new List<ManiaHitObject>(beatmap.HitObjects.Count);
+
+        // The framework converter only clones the beatmap container. Native column mods mutate
+        // hit objects, so each play needs fresh objects rather than the cached source's bindables.
+        foreach (var hitObject in beatmap.HitObjects)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ManiaHitObject copy = hitObject switch
+            {
+                O2JamNote note => new O2JamNote
+                {
+                    ChartPosition = note.ChartPosition,
+                    TimingMap = note.TimingMap,
+                },
+                O2JamHoldNote hold => new O2JamHoldNote
+                {
+                    Duration = hold.Duration,
+                    ReleaseTimingDisabled = hold.ReleaseTimingDisabled,
+                    HeadChartPosition = hold.HeadChartPosition,
+                    TailChartPosition = hold.TailChartPosition,
+                    TimingMap = hold.TimingMap,
+                    NodeSamples = [[.. hold.GetNodeSamples(0)], []],
+                    PlaySlidingSamples = hold.PlaySlidingSamples,
+                },
+                _ => throw new InvalidOperationException($"Unsupported O2Jam hit object: {hitObject.GetType().FullName}"),
+            };
+
+            copy.StartTime = hitObject.StartTime;
+            copy.Column = hitObject.Column;
+            copy.Samples = [.. hitObject.Samples];
+            objects.Add(copy);
+        }
+
+        beatmap.HitObjects = objects;
+        return beatmap;
+    }
 
     protected override Beatmap<ManiaHitObject> CreateBeatmap()
     {

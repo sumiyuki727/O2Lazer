@@ -27,6 +27,9 @@ public partial class O2JamDrawableNote : DrawableNote
     {
     }
 
+    [BackgroundDependencyLoader(true)]
+    private void load(O2JamHitSoundRateAdjustments? rateAdjustments) => rateAdjustments?.Bind(Samples);
+
     protected override float SamplePlaybackPosition => HitObject.Samples.OfType<O2JamHitSampleInfo>().FirstOrDefault() is { } sample
         ? Math.Clamp((sample.Pan + 1) / 2, 0, 1)
         : base.SamplePlaybackPosition;

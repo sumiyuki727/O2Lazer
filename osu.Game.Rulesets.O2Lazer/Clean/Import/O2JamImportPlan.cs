@@ -24,4 +24,5 @@ public sealed record O2JamImportChart(
     string Md5Hash,
     double Length,
     int TotalObjectCount,
-    int HoldObjectCount);
+    int HoldObjectCount,
+    double ManiaStarRating);

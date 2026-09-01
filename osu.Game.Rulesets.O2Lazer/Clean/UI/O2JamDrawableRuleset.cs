@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
-using osu.Framework.Audio.Track;
 using osu.Framework.Bindables;
 using osu.Framework.Extensions.IEnumerableExtensions;
 using osu.Framework.Extensions.ObjectExtensions;
@@ -52,8 +51,10 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
 
     private readonly Bindable<ManiaScrollingDirection> configDirection = new();
     private readonly BindableDouble configScrollSpeed = new();
-    private readonly BindableBool configConstantSpeed = new();
-    private readonly Track speedAdjustmentTrack = new TrackVirtual(0);
+    private readonly BindableDouble speedAdjustment = new(1);
+
+    [Cached]
+    private readonly O2JamHitSoundRateAdjustments hitSoundRateAdjustments = new();
 
     private ISkinSource currentSkin = null!;
     private O2JamPreviewTrack? gameplayTrack;
@@ -74,6 +75,27 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
             : new BarLineGenerator<BarLine>(Beatmap).BarLines;
         TimeRange.MinValue = 1;
         TimeRange.MaxValue = MaximumTimeRange;
+
+        // The native helper owns one audio target, which must remain the gameplay clock for live
+        // BGM pitch changes. Visual compensation only needs the selected rate's scalar value.
+        foreach (var mod in Mods)
+        {
+            var speedChange = mod switch
+            {
+                ModRateAdjust rateAdjust => rateAdjust.SpeedChange,
+                ModTimeRamp timeRamp => timeRamp.SpeedChange,
+                ModAdaptiveSpeed adaptiveSpeed => adaptiveSpeed.SpeedChange,
+                _ => null,
+            };
+
+            if (speedChange == null)
+                continue;
+
+            speedAdjustment.BindTo(speedChange);
+            break;
+        }
+
+        hitSoundRateAdjustments.Configure(Mods);
     }
 
     [BackgroundDependencyLoader]
@@ -84,9 +106,6 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
         currentSkin = source;
         currentSkin.SourceChanged += onSkinChange;
         updateSkinPosition();
-
-        foreach (var mod in Mods.OfType<IApplicableToTrack>())
-            mod.ApplyToTrack(speedAdjustmentTrack);
 
         foreach (var point in ControlPoints)
         {
@@ -106,10 +125,6 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
             if (AllowScrollSpeedAdjustment)
                 TargetTimeRange = ComputeScrollTime(speed.NewValue);
         });
-
-        Config.BindWith(O2JamRulesetSetting.ConstantScrollSpeed, configConstantSpeed);
-        configConstantSpeed.BindValueChanged(constant =>
-            VisualisationMethod = constant.NewValue ? ScrollVisualisationMethod.Constant : ScrollVisualisationMethod.Sequential, true);
 
         TimeRange.Value = TargetTimeRange = ComputeScrollTime(configScrollSpeed.Value);
     }
@@ -131,8 +146,7 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
         const float distance_to_default_hit_position = 768 - LegacyManiaSkinConfiguration.DEFAULT_HIT_POSITION;
         var scale = (768 - hitPosition) / distance_to_default_hit_position;
         TimeRange.Value = TargetTimeRange
-                          * speedAdjustmentTrack.AggregateTempo.Value
-                          * speedAdjustmentTrack.AggregateFrequency.Value
+                          * speedAdjustment.Value
                           * scale;
     }
 
@@ -171,6 +185,7 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
         disposeSyncDiagnostics();
         O2JamPreviewCoordinator.ExitGameplay(gameplayTrack);
         base.Dispose(isDisposing);
+        hitSoundRateAdjustments.UnbindAll();
 
         if (currentSkin.IsNotNull())
             currentSkin.SourceChanged -= onSkinChange;

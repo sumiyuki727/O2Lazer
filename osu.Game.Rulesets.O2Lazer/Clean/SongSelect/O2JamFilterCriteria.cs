@@ -8,6 +8,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Filter;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Core;
+using osu.Game.Rulesets.O2Lazer.Difficulty;
 using osu.Game.Screens.Select;
 using osu.Game.Screens.Select.Filter;
 
@@ -27,7 +28,7 @@ internal sealed class O2JamFilterCriteria : IRulesetFilterCriteria
 
         if (levelFilters.Count > 0)
         {
-            var level = O2JamDifficultyRating.ResolveLevel(beatmapInfo.DifficultyName, beatmapInfo.StarRating);
+            var level = O2JamStarRatingMetadata.ResolveLevel(beatmapInfo);
             if (levelFilters.Any(range => !range.IsInRange(level)))
                 return false;
         }

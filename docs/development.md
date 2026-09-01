@@ -93,6 +93,26 @@ dotnet test osu.Game.Rulesets.O2Lazer.Tests -c Release --no-build `
   --filter 'FullyQualifiedName~NativeRulesetStorePreservesAssociationsAfterVersionRestart'
 ```
 
+The mod regression run also encountered the native Realm transaction assertion when library
+migration and replay-import fixtures shared a process, even with the bootstrap test excluded.
+The routine cases pass when split into these three filtered invocations (the first builds):
+
+```powershell
+dotnet test osu.Game.Rulesets.O2Lazer.Tests -c Release `
+  "-p:OsuBinaryDirectory=$lazerBinaries" `
+  --filter 'FullyQualifiedName~.Normal.&TestCategory!=LocalDiagnostics&TestCategory!=Isolated&FullyQualifiedName!~O2JamLegacyLibraryMigrationTest&FullyQualifiedName!~O2JamReplayImportTest'
+dotnet test osu.Game.Rulesets.O2Lazer.Tests -c Release --no-build `
+  "-p:OsuBinaryDirectory=$lazerBinaries" `
+  --filter 'FullyQualifiedName~O2JamLegacyLibraryMigrationTest&TestCategory!=Isolated'
+dotnet test osu.Game.Rulesets.O2Lazer.Tests -c Release --no-build `
+  "-p:OsuBinaryDirectory=$lazerBinaries" `
+  --filter 'FullyQualifiedName~O2JamReplayImportTest'
+```
+
+Local-binary tests reference the host's `MessagePack.Annotations` 3.1.7 because native `ScoreInfo`
+reflects `APIMod` attributes when serialising mod settings. This test dependency is not bundled
+into the ruleset DLL; the running lazer host supplies it.
+
 Never run benchmarks or full-corpus decodes as a routine verification step. Those expensive
 operations require an explicit decision and an exact method filter; `[Explicit]` is an additional
 safeguard, not a reason to use an unfiltered test command.
@@ -108,7 +128,7 @@ and `[Explicit]`; select an exact method only after supplying its inputs.
 | `O2JAM_REPLAY_DIAGNOSTIC_PATH` | Existing clean-schema v5 replay file. |
 | `O2JAM_DIAGNOSTIC_REALM` | Existing `client.realm`, opened read-only by diagnostics. |
 | `O2JAM_DIAGNOSTIC_SKIN` | Skin GUID from that database; assets are read from its file store. |
-| `O2JAM_BMS_RULESET_PATH` | Separately built BmsRuleset DLL for coexistence checks. |
+| `O2JAM_BMS_RULESET_PATH` | Installed or separately built BmsRuleset DLL for coexistence checks. |
 | `O2JAM_ENCODING_AUDIT_PATH` | Optional output path for a header-encoding audit. |
 
 `O2JamReplayPlayfieldProbeTest.InspectActualReplay` is a specific regression fixture, not a generic
@@ -117,6 +137,28 @@ the final seven-tail group. It compares saved statistics, final Stage judgement,
 clipping, neighbouring MISS retention, and object recycling, with both visual and frame-accuracy
 settings. It needs the first four environment variables above. Other users without those fixtures
 should run the synthetic clipping tests instead; do not upload copyrighted charts or private data.
+
+Run BMS coexistence checks in separate processes so bundled Harmony and static patch registration
+cannot carry over between load orders. After building, set `O2JAM_BMS_RULESET_PATH` and select one
+exact method per invocation:
+
+```powershell
+dotnet test osu.Game.Rulesets.O2Lazer.Tests -c Release --no-build `
+  "-p:OsuBinaryDirectory=$lazerBinaries" `
+  --filter 'FullyQualifiedName~BmsFilteringAndStarsSurviveO2LazerInitialisation'
+dotnet test osu.Game.Rulesets.O2Lazer.Tests -c Release --no-build `
+  "-p:OsuBinaryDirectory=$lazerBinaries" `
+  --filter 'FullyQualifiedName~BmsFilteringAndStarsWorkWhenLoadedLast'
+dotnet test osu.Game.Rulesets.O2Lazer.Tests -c Release --no-build `
+  "-p:OsuBinaryDirectory=$lazerBinaries" `
+  --filter 'FullyQualifiedName~SharesOverlappingDifficultyStatisticsPatchWithBmsHarmony'
+```
+
+These checks use a synthetic BMS chart and temporary storage to exercise native carousel matching,
+working-beatmap conversion, difficulty-cache calculation and both rulesets' difficulty icons. They
+also report the installed BMS DLL's no-play lamp colour: BMS replaces the left panel colour with a
+clear lamp, independently of the star-rating pill. They do not reproduce a player's saved filters,
+import-screen lifecycle or full gameplay, and do not modify the installed rulesets or library.
 
 Runtime audio tracing has a separate opt-in build flag. See
 [audio-sync-diagnostics.md](audio-sync-diagnostics.md). It remains disabled in normal builds.

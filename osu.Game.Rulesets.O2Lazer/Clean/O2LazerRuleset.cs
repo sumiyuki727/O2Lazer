@@ -10,6 +10,7 @@ using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Filter;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Configuration;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
@@ -40,6 +41,13 @@ public sealed class O2LazerRuleset : Ruleset
         O2JamSongSelectRankPatch.InstallOnce();
         O2JamBeatmapBoundaryPatches.InstallOnce();
         O2JamReplayPersistencePatch.InstallOnce();
+        O2JamPerformanceEligibilityPatch.InstallOnce();
+        O2JamPlayerSettingsPatch.InstallOnce();
+        O2JamStarRatingDisplayPatch.InstallOnce();
+        O2JamLevelSortPatch.InstallOnce();
+        O2JamLevelGroupPatch.InstallOnce();
+        O2JamHitSampleLookupPatch.InstallOnce();
+        O2JamEditorAccessPatch.InstallOnce();
     }
 
     public override string Description => O2LazerStrings.RulesetName.ToString();
@@ -77,11 +85,42 @@ public sealed class O2LazerRuleset : Ruleset
 
     public override ScoreProcessor CreateScoreProcessor() => new O2JamScoreProcessor(this);
 
+    public override ScoreMultiplierCalculator CreateScoreMultiplierCalculator(ScoreMultiplierContext context) =>
+        new O2JamScoreMultiplierCalculator(context);
+
     public override HealthProcessor CreateHealthProcessor(double drainStartTime) => new O2JamHealthProcessor();
 
     public override IEnumerable<Mod> GetModsFor(ModType type) => type switch
     {
+        ModType.DifficultyReduction =>
+        [
+            new O2JamModNoFail(),
+            new MultiMod(new O2JamModHalfTime(), new O2JamModDaycore()),
+            new O2JamModNoRelease(),
+        ],
+        ModType.DifficultyIncrease =>
+        [
+            new MultiMod(new O2JamModSuddenDeath(), new O2JamModPerfect()),
+            new MultiMod(new O2JamModDoubleTime(), new O2JamModNightcore()),
+            new MultiMod(new O2JamModFadeIn(), new O2JamModHidden(), new O2JamModCover()),
+            new O2JamModFlashlight(),
+            new O2JamModAccuracyChallenge(),
+        ],
+        ModType.Conversion =>
+        [
+            new O2JamModRandom(),
+            new O2JamModMirror(),
+            new O2JamModInvert(),
+            new O2JamModConstantSpeed(),
+            new O2JamModManiaScore(),
+        ],
         ModType.Automation => [new O2JamModAutoplay()],
+        ModType.Fun =>
+        [
+            new MultiMod(new O2JamModWindUp(), new O2JamModWindDown()),
+            new O2JamModMuted(),
+            new O2JamModAdaptiveSpeed(),
+        ],
         _ => [],
     };
 

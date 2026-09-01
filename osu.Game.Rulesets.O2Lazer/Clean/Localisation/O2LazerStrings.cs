@@ -13,14 +13,22 @@ public static class O2LazerStrings
     private static readonly ResourceManager chineseResources = new($"{resourcePrefix}.zh", typeof(O2LazerStrings).Assembly);
 
     public static LocalisableString RulesetName => get("ruleset_name");
+    public static LocalisableString EditorUnavailable => get("editor_unavailable");
     public static LocalisableString O2Ma => get("o2ma");
     public static LocalisableString O2JamLevel => get("o2jam_level");
+    public static LocalisableString Level => get("level");
+    public static LocalisableString O2JamLevelGroupRange(int minimum, int maximum) => get("o2jam_level_group_range", minimum, maximum);
+    public static LocalisableString O2JamLevelGroupOver(int level) => get("o2jam_level_group_over", level);
     public static LocalisableString O2JamLevelAcronym => get("o2jam_level_acronym");
+    public static LocalisableString StarRating => get("star_rating");
+    public static LocalisableString StarRatingAcronym => get("star_rating_acronym");
+    public static LocalisableString MissingManiaStarRatingDescription => get("missing_mania_star_rating_description");
+    public static LocalisableString ManiaStarRatingDescription => get("mania_star_rating_description");
+    public static LocalisableString O2JamStarRatingDescription => get("o2jam_star_rating_description");
     public static LocalisableString Layout => get("layout");
     public static LocalisableString SevenKeys => get("seven_keys");
     public static LocalisableString ScrollDirection => get("scroll_direction");
     public static LocalisableString ScrollSpeed => get("scroll_speed");
-    public static LocalisableString FixedScrollSpeed => get("fixed_scroll_speed");
     public static LocalisableString SyncSourceFolderCollections => get("sync_source_folder_collections");
     public static LocalisableString SourceFolderCollectionPrefix => get("source_folder_collection_prefix");
     public static LocalisableString SourceFolderCollectionName(string folder) => get("source_folder_collection_name", folder);
@@ -73,6 +81,31 @@ public static class O2LazerStrings
     public static LocalisableString ActionKey6 => get("action_key_6");
     public static LocalisableString ActionKey7 => get("action_key_7");
     public static LocalisableString CrossRulesetConversionUnsupported => get("cross_ruleset_conversion_unsupported");
+    public static LocalisableString ModNoFailDescription => get("mod_no_fail_description");
+    public static LocalisableString ModHalfTimeDescription => get("mod_half_time_description");
+    public static LocalisableString ModDaycoreDescription => get("mod_daycore_description");
+    public static LocalisableString ModNoReleaseDescription => get("mod_no_release_description");
+    public static LocalisableString ModSuddenDeathDescription => get("mod_sudden_death_description");
+    public static LocalisableString ModPerfectDescription => get("mod_perfect_description");
+    public static LocalisableString ModDoubleTimeDescription => get("mod_double_time_description");
+    public static LocalisableString ModNightcoreDescription => get("mod_nightcore_description");
+    public static LocalisableString ModFadeInDescription => get("mod_fade_in_description");
+    public static LocalisableString ModHiddenDescription => get("mod_hidden_description");
+    public static LocalisableString ModCoverDescription => get("mod_cover_description");
+    public static LocalisableString ModFlashlightDescription => get("mod_flashlight_description");
+    public static LocalisableString ModAccuracyChallengeDescription => get("mod_accuracy_challenge_description");
+    public static LocalisableString ModPerfectRequirePerfectHits => get("mod_perfect_require_perfect_hits");
+    public static LocalisableString ModConstantSpeedDescription => get("mod_constant_speed_description");
+    public static LocalisableString ModMirrorDescription => get("mod_mirror_description");
+    public static LocalisableString ModRandomDescription => get("mod_random_description");
+    public static LocalisableString ModInvertDescription => get("mod_invert_description");
+    public static LocalisableString ModWindUpDescription => get("mod_wind_up_description");
+    public static LocalisableString ModWindDownDescription => get("mod_wind_down_description");
+    public static LocalisableString ModMutedDescription => get("mod_muted_description");
+    public static LocalisableString ModAdaptiveSpeedDescription => get("mod_adaptive_speed_description");
+    public static LocalisableString ModManiaScoreName => get("mod_mania_score_name");
+    public static LocalisableString ModManiaScoreAcronym => get("mod_mania_score_acronym");
+    public static LocalisableString ModManiaScoreDescription => get("mod_mania_score_description");
 
     private static LocalisableString get(string key, params object[] args)
     {

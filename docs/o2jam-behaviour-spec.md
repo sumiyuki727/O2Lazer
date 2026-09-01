@@ -109,6 +109,13 @@ effective BPM = authored BPM * playback rate
 This naturally changes the real-time width of the judgement window. No independent hit-window
 rate multiplier is applied.
 
+HT/DC use a default rate of 0.75 and DT/NC use 1.5. HT and DT route the rate through Tempo by
+default, preserving BGM and keysound pitch; enabling Adjust Pitch moves the same value to
+Frequency for both. Daycore and Nightcore keep Frequency at their native default (0.75/1.5) and
+use Tempo for any custom-speed difference. Nightcore also retains mania's beat-synchronised
+percussion overlay. Gameplay-triggered OJM keysounds receive these adjustments through a scoped
+drawable-ruleset dependency, independently of global effect volume and unrelated UI samples.
+
 ## Combo
 
 - Internal combo starts at `-1`; COOL and GOOD increment it by one.
@@ -139,6 +146,12 @@ Life starts at 1000 and is clamped to `[0, 1000]`.
 The judgement which reduces life to zero is applied before scoring is disabled. NX/HX fail and
 stop gameplay. EX continues to accept/display judgements but score, life, Jam and pill state are
 frozen after reaching zero. Its live combo still changes, while maximum combo is also frozen.
+
+With No Fail enabled, all three difficulties continue at zero life without freezing score, maximum
+combo, Jam or pills, and subsequent judgements can restore life. The native failure override keeps
+the player running. The native score pipeline applies mania's 0.5 multiplier to the raw O2Jam score;
+the unmultiplied score remains available as `TotalScoreWithoutMods`. Disabling No Fail restores the
+depletion rules above.
 
 ## Jam and pills
 
@@ -172,6 +185,61 @@ using total completed Jams; that conflicts with its own current-Jam callback/sta
 that a broken Jam resets COOL value to 200. The rewrite therefore treats that aggregate getter as a
 CXO2 discrepancy rather than native behaviour. Score policy remains isolated so an original-client
 golden replay can still override it without changing judgement, HUD or presentation code.
+
+### Mod behaviour
+
+No Release disables release timing only while a long note is still held when its tail reaches the
+judgement point. That tail resolves as COOL and releases the held state; an early key-up is judged
+by the ordinary O2Jam release windows. Fade In, Hidden and Cover alter visibility around each
+mania column without replacing O2Jam hit objects. Flashlight and Accuracy Challenge use their
+native generic playfield and score-processor paths.
+
+Invert replaces each column's source note locations with O2Jam long notes between successive
+locations. Each duration follows mania's rule: the greater of half the gap or the gap minus a
+quarter beat. It removes breaks and preserves the source timing map, head sample identity and
+silent O2Jam tail. Wind Up, Wind Down and Adaptive Speed update the gameplay clock, visual scroll
+compensation and player-triggered keysound rate from one live speed value. Muted uses the native
+combo-driven song/hitsound volume and optional metronome behaviour. These mods retain mania's
+settings, incompatibilities, score multipliers and intrinsic ranking state.
+
+### Performance eligibility
+
+O2Jam scoring has no planned PP calculator. Mod selection and score displays use the following
+eligibility policy independently of the gameplay score calculation:
+
+| Selected mods | PP eligibility |
+|---|---|
+| Any selection without Mania Score, including No Mod | Ineligible |
+| Mania Score alone or with compatible ranked configurations of No Fail, HT, DC, Mirror, Sudden Death, Perfect, DT, NC, Fade In, Hidden, Cover, Flashlight, Accuracy Challenge or Muted | Eligible |
+| Mania Score with No Release, Random, Invert, Constant Speed, Wind Up, Wind Down, Adaptive Speed or Autoplay | Ineligible |
+
+With Mania Score selected, any mod whose native mania `Ranked` property is false makes the
+combination ineligible. The selection is re-evaluated on mod/settings changes; stored scores use
+their own mod lists. Neither individual mod properties nor other rulesets' eligibility are changed.
+Mania Score remains registered for eligibility presentation and stored scores, but its selection
+UI is currently hidden using the native unimplemented-mod filter. Mania scoring and PP calculation
+are not implemented, and gameplay continues to use the O2Jam score model above.
+
+The song-select button reuses osu!'s unranked badge. No Mod places it at the upper left above MODS,
+without widening the button; an ineligible nonempty combination places it at the upper right.
+These visible positions switch by horizontal movement only, with button width changing at the
+same time in both directions. Eligible nonempty combinations retain the native hidden position
+under the mod bar (`X=-badge.DrawWidth, Y=-5`). Native No Mod outside O2Lazer hides at `Y=20`
+and retains its previous horizontal target. Transitions between these three native destinations
+use the original osu! animations, even within O2Lazer.
+
+Only transitions into or out of O2Lazer No Mod use custom badge movement, including ruleset changes:
+upper left fades down to lower left before relocating horizontally to native No Mod while hidden;
+the reverse relocates to lower left while hidden, then fades upwards. Entering from the hidden
+mod-bar position first moves down instantly, then left instantly, then fades upwards. Returning to
+that position fades down first, then moves right instantly, then up instantly. Invisible relocation
+never precedes fade-out completion. All custom animations last 240 ms with `OutQuint` easing.
+
+Synchronous ruleset/mod notifications are collapsed before custom movement starts. Repeated
+refreshes do not restart custom animations. Interruptions replace transforms from current values,
+as in osu!: partial fades reverse without resetting alpha or position, and an interrupted horizontal
+slide can fade down in its current column. Obsolete fade-completion relocations are cancelled.
+The native margin is preserved, and native badge animation resumes after the custom exit completes.
 
 ## Long notes
 

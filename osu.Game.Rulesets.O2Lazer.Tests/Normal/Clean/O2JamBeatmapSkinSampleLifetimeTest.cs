@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using osu.Framework.Bindables;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Sample;
 using osu.Framework.Graphics.Audio;
@@ -9,6 +10,8 @@ using osu.Framework.IO.Stores;
 using osu.Framework.Threading;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
+using osu.Game.Audio;
+using osu.Game.Skinning;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
@@ -16,6 +19,37 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 [NonParallelizable]
 public class O2JamBeatmapSkinSampleLifetimeTest
 {
+    [Test]
+    public void NativeBeatmapHitsoundSwitchCannotMuteOjmKeysounds()
+    {
+        _ = new O2LazerRuleset();
+        Assert.That(O2JamHitSampleLookupPatch.IsInstalled, Is.True);
+        using var fixture = new SampleFixture();
+        var globalSwitch = new BindableBool(false);
+        using var provider = new BeatmapSkinProvidingContainer(fixture.Skin);
+        provider.BeatmapHitsounds.Current = globalSwitch;
+
+        foreach (var enabled in new[] { false, true, false })
+        {
+            globalSwitch.Value = enabled;
+            var sample = fixture.GetSample(provider);
+            Assert.That(() => sample.GetChannel(), Throws.Nothing);
+            Assert.That(globalSwitch.Value, Is.EqualTo(enabled));
+            Assert.That(provider.BeatmapHitsounds.Value, Is.EqualTo(enabled));
+
+            if (enabled)
+                fixture.GetSample(provider, new OrdinaryHitSampleInfo());
+            else
+                Assert.That(provider.GetSample(new OrdinaryHitSampleInfo()), Is.Null,
+                    "Ordinary beatmap hit effects must remain subject to the native switch.");
+        }
+    }
+
+    private sealed class OrdinaryHitSampleInfo() : HitSampleInfo("ordinary")
+    {
+        public override IEnumerable<string> LookupNames => ["o2jam/7"];
+    }
+
     [Test]
     public void RetryCanGetChannelAfterPreviousGameplayDrawableWasDisposed()
     {
@@ -92,9 +126,9 @@ public class O2JamBeatmapSkinSampleLifetimeTest
             }), manager);
         }
 
-        public Sample GetSample()
+        public Sample GetSample(ISkin? source = null, ISampleInfo? info = null)
         {
-            var sample = (Sample)Skin.GetSample(new O2JamHitSampleInfo(7, 100, 0))!;
+            var sample = (Sample)(source ?? Skin).GetSample(info ?? new O2JamHitSampleInfo(7, 100, 0))!;
             Assert.That(sample, Is.Not.Null);
             samples.Add(sample);
             return sample;

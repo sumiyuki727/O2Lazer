@@ -71,6 +71,17 @@ public partial class O2JamHoldVisualProbeTest
         [Values(ScrollingDirection.Down, ScrollingDirection.Up)] ScrollingDirection direction)
         => runVisualProbe(50, true, direction, headAccuracy);
 
+    [Test]
+    public void NoReleaseAutomaticallyResolvesAHeldTail()
+    {
+        using var host = new TestRunHeadlessGameHost($"O2JamNoRelease-{Guid.NewGuid():N}");
+        var game = new ProbeGame(0, noRelease: true);
+        host.Run(game);
+        if (game.Failure != null)
+            throw game.Failure;
+        Assert.That(game.Completed, Is.True);
+    }
+
     private static void runVisualProbe(double earlyRelease, bool o2Visual, ScrollingDirection direction, O2JamAccuracy? rejectedHead = null)
     {
         var previousVisual = O2JamRuntimeOptions.UseO2JamLongNoteMissVisual;
@@ -101,6 +112,7 @@ public partial class O2JamHoldVisualProbeTest
         private readonly bool? verifyO2Visual;
         private readonly O2JamAccuracy expectedAccuracy;
         private readonly O2JamAccuracy? rejectedHead;
+        private readonly bool noRelease;
         private float releasedHeight;
         private float releasedY;
         private ProbePlayfield playfield = null!;
@@ -111,11 +123,13 @@ public partial class O2JamHoldVisualProbeTest
         public bool Completed;
         public List<string> Observations { get; } = [];
 
-        public ProbeGame(double earlyRelease, bool? verifyO2Visual = null, ScrollingDirection direction = ScrollingDirection.Down, O2JamAccuracy? rejectedHead = null)
+        public ProbeGame(double earlyRelease, bool? verifyO2Visual = null, ScrollingDirection direction = ScrollingDirection.Down,
+                         O2JamAccuracy? rejectedHead = null, bool noRelease = false)
         {
             releaseTime = 1821.917808219 - earlyRelease;
             this.verifyO2Visual = verifyO2Visual;
             this.rejectedHead = rejectedHead;
+            this.noRelease = noRelease;
             expectedAccuracy = rejectedHead.HasValue ? O2JamAccuracy.Miss : earlyRelease switch
             {
                 50 => O2JamAccuracy.Cool,
@@ -152,6 +166,7 @@ public partial class O2JamHoldVisualProbeTest
                 TimingMap = timing,
                 HeadChartPosition = timing.PositionAt(1000),
                 TailChartPosition = timing.PositionAt(1821.917808219),
+                ReleaseTimingDisabled = noRelease,
             };
             note.ApplyDefaults(new osu.Game.Beatmaps.ControlPoints.ControlPointInfo(), new osu.Game.Beatmaps.BeatmapDifficulty());
             playfield = new ProbePlayfield();
@@ -189,6 +204,12 @@ public partial class O2JamHoldVisualProbeTest
                     throw new InvalidOperationException($"Probe did not complete within 200 frames: hold={hold?.LoadState}, head={hold?.Head?.LoadState}, tail={hold?.Tail?.LoadState}, time={frameClock.CurrentTime}.");
                 if (phase == 0 && (hold?.IsLoaded != true || hold.Head?.IsLoaded != true || hold.Tail?.IsLoaded != true))
                     return;
+
+                if (noRelease)
+                {
+                    updateNoReleaseProbe();
+                    return;
+                }
 
                 switch (phase++)
                 {
@@ -265,6 +286,45 @@ public partial class O2JamHoldVisualProbeTest
             {
                 Failure = exception;
                 Exit();
+            }
+        }
+
+        private void updateNoReleaseProbe()
+        {
+            switch (phase++)
+            {
+                case 0:
+                    seek(999.051);
+                    break;
+
+                case 1:
+                    ((IKeyBindingHandler<ManiaAction>)hold).OnPressed(
+                        new KeyBindingPressEvent<ManiaAction>(new InputState(), ManiaAction.Key1, false));
+                    break;
+
+                case 2:
+                    Assert.That(hold.IsHolding.Value, Is.True);
+                    seek(1820.917808219);
+                    break;
+
+                case 3:
+                    Assert.That(hold.Tail.Judged, Is.False);
+                    Assert.That(hold.IsHolding.Value, Is.True);
+                    seek(1822.917808219);
+                    break;
+
+                case 4:
+                    var result = (O2JamJudgementResult)hold.Tail.Result;
+                    Assert.That(result.RequestedAccuracy, Is.EqualTo(O2JamAccuracy.Cool));
+                    Assert.That(result.Resolution.ResolvedAccuracy, Is.EqualTo(O2JamAccuracy.Cool));
+                    Assert.That(hold.AllJudged, Is.True);
+                    break;
+
+                case 5:
+                    Assert.That(hold.IsHolding.Value, Is.False);
+                    Completed = true;
+                    Exit();
+                    break;
             }
         }
 

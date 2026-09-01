@@ -40,6 +40,8 @@ public class O2JamImportPlannerTest
             Assert.That(first.Charts[0].Difficulty, Is.EqualTo(O2JamDifficulty.EX));
             Assert.That(first.Charts[0].TotalObjectCount, Is.EqualTo(1));
             Assert.That(first.Charts[0].HoldObjectCount, Is.EqualTo(1));
+            Assert.That(first.Charts[0].ManiaStarRating, Is.Zero);
+            Assert.That(first.Charts[0].ManiaStarRating, Is.EqualTo(second.Charts[0].ManiaStarRating));
             Assert.That(first.Charts[0].Length, Is.EqualTo(6000).Within(0.001));
             Assert.That(first.SetHash, Is.EqualTo(second.SetHash));
             Assert.That(first.SetHash, Has.Length.EqualTo(64));

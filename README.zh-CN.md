@@ -9,22 +9,25 @@
 - 支持经典与新版加密 OJN 文件，包含 EX、NX、HX 三种难度。
 - 内存中解码 M30、OMC、OJM 的键音与背景音乐。
 - 支持 7K 音符、长条、BPM 变化、键音与 BGM 事件。
-- 显示原生 O2Jam 难度名称与等级。选歌界面用左侧 o2ma 编号、右侧 O2Jam 等级替代 CS/AR/OD/HP；编号比例条始终满格，等级比例条以 150 为满格，超过 150 仍显示实际等级。
+- 显示原生 O2Jam 难度名称与等级。选歌界面依次显示 o2ma 编号、mania 星数、O2Jam 等级，替代 CS/AR/OD/HP；mania 星数固定显示已保存的 mania 星级，不受 MS 开关影响。编号比例条始终满格，等级比例条以 150 为满格，超过 150 仍显示实际等级。
+- 仅在选择 O2Lazer 时，于原生星数选项下方增加“等级”排序与分组：排序按每个难度的 O2Jam 等级排列；分组采用 `[N, N+10)` 区间，从 `Lv.0 - 10` 到 `Lv.140 - 150`，随后为 `Over Lv.150`，每组沿用其等级除以 10 后对应的原生星数分组颜色。原生星数选项继续使用 mania 星数。
 - 将 OJN 内嵌封面作为谱面背景，并可在遇到无法读取的谱面时继续导入。
 - EX、NX、HX 难度分别保存独立成绩显示。
 - 基于字段校验和保守的目录提示，自动区分 CP949、GBK/CP936 与 UTF-8；不再仅凭 OJN 版本判断编码。
 - 在谱面位置坐标中计算 O2Jam 风格的 COOL/GOOD/BAD/MISS，支持局内 BPM 变化、原生风格计分、血量、Jam、药丸及独立的 LN 首尾判定。
-- 默认星级为 OJN 难度等级除以 10，不使用 mania 的 strain 星级。
+- 选歌主星级与结算星级在非 MS 时显示 OJN 等级除以 10，MS 时显示已保存的 mania 星级；结算使用成绩记录中的 Mod。原生 `StarRating` 存储 mania 星级以供搜索与排序，O2Jam 星级独立存储。MS 在 mania 计分实现前仍保持隐藏占位状态。
+- 禁用 O2Lazer 的原生谱面编辑器入口，保护导入谱面；皮肤编辑器保持可用。OJM 键音不受原生“谱面打击音效”开关影响，也不受全局效果音量影响。
 - 提供固定曲库路径、增量刷新以及删除全部已导入 O2Jam 谱面的功能。
 - 复用 osu!mania 原生游玩区域和 stable 皮肤表现，同时保持 O2Jam 判定与计分状态独立。
 - 支持重构版 replay 录制、播放，以及 O2Jam 专用 HUD／Playfield 皮肤编辑器层。
-- 提供用于播放和编辑器集成的自动游玩；镜像、随机、变速 mod 及 mania 计分模式仍待实现。
+- 提供原生自动游玩，以及与 mania 一致的 No Fail、Half Time、Daycore、No Release、Sudden Death、Perfect、Double Time、Nightcore、Fade In、Hidden、Cover、Flashlight、Accuracy Challenge、Random、Mirror、Invert、Constant Speed、Wind Up、Wind Down、Muted 和 Adaptive Speed。名称、英文描述、设置、图标、排序、分数倍率与计表现分状态均与 mania 保持一致；O2 专用适配在复用原生 Mod 行为时保留准确的音符／长条类型、谱面位置判定与 OJM 音频。HT／DT 默认保持 BGM 与 keysound 音高，Adjust Pitch 设置同时作用于两者；DC／NC 对两条音频路径应用 mania 的变调规则，NC 也保留原生节拍音。动态变速 Mod 的画面流速与玩家触发的 keysound 会跟随实时速度。Constant Speed 替代原来的固定流速设置，不改变判定时机。未选择 Mania Score 时，所有组合（包括 No Mod）均显示不计表现分；选择后按 mania 原生模组资格显示。Mania Score 的选择 UI 目前已隐藏。实际 mania 计分／PP 计算仍待实现。
 
 默认键位为 `S D F Space J K L`。
 
 ## 安装
 
-独立重构版版本号为 **1.0.0**，面向 osu!lazer **2026.804.2**。构建或获取兼容的
+当前独立重构预发布标签为 **1.0.0-test**；为保持 ruleset 持久化身份兼容，程序集版本仍为
+**1.0.0**。该版本面向 osu!lazer **2026.804.2**。构建或获取兼容的
 `osu.Game.Rulesets.O2Lazer.dll`，退出 lazer 后替换数据目录中 `rulesets` 下的 DLL，再启动游戏。
 备份请放在 `rulesets` 目录之外，不要同时安装两个 O2Lazer 版本。
 持久化 ruleset 身份保持不变，已有导入和成绩关联可以保留。重构前 replay 不再支持，但不会删除已有成绩记录。
@@ -41,7 +44,8 @@ LN 只在头部播放键音，尾部保持静音。
 
 ## 游玩与皮肤选项
 
-下落速度使用 mania 的视觉标尺，并同时显示 O2Jam 等价值。固定流速开关不改变随 BPM 变化的判定。
+下落速度使用 mania 的视觉标尺，并同时显示 O2Jam 等价值。Constant Speed 在 BPM 变化时保持固定视觉时间范围，
+但不改变判定；原设置开关已经删除，只有选择该 Mod 才会启用此行为。
 O2Jam 长按视效默认关闭；开启后，松键的 LN 保持原色：最终 Cool/Good（包括药丸修正后的 Cool）继续裁切，
 Bad/Miss 停止裁切并保留剩余长度继续下落。此过程不会延迟计分或维持按住光效。
 独立的投皮修复选项负责延伸过长的 legacy LN body，并同步多帧动画。
@@ -61,6 +65,10 @@ Bad/Miss 停止裁切并保留剩余长度继续下落。此过程不会延迟�
 - 裸数字 `100` 仍可搜索普通曲名、作者、难度等内容，但不会因为 `o2ma100` 编号、编号形式的文件名或内部导入标签而命中。
 
 例如 `o2ma100 ln>50` 会筛选该编号下 LN 占比大于 50% 的难度。搜索使用已导入的元数据，不需要重新导入或解码谱面。
+
+原生 `stars>5` 始终按 osu!mania 星级筛选，不受 MS 开关影响；例如 `stars>=3 stars<5 lv>=50` 可组合 mania 星级与 O2Jam 等级。
+
+旧曲库升级后，请使用一次**刷新谱面**，补齐两种星级和版本信息，不会更换谱面 ID 或成绩关联。以后刷新时会跳过未变化且版本有效的条目。原生后台重算同样使用 mania 算法；切换 MS 只读取已有数值。尚未计算的 mania 星级显示为未计算值（`-1`），等待处理完成。
 
 ## 构建
 

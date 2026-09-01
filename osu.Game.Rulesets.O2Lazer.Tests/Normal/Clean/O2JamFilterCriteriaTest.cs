@@ -2,6 +2,8 @@ using System.Reflection;
 using NUnit.Framework;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets;
+using osu.Game.Rulesets.O2Lazer.Difficulty;
+using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.O2Lazer.SongSelect;
 using osu.Game.Screens.Select;
 using osu.Game.Screens.Select.Filter;
@@ -13,6 +15,26 @@ public class O2JamFilterCriteriaTest
 {
     private static readonly MethodInfo applyQueries = typeof(FilterQueryParser).GetMethod(
         "ApplyQueries", BindingFlags.Static | BindingFlags.NonPublic)!;
+
+    [TestCase("stars>3 stars<4", true)]
+    [TestCase("stars>10", false)]
+    [TestCase("stars=3.25 lv=119", true)]
+    [TestCase("stars<4 level>100", true)]
+    [TestCase("lv<100", false)]
+    public void NativeStarsSearchUsesManiaIndependentlyOfDisplayMode(string query, bool expected)
+    {
+        var beatmap = createBeatmap();
+        beatmap.StarRating = 3.25;
+        beatmap.DifficultyName = "HX";
+        beatmap.Metadata.Tags += $" {O2JamStarRatingMetadata.CreateO2JamTag(119)} {O2JamStarRatingMetadata.ManiaVersionTag}";
+        foreach (var mania in new[] { false, true })
+        {
+            var criteria = parse(query);
+            criteria.Mods = mania ? [new O2JamModManiaScore()] : [];
+            Assert.That(BeatmapCarouselFilterMatching.CheckCriteriaMatch(beatmap, criteria), Is.EqualTo(expected));
+        }
+        Assert.That(beatmap.StarRating, Is.EqualTo(3.25));
+    }
 
     [TestCase("level>75", "NX 76", true)]
     [TestCase("level>75", "NX 75", false)]
@@ -205,15 +227,17 @@ public class O2JamFilterCriteriaTest
         });
     }
 
-    [Test]
-    public void BareNumberDoesNotMatchInternalVersionMarkers()
+    [TestCase("2")]
+    [TestCase("20241007")]
+    [TestCase("9876")]
+    public void BareNumberDoesNotMatchInternalVersionMarkers(string query)
     {
         var beatmap = createBeatmap();
         // Keep the digit out of public metadata such as the literal "o2jam" tag and folder.
         beatmap.Metadata.Source = string.Empty;
-        beatmap.Metadata.Tags = "o2ma100 o2lazer-clean:2 o2lazer-encoding:2";
+        beatmap.Metadata.Tags = "o2ma100 o2lazer-clean:2 o2lazer-encoding:2 o2lazer-mania-version:1:20241007 o2lazer-o2jam-stars:1:3.9876";
 
-        Assert.That(BeatmapCarouselFilterMatching.CheckCriteriaMatch(beatmap, parse("2")), Is.False);
+        Assert.That(BeatmapCarouselFilterMatching.CheckCriteriaMatch(beatmap, parse(query)), Is.False);
     }
 
     [Test]

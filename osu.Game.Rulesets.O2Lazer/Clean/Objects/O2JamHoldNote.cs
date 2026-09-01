@@ -8,6 +8,8 @@ namespace osu.Game.Rulesets.O2Lazer.Objects;
 
 public sealed class O2JamHoldNote : HoldNote
 {
+    public bool ReleaseTimingDisabled { get; set; }
+
     public double HeadChartPosition { get; set; }
 
     public double TailChartPosition { get; set; }
@@ -35,6 +37,7 @@ public sealed class O2JamHoldNote : HoldNote
             Samples = GetNodeSamples(NodeSamples.Count - 1),
             ChartPosition = TailChartPosition,
             TimingMap = TimingMap,
+            ReleaseTimingDisabled = ReleaseTimingDisabled,
         });
 
         AddNested(Body = new O2JamHoldBody
@@ -66,6 +69,8 @@ public sealed class O2JamHoldHead : HeadNote, IO2JamJudgedObject
 
 public sealed class O2JamHoldTail : TailNote, IO2JamJudgedObject
 {
+    public bool ReleaseTimingDisabled { get; set; }
+
     public double ChartPosition { get; set; }
 
     public O2JamTimingMap TimingMap { get; set; } = new(120);

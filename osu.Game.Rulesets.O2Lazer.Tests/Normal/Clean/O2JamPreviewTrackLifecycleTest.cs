@@ -6,9 +6,12 @@ using NUnit.Framework;
 using osu.Framework.Audio.Sample;
 using osu.Framework.Audio.Track;
 using osu.Game.Audio;
+using osu.Game.Rulesets.Mania.Mods;
+using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Core;
+using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.O2Lazer.Objects;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
@@ -16,6 +19,94 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 [TestFixture]
 public class O2JamPreviewTrackLifecycleTest
 {
+    [TestCase(typeof(O2JamModHalfTime), 1, 0.75)]
+    [TestCase(typeof(O2JamModDaycore), 0.75, 1)]
+    [TestCase(typeof(O2JamModDoubleTime), 1, 1.5)]
+    [TestCase(typeof(O2JamModNightcore), 1.5, 1)]
+    public void RateModsReachClockBackgroundAndAutomaticSample(Type modType, double frequency, double tempo)
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 1000, 100, 0));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        var resources = new SamplePlaybackResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(beatmap, resources, clock);
+        var mod = (IApplicableToTrack)Activator.CreateInstance(modType)!;
+        mod.ApplyToTrack(preview);
+        start(preview);
+        assertAdjustments(frequency, tempo);
+
+        // Active voices must follow aggregate changes too, without waiting for another note.
+        preview.Frequency.Value = 1.1;
+        preview.Tempo.Value = 1.2;
+        assertAdjustments(frequency * 1.1, tempo * 1.2);
+
+        stop(preview);
+        preview.Seek(2000);
+        start(preview);
+        Assert.That(resources.Tracks[^1].LastSeek, Is.EqualTo(2000));
+        Assert.That(resources.Tracks[^1].AggregateFrequency.Value, Is.EqualTo(frequency * 1.1).Within(0.000001));
+        Assert.That(resources.Tracks[^1].AggregateTempo.Value, Is.EqualTo(tempo * 1.2).Within(0.000001));
+
+        void assertAdjustments(double expectedFrequency, double expectedTempo)
+        {
+            preview.Update();
+            var background = resources.Tracks[0];
+            var channel = resources.Sample.Channel!;
+            background.Update();
+            channel.Update();
+            Assert.Multiple(() =>
+            {
+                Assert.That(clock.Rate, Is.EqualTo(expectedFrequency * expectedTempo).Within(0.000001));
+                Assert.That(background.AggregateFrequency.Value, Is.EqualTo(expectedFrequency).Within(0.000001));
+                Assert.That(background.AggregateTempo.Value, Is.EqualTo(expectedTempo).Within(0.000001));
+                Assert.That(channel.AggregateFrequency.Value, Is.EqualTo(expectedFrequency).Within(0.000001));
+                Assert.That(channel.AggregateTempo.Value, Is.EqualTo(expectedTempo).Within(0.000001));
+            });
+        }
+    }
+
+    [TestCase(typeof(O2JamModHalfTime), 0.75)]
+    [TestCase(typeof(O2JamModDoubleTime), 1.5)]
+    public void AdjustPitchSettingReachesClockBackgroundAndAutomaticSample(Type modType, double speed)
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 1000, 100, 0));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        var resources = new SamplePlaybackResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(beatmap, resources, clock);
+        var mod = (ModRateAdjust)Activator.CreateInstance(modType)!;
+        ((IApplicableToTrack)mod).ApplyToTrack(preview);
+        start(preview);
+
+        switch (mod)
+        {
+            case ModHalfTime halfTime:
+                halfTime.AdjustPitch.Value = true;
+                break;
+
+            case ModDoubleTime doubleTime:
+                doubleTime.AdjustPitch.Value = true;
+                break;
+        }
+
+        preview.Update();
+        var background = resources.Tracks[0];
+        var channel = resources.Sample.Channel!;
+        background.Update();
+        channel.Update();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clock.Rate, Is.EqualTo(speed).Within(0.000001));
+            Assert.That(background.AggregateFrequency.Value, Is.EqualTo(speed).Within(0.000001));
+            Assert.That(background.AggregateTempo.Value, Is.EqualTo(1).Within(0.000001));
+            Assert.That(channel.AggregateFrequency.Value, Is.EqualTo(speed).Within(0.000001));
+            Assert.That(channel.AggregateTempo.Value, Is.EqualTo(1).Within(0.000001));
+        });
+    }
+
 #if O2JAM_SYNC_DIAGNOSTICS
     [Test]
     [SetCulture("fr-FR")]
@@ -560,7 +651,7 @@ public class O2JamPreviewTrackLifecycleTest
             return true;
         }
 
-        public ISample? GetSample(ISampleInfo sampleInfo)
+        public virtual ISample? GetSample(ISampleInfo sampleInfo)
         {
             SampleRequests++;
             return null;
@@ -572,6 +663,36 @@ public class O2JamPreviewTrackLifecycleTest
             Tracks.Add(track);
             return track;
         }
+    }
+
+    private sealed class SamplePlaybackResource : FakePlaybackResource
+    {
+        public CapturingSample Sample { get; } = new();
+
+        public override ISample GetSample(ISampleInfo sampleInfo) => Sample;
+    }
+
+    private sealed class CapturingSample : Sample
+    {
+        public SampleChannel? Channel { get; private set; }
+
+        public override double Length => 5000;
+
+        public CapturingSample()
+            : base("test")
+        {
+        }
+
+        protected override SampleChannel CreateChannel() => Channel = new FakeSampleChannel();
+    }
+
+    private sealed class FakeSampleChannel() : SampleChannel("test")
+    {
+        private bool playing = true;
+
+        public override bool Playing => playing;
+
+        public override void Stop() => playing = false;
     }
 
     private sealed class LeasedPlaybackResource : FakePlaybackResource, IO2JamPlaybackLeaseSource

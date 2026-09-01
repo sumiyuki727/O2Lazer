@@ -13,6 +13,7 @@ using osu.Framework.Localisation;
 using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Framework.Screens;
+using osu.Game.Beatmaps;
 using osu.Game.Database;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Graphics.UserInterface;
@@ -62,11 +63,17 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
     }
 
     [BackgroundDependencyLoader]
-    private void load(GameHost host, RealmAccess realm, INotificationOverlay? notifications = null)
+    private void load(GameHost host, RealmAccess realm, INotificationOverlay? notifications = null,
+                      IWorkingBeatmapCache? workingBeatmaps = null, BeatmapDifficultyCache? difficultyCache = null)
     {
         config = (O2JamRulesetConfigManager)Config;
         this.notifications = notifications;
         libraryWriter = new O2JamLibraryWriter(realm, host.Storage);
+        libraryWriter.BeatmapUpdated += beatmap =>
+        {
+            workingBeatmaps?.Invalidate(beatmap);
+            difficultyCache?.Invalidate(beatmap, beatmap);
+        };
         collectionService = new O2JamSourceFolderCollectionService(realm);
         importPath = config.GetBindable<string>(O2JamRulesetSetting.LastImportPath);
         syncSourceFolderCollections = config.GetBindable<bool>(O2JamRulesetSetting.SyncSourceFolderCollections);
@@ -109,11 +116,6 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
             {
                 Caption = RulesetSettingsStrings.ScrollingDirection,
                 Current = config.GetBindable<ManiaScrollingDirection>(O2JamRulesetSetting.ScrollDirection),
-            }),
-            new SettingsItemV2(new FormCheckBox
-            {
-                Caption = O2LazerStrings.FixedScrollSpeed,
-                Current = config.GetBindable<bool>(O2JamRulesetSetting.ConstantScrollSpeed),
             }),
             new SettingsItemV2(new FormCheckBox
             {

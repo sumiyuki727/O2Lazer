@@ -24,12 +24,18 @@
         <!-- Match the host's Realm helper dependency, not a separately shipped ruleset library.
              Keep the NuGet audit visible; see docs/development.md for the current advisory. -->
         <PackageReference Include="AutoMapper" Version="13.0.1" PrivateAssets="all" />
+        <!-- Native APIMod annotations are reflected when ScoreInfo serialises replay settings. -->
+        <PackageReference Include="MessagePack.Annotations" Version="3.1.7" PrivateAssets="all" />
         <Reference Include="osu.Game">
             <HintPath>$(OsuGameProjectPath)</HintPath>
             <Private>true</Private>
         </Reference>
         <Reference Include="osu.Game.Rulesets.Mania">
             <HintPath>$(OsuManiaAssemblyPath)</HintPath>
+            <Private>true</Private>
+        </Reference>
+        <Reference Include="osu.Game.Resources">
+            <HintPath>$([System.IO.Path]::Combine($([System.IO.Path]::GetDirectoryName('$(OsuGameProjectPath)')), 'osu.Game.Resources.dll'))</HintPath>
             <Private>true</Private>
         </Reference>
     </ItemGroup>

@@ -9,6 +9,7 @@ using osu.Game.Models;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Core;
+using osu.Game.Rulesets.O2Lazer.Difficulty;
 using osu.Game.Rulesets.O2Lazer.Localisation;
 using Realms;
 
@@ -47,6 +48,10 @@ public sealed class O2JamLibraryWriter
     private readonly RealmAccess realm;
     private readonly RealmFileStore files;
 
+    // Detached snapshots are published after committing, so consumers can invalidate native
+    // working/difficulty caches without coupling database writes to UI services or Realm threads.
+    public event Action<BeatmapInfo>? BeatmapUpdated;
+
     public O2JamLibraryWriter(RealmAccess realm, Storage storage)
     {
         this.realm = realm;
@@ -62,6 +67,7 @@ public sealed class O2JamLibraryWriter
             return [];
 
         var results = Enumerable.Repeat(O2JamLibraryWriteResult.RulesetUnavailable, requests.Count).ToArray();
+        var updatedBeatmaps = new List<BeatmapInfo>();
 
         realm.Write(database =>
         {
@@ -70,8 +76,11 @@ public sealed class O2JamLibraryWriter
                 return;
 
             for (var index = 0; index < requests.Count; index++)
-                results[index] = write(database, ruleset, requests[index]);
+                results[index] = write(database, ruleset, requests[index], updatedBeatmaps);
         });
+
+        foreach (var beatmap in updatedBeatmaps.DistinctBy(beatmap => beatmap.ID))
+            BeatmapUpdated?.Invoke(beatmap);
 
         return results;
     }
@@ -95,7 +104,11 @@ public sealed class O2JamLibraryWriter
                 set.ID,
                 beatmap.LastLocalUpdate,
                 sourceLength,
-                tags.Contains(MetadataMarker, StringComparer.Ordinal),
+                tags.Contains(MetadataMarker, StringComparer.Ordinal)
+                && set.Beatmaps.Where(candidate => candidate.Ruleset.ShortName == O2LazerIdentity.ShortName)
+                      .All(candidate => O2JamStarRatingMetadata.HasCurrentManiaVersion(candidate.Metadata.Tags)
+                                        && O2JamStarRatingMetadata.ReadMania(candidate).HasValue
+                                        && O2JamStarRatingMetadata.ReadO2Jam(candidate.Metadata.Tags).HasValue),
                 tags.Contains(EncodingMarker, StringComparer.Ordinal));
         }
 
@@ -152,9 +165,20 @@ public sealed class O2JamLibraryWriter
         return MarkDeleted(missing);
     }
 
-    private O2JamLibraryWriteResult write(Realm database, RulesetInfo ruleset, O2JamLibraryWriteRequest request)
+    private O2JamLibraryWriteResult write(Realm database, RulesetInfo ruleset, O2JamLibraryWriteRequest request, List<BeatmapInfo> updatedBeatmaps)
     {
         var plan = request.Plan;
+
+        O2JamLibraryWriteResult updateMetadata(BeatmapSetInfo set)
+        {
+            if (!refreshMetadata(set, plan))
+                return O2JamLibraryWriteResult.AlreadyPresent;
+
+            updatedBeatmaps.AddRange(set.Beatmaps.Where(beatmap => beatmap.Ruleset.ShortName == O2LazerIdentity.ShortName)
+                                       .Select(beatmap => beatmap.Detach()));
+            return O2JamLibraryWriteResult.Updated;
+        }
+
         BeatmapSetInfo? sourceSet = null;
 
         if (request.KnownSourceSetId != null)
@@ -175,9 +199,7 @@ public sealed class O2JamLibraryWriter
         // migrate its metadata in place so Beatmap IDs and attached scores remain intact.
         if (sourceSet != null && containsSourceContent(sourceSet, plan))
         {
-            return refreshMetadata(sourceSet, plan)
-                ? O2JamLibraryWriteResult.Updated
-                : O2JamLibraryWriteResult.AlreadyPresent;
+            return updateMetadata(sourceSet);
         }
 
         var matchingSet = database.All<BeatmapSetInfo>()
@@ -186,8 +208,8 @@ public sealed class O2JamLibraryWriter
                                   .FirstOrDefault(isOwnedByO2Lazer);
         if (matchingSet != null)
         {
-            var result = containsSourceChart(matchingSet, plan.SourcePath) && refreshMetadata(matchingSet, plan)
-                ? O2JamLibraryWriteResult.Updated
+            var result = containsSourceChart(matchingSet, plan.SourcePath)
+                ? updateMetadata(matchingSet)
                 : O2JamLibraryWriteResult.AlreadyPresent;
 
             if (sourceSet != null && sourceSet != matchingSet)
@@ -238,7 +260,7 @@ public sealed class O2JamLibraryWriter
                         Username = string.IsNullOrWhiteSpace(plan.Author) ? "O2Jam" : plan.Author,
                     },
                     Source = plan.SourceDirectory,
-                    Tags = $"o2jam o2ma{plan.SongId} {MetadataMarker} {EncodingMarker} {source_length_prefix}{plan.SourceData.LongLength}",
+                    Tags = $"o2jam o2ma{plan.SongId} {MetadataMarker} {EncodingMarker} {source_length_prefix}{plan.SourceData.LongLength} {O2JamStarRatingMetadata.CreateO2JamTag(chart.Level)} {O2JamStarRatingMetadata.ManiaVersionTag}",
                     BackgroundFile = backgroundFileName,
                     // A real set file gives osu! a stable audio identity across difficulties even though
                     // the OJM event stream itself remains external to the managed beatmap store.
@@ -249,7 +271,7 @@ public sealed class O2JamLibraryWriter
                 // source-file hash makes osu! attach one difficulty's grades to all three.
                 Hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty),
                 MD5Hash = chart.Md5Hash,
-                StarRating = O2JamDifficultyRating.FromLevel(chart.Level),
+                StarRating = chart.ManiaStarRating,
                 BPM = plan.InitialBpm,
                 Length = chart.Length,
                 TotalObjectCount = chart.TotalObjectCount,
@@ -328,8 +350,8 @@ public sealed class O2JamLibraryWriter
 
             if (chart != null)
             {
-                var starRating = O2JamDifficultyRating.FromLevel(chart.Level);
-                if (Math.Abs(beatmap.StarRating - starRating) > 0.000001)
+                var starRating = chart.ManiaStarRating;
+                if (beatmap.StarRating != starRating)
                 {
                     beatmap.StarRating = starRating;
                     changed = true;
@@ -379,6 +401,8 @@ public sealed class O2JamLibraryWriter
 
             var tags = beatmap.Metadata.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                               .Where(tag => !tag.StartsWith(source_length_prefix, StringComparison.Ordinal)
+                                            && (chart == null || !tag.StartsWith(O2JamStarRatingMetadata.O2JamTagPrefix, StringComparison.Ordinal)
+                                                && !tag.StartsWith(O2JamStarRatingMetadata.ManiaVersionPrefix, StringComparison.Ordinal))
                                             && (!tag.StartsWith(encoding_marker_prefix, StringComparison.Ordinal) || tag == EncodingMarker))
                               .ToList();
             if (!tags.Contains(MetadataMarker, StringComparer.Ordinal))
@@ -394,6 +418,12 @@ public sealed class O2JamLibraryWriter
             }
 
             tags.Add($"{source_length_prefix}{plan.SourceData.LongLength}");
+            if (chart != null)
+            {
+                tags.Add(O2JamStarRatingMetadata.CreateO2JamTag(chart.Level));
+                tags.Add(O2JamStarRatingMetadata.ManiaVersionTag);
+            }
+
             var updatedTags = string.Join(' ', tags);
             if (!string.Equals(beatmap.Metadata.Tags, updatedTags, StringComparison.Ordinal))
             {
