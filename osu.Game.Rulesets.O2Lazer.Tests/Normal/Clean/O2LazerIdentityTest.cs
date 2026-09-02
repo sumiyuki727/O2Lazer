@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Textures;
 using osu.Framework.Input.Bindings;
 using osu.Framework.IO.Stores;
@@ -109,6 +111,25 @@ public class O2LazerIdentityTest
             Assert.That(O2JamDifficultyIconPatch.ShouldUseO2JamIcon(maniaRuleset, new BeatmapInfo(o2Ruleset)), Is.True);
             Assert.That(O2JamDifficultyIconPatch.ShouldUseO2JamIcon(o2Ruleset, new BeatmapInfo(maniaRuleset)), Is.True);
             Assert.That(O2JamDifficultyIconPatch.ShouldUseO2JamIcon(maniaRuleset, new BeatmapInfo(maniaRuleset)), Is.False);
+        });
+    }
+
+    [Test]
+    public void SongSelectRulesetIconPrecedesDifficultyDotsAfterReplacement()
+    {
+        var flow = new FillFlowContainer();
+        var nativeIcon = new Box();
+        var firstDifficulty = new Box();
+        var secondDifficulty = new Box();
+        flow.AddRange([nativeIcon, firstDifficulty, secondDifficulty]);
+
+        O2JamDifficultyIconPatch.ReplaceSongSelectRulesetIcon(flow);
+        var o2JamIcon = flow.Children.OfType<O2JamRulesetIcon>().Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(flow.GetLayoutPosition(o2JamIcon), Is.LessThan(flow.GetLayoutPosition(firstDifficulty)));
+            Assert.That(flow.GetLayoutPosition(o2JamIcon), Is.LessThan(flow.GetLayoutPosition(secondDifficulty)));
         });
     }
 

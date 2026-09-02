@@ -129,7 +129,16 @@ internal static class O2JamDifficultyIconPatch
                              || ___flow.Count == 0)
             return;
 
-        var oldIcon = ___flow[0];
+        ReplaceSongSelectRulesetIcon(___flow);
+    }
+
+    internal static void ReplaceSongSelectRulesetIcon(FillFlowContainer flow)
+    {
+        if (flow.Count == 0)
+            return;
+
+        var oldIcon = flow[0];
+        var oldLayoutPosition = flow.GetLayoutPosition(oldIcon);
         var icon = new O2JamRulesetIcon
         {
             Size = new Vector2(14),
@@ -138,7 +147,13 @@ internal static class O2JamDifficultyIconPatch
             Margin = oldIcon.Margin,
         };
 
-        ___flow.Remove(oldIcon, true);
-        ___flow.Insert(0, icon);
+        flow.Remove(oldIcon, true);
+        flow.Add(icon);
+
+        // FlowContainer breaks equal layout positions by child creation order, so a newly-created
+        // replacement must sort before the remaining difficulty dots rather than merely use position 0.
+        flow.SetLayoutPosition(icon, float.IsNegativeInfinity(oldLayoutPosition)
+            ? oldLayoutPosition
+            : MathF.BitDecrement(oldLayoutPosition));
     }
 }
