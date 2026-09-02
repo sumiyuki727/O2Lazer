@@ -119,10 +119,10 @@ internal static class O2JamReplayArchive
             using (var reader = new StreamReader(payloadStream, Encoding.UTF8))
                 payload = reader.ReadToEnd().Deserialize<Payload>() ?? new Payload();
 
-            // Versions before 5 used the pre-rewrite judgement/input model. Matching the JSON
-            // shape is not evidence that such a replay can be played by the current ruleset.
+            // The marker keeps this global importer from claiming another ruleset's JSON/gzip
+            // envelope. Unmarked test builds are intentionally treated as unsupported replays.
             if (payload.Version != current_version
-                || !string.IsNullOrEmpty(payload.Ruleset) && payload.Ruleset != O2LazerIdentity.ShortName
+                || !string.Equals(payload.Ruleset, O2LazerIdentity.ShortName, StringComparison.Ordinal)
                 || payload.Frames == null || payload.Frames.Count == 0)
                 return false;
 
@@ -162,8 +162,6 @@ internal static class O2JamReplayArchive
     {
         public int Version { get; set; }
 
-        // The earliest clean v5 files did not include this marker; their version and chart hashes
-        // remain sufficient to import them without reviving the pre-rewrite filename fallback.
         public string Ruleset { get; set; } = string.Empty;
 
         public bool HasReceivedAllFrames { get; set; } = true;

@@ -178,22 +178,9 @@ public class O2JamReplayCompatibilityTest
         assertRejected(compressed.ToArray());
     }
 
-    [Test]
-    public void ReadsExistingCleanVersionFiveWithoutRulesetMarker()
-    {
-        var bytes = Encoding.UTF8.GetBytes(
-            """
-            { "version": 5, "beatmap_hash": "difficulty-hash", "frames": [{ "time": 250, "actions": [0, 6] }] }
-            """);
-
-        Assert.That(O2JamReplayArchive.TryReadScore(new ScoreInfo(), bytes, out var restored), Is.True);
-        Assert.That(O2JamReplayArchive.TryReadMetadata(bytes, out _), Is.True);
-        Assert.That(((O2JamReplayFrame)restored.Replay.Frames.Single()).Actions,
-            Is.EqualTo(new[] { ManiaAction.Key1, ManiaAction.Key7 }));
-    }
-
     [TestCase("{}")]
     [TestCase("{\"frames\":[{\"time\":1,\"actions\":[0]}]}")]
+    [TestCase("{\"version\":5,\"beatmap_hash\":\"difficulty-hash\",\"frames\":[{\"time\":1,\"actions\":[0]}]}")]
     [TestCase("{\"version\":5,\"frames\":null}")]
     [TestCase("{\"version\":5,\"frames\":[null]}")]
     [TestCase("{\"version\":5,\"frames\":[{\"time\":1,\"actions\":null}]}")]

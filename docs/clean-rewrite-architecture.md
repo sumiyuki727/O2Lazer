@@ -107,8 +107,9 @@ The native replay pipeline follows osu!mania's separation of responsibilities:
 Only clean replay schema v5 is supported. Pre-rewrite frames, interim mania-frame conversion,
 stable bitmask conversion, branch-decision payloads and filename-based beatmap guessing have been
 removed. The archive reader validates the schema version and frame data before creating a replay.
-Current recordings include an `o2lazer` ruleset marker; already-recorded v5 files without it remain
-supported. Imports require embedded chart hashes and a matching O2Jam beatmap.
+Current recordings and imports require both replay schema v5 and an `o2lazer` ruleset marker.
+Unmarked test builds and pre-rewrite replay schemas are unsupported. Imports also require embedded
+chart hashes and a matching O2Jam beatmap.
 
 The import patch does not claim foreign JSON/gzip envelopes, which BMSRuleset also uses. Unsupported
 old files fail the native import header check without creating a score. For stored O2Jam scores,

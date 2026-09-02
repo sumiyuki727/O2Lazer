@@ -57,6 +57,15 @@ public class O2JamReplayImportTest
         Assert.That(importer.GetScore(scoreInfo).Replay, Is.Null);
         Assert.That(scoreInfo.Files.Count, Is.EqualTo(1), "Rejecting playback must not delete the user's replay.");
 
+        var unmarkedScoreInfo = new ScoreInfo { Ruleset = ruleset };
+        importer.AttachReplay(unmarkedScoreInfo, Encoding.UTF8.GetBytes(
+            """
+            { "version": 5, "beatmap_hash": "difficulty-hash", "frames": [{ "time": 100, "actions": [0] }] }
+            """));
+
+        Assert.That(importer.GetScore(unmarkedScoreInfo).Replay, Is.Null);
+        Assert.That(unmarkedScoreInfo.Files.Count, Is.EqualTo(1), "Rejecting an unmarked replay must not delete its stored file.");
+
         var currentScore = new Score
         {
             ScoreInfo = new ScoreInfo { Ruleset = ruleset },
@@ -79,6 +88,7 @@ public class O2JamReplayImportTest
     }
 
     [TestCase("{\"version\":3,\"frames\":[{\"time\":1,\"actions\":[0]}],\"gauge_history\":[]}")]
+    [TestCase("{\"version\":5,\"beatmap_hash\":\"foreign-chart\",\"frames\":[{\"time\":1,\"actions\":[0]}]}")]
     [TestCase("{\"version\":5,\"ruleset\":\"bms\",\"beatmap_hash\":\"foreign-chart\",\"frames\":[{\"time\":1,\"actions\":[0]}]}")]
     [TestCase("native-osr-header")]
     public void ForeignImportFormatsAreNotClaimedByO2Jam(string payload)
