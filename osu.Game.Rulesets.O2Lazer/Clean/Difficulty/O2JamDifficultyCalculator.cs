@@ -7,6 +7,7 @@ using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
+using osu.Game.Rulesets.O2Lazer.Mods;
 
 namespace osu.Game.Rulesets.O2Lazer.Difficulty;
 
@@ -40,18 +41,44 @@ public sealed class O2JamDifficultyCalculator : DifficultyCalculator
 
     protected override Mod[] DifficultyAdjustmentMods => [];
 
+    internal static bool RequiresModdedCalculation(IEnumerable<Mod> mods)
+    {
+        foreach (var mod in mods)
+        {
+            if (mod is MultiMod multiMod && RequiresModdedCalculation(multiMod.Mods))
+                return true;
+
+            // Fixed column permutations and judgement-only mods leave mania strain unchanged.
+            // Invert is the current non-rate mod which replaces the chart's hit objects.
+            if (mod is IApplicableToRate or O2JamModInvert)
+                return true;
+        }
+
+        return false;
+    }
+
     private sealed class MetadataWorkingBeatmap(IWorkingBeatmap source) : FlatWorkingBeatmap(new Beatmap())
     {
+        private double? baselineStars;
+
         public override IBeatmap GetPlayableBeatmap(IRulesetInfo ruleset, IReadOnlyList<Mod> mods, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
             var metadata = Beatmap;
-            if (metadata.BeatmapInfo.StarRating < 0)
+
+            if (RequiresModdedCalculation(mods))
             {
-                // Normal lookups need no chart/audio I/O. A native version reset or an old
-                // library entry can still be reprocessed without depending on the import UI.
-                metadata.BeatmapInfo.StarRating = O2JamStarRatingMetadata.ReadMania(source.BeatmapInfo)
-                    ?? O2JamManiaStarRating.Calculate((O2JamBeatmap)source.GetPlayableBeatmap(ruleset, [], token), token);
+                var playable = (O2JamBeatmap)source.GetPlayableBeatmap(ruleset, mods, token);
+                metadata.BeatmapInfo.StarRating = O2JamManiaStarRating.CalculatePreprocessed(playable, mods, token);
+            }
+            else
+            {
+                // Ordinary lookups retain the metadata-only path. Old entries are decoded once
+                // per calculator, while switching back from a modded lookup restores the baseline.
+                baselineStars ??= O2JamStarRatingMetadata.ReadMania(source.BeatmapInfo)
+                                   ?? O2JamManiaStarRating.Calculate(
+                                       (O2JamBeatmap)source.GetPlayableBeatmap(ruleset, [], token), token);
+                metadata.BeatmapInfo.StarRating = baselineStars.Value;
             }
 
             return metadata;

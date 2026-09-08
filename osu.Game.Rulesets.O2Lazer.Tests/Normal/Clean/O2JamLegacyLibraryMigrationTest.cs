@@ -134,6 +134,16 @@ public partial class O2JamLegacyLibraryMigrationTest
                     Assert.That(writer.GetImportedSources()[sourcePath].HasCurrentMetadata, Is.True);
                 });
 
+                realm.Write(database =>
+                    database.Find<BeatmapInfo>(originalBeatmapId)!.Metadata.Tags += " o2lazer-o2jam-stars:1:0.5");
+                var legacyTagSources = writer.GetImportedSources();
+                Assert.That(legacyTagSources[sourcePath].HasCurrentMetadata, Is.False,
+                    "Legacy tags must trigger cleanup even when mania stars and the source are current.");
+                var cleanup = new O2JamImportService(new O2JamImportPlanner(), writer).Refresh([sourcePath], legacyTagSources);
+                Assert.That(cleanup.Updated, Is.EqualTo(1));
+                Assert.That(realm.Run(database => database.Find<BeatmapInfo>(originalBeatmapId)!.Metadata.Tags),
+                    Does.Not.Contain(O2JamStarRatingMetadata.O2JamTagPrefix));
+
                 var sources = writer.GetImportedSources();
                 var progress = new System.Collections.Generic.List<(int Processed, int Total)>();
                 var summary = new O2JamImportService(new O2JamImportPlanner(), writer)
@@ -144,7 +154,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                     Assert.That(summary.AlreadyPresent, Is.EqualTo(1));
                     Assert.That(summary.Imported + summary.Updated + summary.Failed, Is.Zero);
                     Assert.That(progress, Is.EqualTo(new[] { (0, 1), (1, 1) }));
-                    Assert.That(updates, Has.Count.EqualTo(1));
+                    Assert.That(updates, Has.Count.EqualTo(2));
                 });
 
                 using (var cancellation = new CancellationTokenSource())
@@ -256,7 +266,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                     Assert.That(migrated.AudioFile, Is.EqualTo(plan.FileName));
                     Assert.That(migrated.Tags, Does.Contain(O2JamLibraryWriter.MetadataMarker));
                     Assert.That(migrated.StarRating, Is.EqualTo(plan.Charts[0].ManiaStarRating));
-                    Assert.That(O2JamStarRatingMetadata.ReadO2Jam(migrated.Tags), Is.EqualTo(0.5).Within(0.000001));
+                    Assert.That(O2JamStarRatingMetadata.ReadO2Jam(migrated.Tags), Is.Null);
                     Assert.That(migrated.BeatmapHash,
                         Is.EqualTo(O2JamBeatmapIdentity.FromSource(plan.SourceHash, plan.Charts.Single().Difficulty)));
                     Assert.That(migrated.ScoreBeatmapHash, Is.EqualTo(migrated.BeatmapHash));

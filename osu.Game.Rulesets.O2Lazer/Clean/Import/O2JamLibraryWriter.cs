@@ -108,7 +108,7 @@ public sealed class O2JamLibraryWriter
                 && set.Beatmaps.Where(candidate => candidate.Ruleset.ShortName == O2LazerIdentity.ShortName)
                       .All(candidate => O2JamStarRatingMetadata.HasCurrentManiaVersion(candidate.Metadata.Tags)
                                         && O2JamStarRatingMetadata.ReadMania(candidate).HasValue
-                                        && O2JamStarRatingMetadata.ReadO2Jam(candidate.Metadata.Tags).HasValue),
+                                        && !candidate.Metadata.Tags.Contains(O2JamStarRatingMetadata.O2JamTagPrefix, StringComparison.Ordinal)),
                 tags.Contains(EncodingMarker, StringComparer.Ordinal));
         }
 
@@ -260,7 +260,7 @@ public sealed class O2JamLibraryWriter
                         Username = string.IsNullOrWhiteSpace(plan.Author) ? "O2Jam" : plan.Author,
                     },
                     Source = plan.SourceDirectory,
-                    Tags = $"o2jam o2ma{plan.SongId} {MetadataMarker} {EncodingMarker} {source_length_prefix}{plan.SourceData.LongLength} {O2JamStarRatingMetadata.CreateO2JamTag(chart.Level)} {O2JamStarRatingMetadata.ManiaVersionTag}",
+                    Tags = $"o2jam o2ma{plan.SongId} {MetadataMarker} {EncodingMarker} {source_length_prefix}{plan.SourceData.LongLength} {O2JamStarRatingMetadata.ManiaVersionTag}",
                     BackgroundFile = backgroundFileName,
                     // A real set file gives osu! a stable audio identity across difficulties even though
                     // the OJM event stream itself remains external to the managed beatmap store.
@@ -401,8 +401,8 @@ public sealed class O2JamLibraryWriter
 
             var tags = beatmap.Metadata.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                               .Where(tag => !tag.StartsWith(source_length_prefix, StringComparison.Ordinal)
-                                            && (chart == null || !tag.StartsWith(O2JamStarRatingMetadata.O2JamTagPrefix, StringComparison.Ordinal)
-                                                && !tag.StartsWith(O2JamStarRatingMetadata.ManiaVersionPrefix, StringComparison.Ordinal))
+                                            && !tag.StartsWith(O2JamStarRatingMetadata.O2JamTagPrefix, StringComparison.Ordinal)
+                                            && (chart == null || !tag.StartsWith(O2JamStarRatingMetadata.ManiaVersionPrefix, StringComparison.Ordinal))
                                             && (!tag.StartsWith(encoding_marker_prefix, StringComparison.Ordinal) || tag == EncodingMarker))
                               .ToList();
             if (!tags.Contains(MetadataMarker, StringComparer.Ordinal))
@@ -419,10 +419,7 @@ public sealed class O2JamLibraryWriter
 
             tags.Add($"{source_length_prefix}{plan.SourceData.LongLength}");
             if (chart != null)
-            {
-                tags.Add(O2JamStarRatingMetadata.CreateO2JamTag(chart.Level));
                 tags.Add(O2JamStarRatingMetadata.ManiaVersionTag);
-            }
 
             var updatedTags = string.Join(' ', tags);
             if (!string.Equals(beatmap.Metadata.Tags, updatedTags, StringComparison.Ordinal))

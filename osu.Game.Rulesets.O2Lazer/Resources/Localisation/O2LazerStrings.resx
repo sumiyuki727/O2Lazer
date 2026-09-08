@@ -39,6 +39,9 @@
   <data name="o2jam_level_acronym" xml:space="preserve">
     <value>LV</value>
   </data>
+  <data name="level_badge" xml:space="preserve">
+    <value>Lv.{0}</value>
+  </data>
   <data name="star_rating" xml:space="preserve">
     <value>mania stars</value>
   </data>
@@ -50,9 +53,6 @@
   </data>
   <data name="mania_star_rating_description" xml:space="preserve">
     <value>Stored osu!mania star rating, independent of MS.</value>
-  </data>
-  <data name="o2jam_star_rating_description" xml:space="preserve">
-    <value>O2Jam level divided by ten while MS is inactive.</value>
   </data>
   <data name="sync_source_folder_collections" xml:space="preserve">
     <value>Create local collections by source folder</value>

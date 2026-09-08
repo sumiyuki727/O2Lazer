@@ -19,8 +19,8 @@ internal static class O2JamBeatmapAttributes
         var stars = (float)(O2JamStarRatingMetadata.ReadMania(beatmap) ?? -1);
 
         yield return new RulesetBeatmapAttribute(O2LazerStrings.O2Ma, O2LazerStrings.O2Ma.ToString(), songId, songId, songId);
-        // This attribute identifies the stored mania scale independently of the main star
-        // badge's MS toggle. Equal values avoid a misleading native mod-adjustment arrow.
+        // This attribute identifies the persisted baseline. The adjacent asynchronous star badge
+        // performs full modded calculations; equal values avoid a second, potentially stale arrow.
         yield return new RulesetBeatmapAttribute(O2LazerStrings.StarRating, O2LazerStrings.StarRatingAcronym.ToString(), stars, stars, 10)
         {
             Description = stars < 0 ? O2LazerStrings.MissingManiaStarRatingDescription

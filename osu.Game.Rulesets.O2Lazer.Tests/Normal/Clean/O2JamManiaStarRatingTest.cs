@@ -4,11 +4,15 @@ using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mania.Beatmaps;
 using osu.Game.Rulesets.Mania.Difficulty;
+using osu.Game.Rulesets.Mania.Mods;
 using osu.Game.Rulesets.Mania.Objects;
 using osu.Game.Rulesets.Mania.UI;
+using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
 using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Mods;
+using osu.Game.Rulesets.O2Lazer.Objects;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
@@ -60,5 +64,43 @@ public class O2JamManiaStarRatingTest
             Assert.That(o2jam.HitObjects, Has.Count.EqualTo(12));
             Assert.That(o2jam.AutomaticAudioEvents, Has.Count.EqualTo(1));
         });
+    }
+
+    [TestCase(0.75)]
+    [TestCase(1.5)]
+    [TestCase(1.8)]
+    public void PreprocessedRateMatchesNativeMania(double rate)
+    {
+        var document = new OjnReader().Read(OjnReaderTest.CreateChart());
+        var o2jam = new OjnBeatmapFactory().Create(document, O2JamDifficulty.EX);
+        o2jam.HitObjects.Add(new O2JamNote { StartTime = 250, Column = 1 });
+        o2jam.HitObjects.Add(new O2JamNote { StartTime = 500, Column = 2 });
+        o2jam.HitObjects.Add(new O2JamNote { StartTime = 750, Column = 3 });
+        o2jam.HitObjects.Add(new O2JamNote { StartTime = 1000, Column = 4 });
+
+        var maniaRuleset = new ManiaRuleset();
+        var mania = new ManiaBeatmap(new StageDefinition(7))
+        {
+            BeatmapInfo = new BeatmapInfo(maniaRuleset.RulesetInfo),
+            HitObjects =
+            [
+                new Note { StartTime = 0, Column = 0 },
+                new Note { StartTime = 250, Column = 1 },
+                new Note { StartTime = 500, Column = 2 },
+                new Note { StartTime = 750, Column = 3 },
+                new Note { StartTime = 1000, Column = 4 },
+            ],
+        };
+        mania.Difficulty.CircleSize = 7;
+        ModRateAdjust nativeMod = rate > 1 ? new ManiaModDoubleTime() : new ManiaModHalfTime();
+        nativeMod.SpeedChange.Value = rate;
+        ModRateAdjust o2JamMod = rate > 1 ? new O2JamModDoubleTime() : new O2JamModHalfTime();
+        o2JamMod.SpeedChange.Value = rate;
+
+        var expected = new ManiaDifficultyCalculator(maniaRuleset.RulesetInfo, new FlatWorkingBeatmap(mania))
+                       .Calculate([nativeMod]).StarRating;
+        var actual = O2JamManiaStarRating.CalculatePreprocessed(o2jam, [o2JamMod]);
+
+        Assert.That(actual, Is.EqualTo(expected).Within(1e-12));
     }
 }

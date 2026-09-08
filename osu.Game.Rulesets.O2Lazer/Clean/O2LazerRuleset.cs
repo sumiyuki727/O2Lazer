@@ -43,7 +43,9 @@ public sealed class O2LazerRuleset : Ruleset
         O2JamReplayPersistencePatch.InstallOnce();
         O2JamPerformanceEligibilityPatch.InstallOnce();
         O2JamPlayerSettingsPatch.InstallOnce();
+        O2JamModSelectAttributesPatch.InstallOnce();
         O2JamStarRatingDisplayPatch.InstallOnce();
+        O2JamStarRatingPresentationPatch.InstallOnce();
         O2JamLevelSortPatch.InstallOnce();
         O2JamLevelGroupPatch.InstallOnce();
         O2JamHitSampleLookupPatch.InstallOnce();

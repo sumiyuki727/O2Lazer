@@ -138,16 +138,16 @@ than a second stored rating. O2Lazer uses these storage boundaries as follows:
 | Data | Storage / role |
 | --- | --- |
 | Native mania stars | `BeatmapInfo.StarRating`; native `stars` search, difficulty sorting and grouping always use this value. |
-| O2Jam stars | Per-difficulty `o2lazer-o2jam-stars:1:<level / 10>` metadata tag, with invariant round-trip formatting. |
+| Legacy level metadata | No longer written; removed on refresh. Read-only compatibility recognises the old per-difficulty `o2lazer-o2jam-stars:1:<level / 10>` metadata tag, with invariant round-trip formatting. |
 | Mania cache version | `o2lazer-mania-version:1:<native algorithm version>` metadata tag; the first version covers our projection. |
-| Main star badge | O2Jam stars without MS; native mania stars with MS. No database mutation or strain calculation on a display-mode change. |
-| Mania stars attribute | Always reads stored native mania stars, independently of MS; positioned between o2ma and O2Jam level. |
+| Main star badge | Calculates selected/recorded-mod mania stars. Without MS it displays only `Lv.N`, uses `level / 10` for its colour, and gives neighbouring difficulty markers and the results ruleset icon their respective level colours; MS restores the native star glyph, mania-star value and colour. |
+| Mania stars attribute | Uses the asynchronous selected-mod mania result in song select; positioned between o2ma and O2Jam level. |
 
 `O2JamImportPlanner` uses the existing `OjnBeatmapFactory` to resolve seven-column note and hold
 times, then `O2JamManiaStarRating` projects only those objects into a plain native `ManiaBeatmap`.
 The native playable-beatmap/defaults pipeline and `ManiaDifficultyCalculator` calculate the
 baseline rating without O2Jam judgement, automatic audio events, OJM access, Realm or UI state.
-`O2JamLibraryWriter` alone persists both values. Refresh checks every difficulty's cache version
+`O2JamLibraryWriter` alone persists the baseline rating and its cache version. Refresh checks every difficulty's cache version
 and updates old entries in place, retaining beatmap IDs and score associations. It publishes
 detached updated snapshots after committing; the settings composition layer invalidates native
 working-beatmap and difficulty caches through their public APIs.
@@ -155,26 +155,31 @@ working-beatmap and difficulty caches through their public APIs.
 `O2JamDifficultyCalculator` always returns mania stars, including without MS, so native background
 reprocessing cannot overwrite the database with the display scale. Its version combines the
 native algorithm version and projection version, causing old level-based native ratings to be
-reprocessed. Valid stored ratings take a metadata-only path; missing, invalid or outdated values
-can be calculated from the source without relying on the import settings UI. O2Jam combo remains
+reprocessed. Valid stored ratings take a metadata-only path when the selected mods do not affect
+difficulty. Rate and structural mods use the already modded O2Jam chart, project it to mania, and
+run the native calculator; only rate mods enter mania's playable-beatmap pipeline so structural
+mods are not applied twice. Missing, invalid or outdated baseline values can be calculated from
+the source without relying on the import settings UI. O2Jam combo remains
 based on note/hold endpoints, not mania's duration-based legacy combo.
 
 `O2JamStarRatingDisplayPatch` replaces one difficulty lookup only inside osu!'s display-bindable
-update path. It leaves native scheduling, mod tracking, cancellation and invalidation intact,
+update path. Baseline lookups remain metadata-only, while DT, NC, HT, DC, configured rates and
+chart-transform mods return to the native difficulty cache. The adapter leaves native scheduling,
+mod tracking, cancellation and invalidation intact,
 and forwards other rulesets to the original lookup. Direct difficulty calculations and all native
-search/sort code remain untouched. A second, validated adapter replaces the star-display and
-difficulty-icon constructors in both native results panel layouts. It applies `O2JamDisplayedDifficulty`
-using the score's recorded mods to the badge, icon colour and icon tooltip, including scores absent
-from the local library. Neither adapter changes stored
+search/sort code remain untouched. A second, validated adapter replaces the difficulty-icon
+constructors in both native results panel layouts. Local expanded results retain
+the native calculation for the score's recorded mods and give the icon the same value; unavailable
+scores and the contracted fallback use their stored baseline. Neither adapter changes stored
 ratings or PP calculation. The public song-select attribute provider reads stored mania stars
 directly. Old libraries should
 run **Refresh beatmaps** once to populate the independent
-O2Jam stars and version markers; missing mania stars use the native uncalculated sentinel `-1`.
+mania version markers and remove legacy O2Jam-star tags; missing mania stars use the native uncalculated sentinel `-1`.
 Legacy level fallback is allowed only before native StarRating changes meaning.
 
-The current cache represents baseline speed. Future rate or chart-transform mods that change
-mania difficulty need their own calculation/cache policy. MS's mania scoring is still unimplemented
-and the mod remains hidden; star display switching does not enable it or change gameplay judgement.
+The persisted value represents baseline speed. Modded ratings stay in osu!'s in-memory
+`BeatmapDifficultyCache` and never overwrite `BeatmapInfo.StarRating`. MS's mania scoring is still
+unimplemented and the mod remains hidden; star calculation does not enable it or change gameplay judgement.
 
 ## Mod extension points
 
@@ -446,16 +451,31 @@ not affect other rulesets' editors or the independent gameplay skin editor.
 
 `Clean/SongSelect/O2JamBeatmapAttributes` supplies the public
 `Ruleset.GetBeatmapAttributesForDisplay` override. It replaces inherited CS/AR/OD/HP with the
-imported o2ma identifier, fixed mania stars, then the native O2Jam level. The identifier bar remains full;
+imported o2ma identifier, mania stars, then the native O2Jam level. The identifier bar remains full;
 the level bar uses 150 as its maximum and lets osu!'s renderer clamp overflow without changing
 the displayed level. Labels and acronyms use the bilingual `O2LazerStrings` resources.
+`Clean/SongSelect/O2JamStarRatingDisplayPatch` feeds the title wedge's asynchronous selected-mod
+difficulty back into its SR attribute after calculation. It tracks which beatmap owns the current
+native bindable. A missing baseline re-enters osu!'s native asynchronous difficulty cache, while
+the title wedge keeps its previous stable statistics instead of presenting the `-1` uncalculated
+sentinel. The first valid attribute update after a beatmap or ruleset rebind immediately completes
+only that equal-value transition, preventing an invalid intermediate value from leaving a false
+adjustment colour. Subsequent mod changes retain the native adjusted bar and animation.
+`Clean/SongSelect/O2JamStarRatingPresentationPatch`
+uses only `Lv.N` plus the native colour at `level / 10` for non-MS star pills, applies the same
+per-chart level colours to neighbouring difficulty markers and results ruleset icons, and restores
+the native star glyph, mania-star value and colour under MS. It also makes the title wedge choose
+its statistics accent from the level scale, while the SR attribute retains osu!'s native base-versus-
+adjusted visual. `Clean/UI/O2JamModSelectAttributesPatch` suppresses
+o2ma, SR and level on the right side of the O2Lazer mod-select footer, leaving its star pill and BPM
+as well as every other ruleset unchanged.
 
 `Clean/SongSelect/O2JamFilterCriteria` implements osu!'s public `IRulesetFilterCriteria` contract.
 `ln` and `note` comparisons use imported hold and total-object counts, counting every LN once.
 `level` and `lv` comparisons share `O2JamStarRatingMetadata.ResolveLevel` with the display,
 preferring the difficulty name and using independent O2Jam stars as fallback. Native mania stars
 are never interpreted as a level. The aliases are case-insensitive and do not cap levels at 150.
-Native `stars` filtering remains separate and uses the database's mania rating in either display mode.
+Native `stars` filtering remains separate and uses the database's mania rating regardless of MS.
 Independent numeric clauses are intersected, including exclusions and repeated bounds.
 No OJN/OJM reads or database writes are required while searching.
 

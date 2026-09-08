@@ -39,6 +39,9 @@
   <data name="o2jam_level_acronym" xml:space="preserve">
     <value>LV</value>
   </data>
+  <data name="level_badge" xml:space="preserve">
+    <value>Lv.{0}</value>
+  </data>
   <data name="star_rating" xml:space="preserve">
     <value>mania 星数</value>
   </data>
@@ -50,9 +53,6 @@
   </data>
   <data name="mania_star_rating_description" xml:space="preserve">
     <value>已保存的 osu!mania 星数，不受 MS 开关影响。</value>
-  </data>
-  <data name="o2jam_star_rating_description" xml:space="preserve">
-    <value>未开启 MS 时，星级为 O2Jam 等级除以 10。</value>
   </data>
   <data name="sync_source_folder_collections" xml:space="preserve">
     <value>按源文件夹设置本地收藏</value>

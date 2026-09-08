@@ -75,7 +75,7 @@ public class O2JamLibraryWriterTest
             Assert.That(beatmap.Metadata.AudioFile, Is.EqualTo(plan.FileName));
             Assert.That(beatmap.Metadata.Tags, Does.Contain(O2JamLibraryWriter.MetadataMarker));
             Assert.That(beatmap.StarRating, Is.EqualTo(3.25));
-            Assert.That(O2JamStarRatingMetadata.ReadO2Jam(beatmap.Metadata.Tags), Is.EqualTo(4.1).Within(0.000001));
+            Assert.That(O2JamStarRatingMetadata.ReadO2Jam(beatmap.Metadata.Tags), Is.Null);
             Assert.That(O2JamStarRatingMetadata.HasCurrentManiaVersion(beatmap.Metadata.Tags), Is.True);
             Assert.That(beatmap.Hash, Is.EqualTo(O2JamBeatmapIdentity.FromSource(plan.SourceHash, O2JamDifficulty.EX)));
             Assert.That(set.Hash, Is.EqualTo(plan.SetHash));
@@ -93,7 +93,7 @@ public class O2JamLibraryWriterTest
         beatmap.Metadata.Artist = plan.Artist;
         beatmap.Metadata.Author.Username = plan.Author;
         beatmap.Metadata.AudioFile = plan.FileName;
-        beatmap.Metadata.Tags = $"{O2JamLibraryWriter.MetadataMarker} {O2JamLibraryWriter.EncodingMarker} o2lazer-source-size:{plan.SourceData.LongLength} {O2JamStarRatingMetadata.CreateO2JamTag(plan.Charts.Single().Level)} {O2JamStarRatingMetadata.ManiaVersionTag}";
+        beatmap.Metadata.Tags = $"{O2JamLibraryWriter.MetadataMarker} {O2JamLibraryWriter.EncodingMarker} o2lazer-source-size:{plan.SourceData.LongLength} {O2JamStarRatingMetadata.ManiaVersionTag}";
         beatmap.LastLocalUpdate = O2JamLibraryWriter.getSourceTimestamp(plan.SourcePath);
         beatmap.StarRating = plan.Charts.Single().ManiaStarRating;
         beatmap.Hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, plan.Charts.Single().Difficulty);
@@ -103,7 +103,7 @@ public class O2JamLibraryWriterTest
     }
 
     [Test]
-    public void DifficultiesStoreIndependentManiaAndO2JamRatings()
+    public void DifficultiesStoreOnlyManiaRatings()
     {
         var set = createSet("source", "chart.ojn");
         var ex = set.Beatmaps.Single();
@@ -117,8 +117,8 @@ public class O2JamLibraryWriterTest
         {
             Assert.That(ex.StarRating, Is.EqualTo(3.25));
             Assert.That(nx.StarRating, Is.EqualTo(6.123456789012345));
-            Assert.That(O2JamStarRatingMetadata.ReadO2Jam(ex.Metadata.Tags), Is.EqualTo(4.1).Within(0.000001));
-            Assert.That(O2JamStarRatingMetadata.ReadO2Jam(nx.Metadata.Tags), Is.EqualTo(11.9).Within(0.000001));
+            Assert.That(O2JamStarRatingMetadata.ReadO2Jam(ex.Metadata.Tags), Is.Null);
+            Assert.That(O2JamStarRatingMetadata.ReadO2Jam(nx.Metadata.Tags), Is.Null);
             Assert.That(ex.Metadata, Is.Not.SameAs(nx.Metadata));
         });
     }
@@ -152,7 +152,7 @@ public class O2JamLibraryWriterTest
         {
             Assert.That(O2JamStarRatingMetadata.ReadMania(beatmap), Is.EqualTo(3.25));
             Assert.That(beatmap.Metadata.Tags.Split(' ').Count(tag => tag.StartsWith(O2JamStarRatingMetadata.ManiaVersionPrefix)), Is.EqualTo(1));
-            Assert.That(beatmap.Metadata.Tags.Split(' ').Count(tag => tag.StartsWith(O2JamStarRatingMetadata.O2JamTagPrefix)), Is.EqualTo(1));
+            Assert.That(beatmap.Metadata.Tags.Split(' ').Count(tag => tag.StartsWith(O2JamStarRatingMetadata.O2JamTagPrefix)), Is.Zero);
             Assert.That(beatmap.Metadata.Tags, Does.Contain("keep-this-tag"));
             Assert.That(beatmap.Metadata.Tags, Does.Contain("o2ma100"));
             Assert.That(O2JamLibraryWriter.refreshMetadata(set, plan), Is.False);

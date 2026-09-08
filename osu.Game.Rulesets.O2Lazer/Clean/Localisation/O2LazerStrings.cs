@@ -20,11 +20,11 @@ public static class O2LazerStrings
     public static LocalisableString O2JamLevelGroupRange(int minimum, int maximum) => get("o2jam_level_group_range", minimum, maximum);
     public static LocalisableString O2JamLevelGroupOver(int level) => get("o2jam_level_group_over", level);
     public static LocalisableString O2JamLevelAcronym => get("o2jam_level_acronym");
+    public static LocalisableString LevelBadge(int level) => get("level_badge", level);
     public static LocalisableString StarRating => get("star_rating");
     public static LocalisableString StarRatingAcronym => get("star_rating_acronym");
     public static LocalisableString MissingManiaStarRatingDescription => get("missing_mania_star_rating_description");
     public static LocalisableString ManiaStarRatingDescription => get("mania_star_rating_description");
-    public static LocalisableString O2JamStarRatingDescription => get("o2jam_star_rating_description");
     public static LocalisableString Layout => get("layout");
     public static LocalisableString SevenKeys => get("seven_keys");
     public static LocalisableString ScrollDirection => get("scroll_direction");

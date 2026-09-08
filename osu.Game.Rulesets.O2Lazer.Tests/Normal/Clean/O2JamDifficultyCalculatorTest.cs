@@ -1,5 +1,6 @@
-using System.IO;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using NUnit.Framework;
 using osu.Framework.Audio.Track;
@@ -70,7 +71,7 @@ public class O2JamDifficultyCalculatorTest
         };
         var calculator = ruleset.CreateDifficultyCalculator(new TestWorkingBeatmap(info));
         var before = calculator.Calculate();
-        var mania = calculator.Calculate([new O2JamModManiaScore(), new O2JamModMirror()]);
+        var mania = calculator.Calculate([new O2JamModManiaScore(), new O2JamModMirror(), new O2JamModNoRelease()]);
         var after = calculator.Calculate();
 
         Assert.Multiple(() =>
@@ -115,6 +116,42 @@ public class O2JamDifficultyCalculatorTest
             DecodeCount++;
             return Beatmap;
         }
+    }
+
+    [Test]
+    public void RateModsCalculateManiaStarsAndRestoreTheStoredBaseline()
+    {
+        var ruleset = new O2LazerRuleset();
+        var beatmap = new OjnBeatmapFactory().Create(new OjnReader().Read(OjnReaderTest.CreateChart()), O2JamDifficulty.EX);
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 250, Column = 1 });
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 500, Column = 2 });
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 750, Column = 3 });
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 1000, Column = 4 });
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 1250, Column = 5 });
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 1500, Column = 6 });
+        var baseline = O2JamManiaStarRating.Calculate(beatmap);
+        beatmap.BeatmapInfo.Ruleset = ruleset.RulesetInfo;
+        beatmap.BeatmapInfo.DifficultyName = "EX Lv.5";
+        beatmap.BeatmapInfo.StarRating = baseline;
+        beatmap.Metadata.Tags = O2JamStarRatingMetadata.ManiaVersionTag;
+        var source = new PreparedWorkingBeatmap(beatmap);
+        var calculator = ruleset.CreateDifficultyCalculator(source);
+
+        var noMod = calculator.Calculate();
+        var doubleTime = calculator.Calculate([new O2JamModDoubleTime()]);
+        var halfTime = calculator.Calculate([new O2JamModHalfTime()]);
+        var restored = calculator.Calculate();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(noMod.StarRating, Is.EqualTo(baseline).Within(1e-12));
+            Assert.That(Math.Abs(doubleTime.StarRating - noMod.StarRating), Is.GreaterThan(1e-6));
+            Assert.That(Math.Abs(halfTime.StarRating - noMod.StarRating), Is.GreaterThan(1e-6));
+            Assert.That(Math.Abs(doubleTime.StarRating - halfTime.StarRating), Is.GreaterThan(1e-6));
+            Assert.That(restored.StarRating, Is.EqualTo(noMod.StarRating).Within(1e-12));
+            Assert.That(beatmap.BeatmapInfo.StarRating, Is.EqualTo(baseline), "A display calculation must not overwrite the persisted baseline.");
+            Assert.That(source.DecodeCount, Is.EqualTo(2));
+        });
     }
 
     private sealed class TestWorkingBeatmap(BeatmapInfo info) : WorkingBeatmap(info, null!)

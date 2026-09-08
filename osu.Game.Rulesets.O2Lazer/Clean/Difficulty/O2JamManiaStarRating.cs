@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -7,7 +8,9 @@ using osu.Game.Rulesets.Mania.Beatmaps;
 using osu.Game.Rulesets.Mania.Difficulty;
 using osu.Game.Rulesets.Mania.Objects;
 using osu.Game.Rulesets.Mania.UI;
+using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
+using osu.Game.Utils;
 
 namespace osu.Game.Rulesets.O2Lazer.Difficulty;
 
@@ -21,6 +24,12 @@ internal static class O2JamManiaStarRating
     public static int CacheVersion => checked(Version * 10 + 1);
 
     public static double Calculate(O2JamBeatmap beatmap, CancellationToken cancellationToken = default)
+        => calculate(beatmap, [], false, cancellationToken);
+
+    public static double CalculatePreprocessed(O2JamBeatmap beatmap, IReadOnlyList<Mod> mods, CancellationToken cancellationToken = default)
+        => calculate(beatmap, mods, true, cancellationToken);
+
+    private static double calculate(O2JamBeatmap beatmap, IReadOnlyList<Mod> mods, bool isPreprocessed, CancellationToken cancellationToken)
     {
         // Preserve the OJN's seven columns and absolute note/hold times, but let mania apply
         // its own object defaults. O2Jam judgement and keysound data must not enter this pipeline.
@@ -33,7 +42,14 @@ internal static class O2JamManiaStarRating
         };
         mania.Difficulty.CircleSize = O2JamBeatmap.ColumnCount;
 
-        var stars = new ManiaDifficultyCalculator(maniaRuleset, new FlatWorkingBeatmap(mania)).Calculate(cancellationToken).StarRating;
+        // Structural mods have already been applied to the O2Jam beatmap. Pass only rate mods
+        // through mania's playable-beatmap pipeline so defaults are populated without applying
+        // Random, Mirror or Invert to the projected objects for a second time.
+        var difficultyMods = isPreprocessed
+            ? ModUtils.FlattenMods(mods).Where(mod => mod is IApplicableToRate).ToArray()
+            : [];
+        var stars = new ManiaDifficultyCalculator(maniaRuleset, new FlatWorkingBeatmap(mania))
+                    .Calculate(difficultyMods, cancellationToken).StarRating;
         if (!double.IsFinite(stars) || stars < 0)
             throw new InvalidDataException("The mania difficulty calculator returned an invalid star rating.");
 
