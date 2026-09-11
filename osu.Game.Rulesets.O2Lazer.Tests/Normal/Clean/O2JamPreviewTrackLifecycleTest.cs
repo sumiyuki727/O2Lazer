@@ -165,6 +165,11 @@ public class O2JamPreviewTrackLifecycleTest
         start(preview);
         preview.Update();
         var initialLayer = resources.Tracks[0];
+        foreach (var time in new[] { 400d, 800d, 1200d })
+        {
+            clock.Seek(time);
+            preview.Update();
+        }
 
         stop(preview);
         preview.Update();
@@ -175,6 +180,7 @@ public class O2JamPreviewTrackLifecycleTest
         {
             Assert.That(initialLayer.StopCount, Is.EqualTo(1));
             Assert.That(initialLayer.StartCount, Is.EqualTo(2));
+            Assert.That(initialLayer.LastSeek, Is.EqualTo(1200));
             Assert.That(resources.SampleRequests, Is.Zero);
         });
 
@@ -188,6 +194,41 @@ public class O2JamPreviewTrackLifecycleTest
             Assert.That(restoredLayer.StartCount, Is.EqualTo(1));
             Assert.That(restoredLayer.Volume.Value, Is.EqualTo(0.8).Within(0.001));
             Assert.That(restoredLayer.Balance.Value, Is.EqualTo(-0.25).Within(0.001));
+        });
+    }
+
+    [Test]
+    public void ActiveAutomaticSamplePausesInPlaceAndResumes()
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        var resources = new SamplePlaybackResource();
+        using var preview = new O2JamPreviewTrack(beatmap, resources, new FakeTrack(10_000));
+
+        start(preview);
+        preview.Update();
+        var channel = resources.Sample.Channel!;
+        channel.Update();
+        stop(preview);
+        preview.Update();
+        channel.Update();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(channel.StopCount, Is.Zero);
+            Assert.That(channel.Playing, Is.True);
+            Assert.That(channel.AggregateFrequency.Value, Is.Zero);
+        });
+
+        start(preview);
+        preview.Update();
+        channel.Update();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(channel.StopCount, Is.Zero);
+            Assert.That(channel.Playing, Is.True);
+            Assert.That(channel.AggregateFrequency.Value, Is.EqualTo(1));
         });
     }
 
@@ -674,7 +715,7 @@ public class O2JamPreviewTrackLifecycleTest
 
     private sealed class CapturingSample : Sample
     {
-        public SampleChannel? Channel { get; private set; }
+        public FakeSampleChannel? Channel { get; private set; }
 
         public override double Length => 5000;
 
@@ -690,9 +731,15 @@ public class O2JamPreviewTrackLifecycleTest
     {
         private bool playing = true;
 
+        public int StopCount { get; private set; }
+
         public override bool Playing => playing;
 
-        public override void Stop() => playing = false;
+        public override void Stop()
+        {
+            StopCount++;
+            playing = false;
+        }
     }
 
     private sealed class LeasedPlaybackResource : FakePlaybackResource, IO2JamPlaybackLeaseSource

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -416,13 +415,11 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
                 continue;
             }
 
-            var started = Stopwatch.GetTimestamp();
             var preparation = preloads.Schedule(
                 token => O2JamTrackPreparation.LoadAsync(backgroundTracks, $"o2jam/{sampleId}", token),
                 preloadCancellation.Token, urgentBackgroundTracks.Contains(sampleId));
             prefetchedBackgroundTracks[sampleId] = preparation;
             observeFailure(preparation.Task);
-            logPreparation(preparation.Task, "background ready", sampleId, started);
         }
         requestedBackgroundTracks.Clear();
         urgentBackgroundTracks.Clear();
@@ -439,12 +436,10 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
                 continue;
             }
 
-            var started = Stopwatch.GetTimestamp();
             var preparation = preloads.Schedule(token => samples.GetAsync($"o2jam/{sampleId}", token),
                 preloadCancellation.Token, urgentSamples.Contains(sampleId));
             prefetchedSamples[sampleId] = preparation;
             observeFailure(preparation.Task);
-            logPreparation(preparation.Task, "keysound", sampleId, started);
         }
         requestedSamples.Clear();
         urgentSamples.Clear();
@@ -492,14 +487,6 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
         completed => _ = completed.Exception,
         CancellationToken.None,
         TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-        TaskScheduler.Default);
-
-    private static void logPreparation<T>(Task<T> task, string kind, int sampleId, long started) => _ = task.ContinueWith(
-        _ => Logger.Log(
-            $"O2Lazer prepared OJM {kind} {sampleId} in {Stopwatch.GetElapsedTime(started).TotalMilliseconds:N1} ms.",
-            level: LogLevel.Verbose),
-        CancellationToken.None,
-        TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously,
         TaskScheduler.Default);
 
     private sealed class PlaybackLease(O2JamBeatmapSkin owner) : IDisposable

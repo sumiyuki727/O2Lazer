@@ -258,8 +258,10 @@ public sealed partial class O2JamPreviewTrack : Track
                 playDue(playableKeySoundEvents, ref nextPlayableKeySoundEventIndex, currentTime);
 
             startRequested = false;
+            synchroniseBackgroundTracks(currentTime);
             clock.Start();
-            resumeBackgroundTracks();
+            startBackgroundTracks();
+            resumeKeySounds();
             traceSyncControl("started", null);
             if (!startupLogged)
             {
@@ -509,7 +511,10 @@ public sealed partial class O2JamPreviewTrack : Track
 
     private void pauseAudio()
     {
-        stopKeySounds();
+        // Automatic OJM events may contain multi-second stems despite having a small encoded size.
+        // Zero frequency preserves their playback position; Stop() cannot resume a SampleChannel.
+        foreach (var channel in activeKeyChannels)
+            channel.Frequency.Value = 0;
 
         foreach (var active in activeBackgroundTracks)
             active.Track.Stop();
@@ -593,13 +598,37 @@ public sealed partial class O2JamPreviewTrack : Track
         return true;
     }
 
-    private void resumeBackgroundTracks()
+    private void synchroniseBackgroundTracks(double currentTime)
+    {
+        for (var index = activeBackgroundTracks.Count - 1; index >= 0; index--)
+        {
+            var active = activeBackgroundTracks[index];
+            var track = active.Track;
+            var offset = currentTime - active.EventTime;
+
+            if (!track.IsDisposed && offset >= 0 && track.Seek(offset))
+                continue;
+
+            if (!track.IsDisposed)
+                track.Dispose();
+
+            activeBackgroundTracks.RemoveAt(index);
+        }
+    }
+
+    private void startBackgroundTracks()
     {
         foreach (var active in activeBackgroundTracks)
         {
-            if (!active.Track.IsDisposed && !active.Track.HasCompleted)
+            if (!active.Track.IsDisposed)
                 active.Track.Start();
         }
+    }
+
+    private void resumeKeySounds()
+    {
+        foreach (var channel in activeKeyChannels)
+            channel.Frequency.Value = 1;
     }
 
     private void disposeAllAudio(bool stopBeforeDisposal = true)

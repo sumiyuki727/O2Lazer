@@ -9,10 +9,14 @@ using ManagedBass;
 using NUnit.Framework;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Mixing;
+using osu.Framework.Audio.Sample;
 using osu.Framework.Audio.Track;
 using osu.Framework.Development;
 using osu.Framework.Threading;
+using osu.Game.Audio;
 using osu.Game.Rulesets.O2Lazer.Audio;
+using osu.Game.Rulesets.O2Lazer.Beatmaps;
+using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
@@ -95,6 +99,27 @@ public class O2JamNativeTrackPreparationTest
     }
 
     [Test]
+    public void PreviewTrackResumesPreparedNativeBackground()
+    {
+        var prepared = O2JamTrackPreparation.LoadAsync(store, "o2jam/7", CancellationToken.None);
+        pumpUntil(() => prepared.IsCompleted);
+        var background = prepared.GetAwaiter().GetResult()!;
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 7, 100, 0));
+        var resource = new SingleTrackPlaybackResource(background);
+        using var preview = new O2JamPreviewTrack(beatmap, resource, store.GetVirtual(10_000));
+
+        onAudioThread(preview.Start);
+        pumpUntil(preview, () => preview.IsRunning && background.IsRunning);
+        onAudioThread(preview.Stop);
+        pumpUntil(preview, () => !preview.IsRunning && !background.IsRunning);
+        onAudioThread(preview.Start);
+        pumpUntil(preview, () => preview.IsRunning && background.IsRunning);
+
+        Assert.That(resource.TrackRequests, Is.EqualTo(1));
+    }
+
+    [Test]
     public void FailedNativeDecoderDoesNotLeavePreparationPendingForever()
     {
         var prepared = O2JamTrackPreparation.LoadAsync(store, "o2jam/8", CancellationToken.None);
@@ -128,6 +153,23 @@ public class O2JamNativeTrackPreparationTest
         }
 
         Assert.That(completed(), Is.True, "Native audio preparation did not finish.");
+    }
+
+    private void pumpUntil(O2JamPreviewTrack preview, Func<bool> completed)
+    {
+        var started = Stopwatch.StartNew();
+        while (!completed() && started.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            onAudioThread(() =>
+            {
+                preview.Update();
+                mixer.Update();
+                ((AudioComponent)store).Update();
+            });
+            Thread.Sleep(1);
+        }
+
+        Assert.That(completed(), Is.True, "O2Jam preview background did not reach the expected playback state.");
     }
 
     private static void onAudioThread(Action action)
@@ -179,5 +221,20 @@ public class O2JamNativeTrackPreparationTest
         public Track GetVirtual(double length = double.PositiveInfinity, string name = "virtual") => inner.GetVirtual(length, name);
         public Stream GetStream(string name) => inner.GetStream(name);
         public IEnumerable<string> GetAvailableResources() => inner.GetAvailableResources();
+    }
+
+    private sealed class SingleTrackPlaybackResource(Track track) : IO2JamPlaybackResource
+    {
+        public int TrackRequests { get; private set; }
+
+        public bool ContainsSample(int sampleId) => sampleId == 7;
+
+        public ISample? GetSample(ISampleInfo sampleInfo) => null;
+
+        public Track GetBackgroundTrack(int sampleId)
+        {
+            TrackRequests++;
+            return track;
+        }
     }
 }
