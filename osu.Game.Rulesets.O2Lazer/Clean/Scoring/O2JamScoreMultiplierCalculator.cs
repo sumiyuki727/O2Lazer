@@ -1,3 +1,4 @@
+using osu.Game.Scoring;
 using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.Scoring;
 
@@ -10,6 +11,7 @@ public sealed class O2JamScoreMultiplierCalculator : ScoreMultiplierCalculator
     {
         // Native multiplier lookup uses exact types, so localised wrappers need their own entries.
         Single<O2JamModNoFail>(hasMultiplier: 0.5);
+        Single<O2JamModEasy>(hasMultiplier: 0.5);
         Single<O2JamModHalfTime>(hasMultiplier: halfTime => rateAdjustMultiplier(halfTime.SpeedChange.Value));
         Single<O2JamModDaycore>(hasMultiplier: daycore => rateAdjustMultiplier(daycore.SpeedChange.Value));
         Single<O2JamModNoRelease>(hasMultiplier: 0.9);
@@ -17,6 +19,8 @@ public sealed class O2JamScoreMultiplierCalculator : ScoreMultiplierCalculator
         Single<O2JamModWindUp>(hasMultiplier: 0.5);
         Single<O2JamModWindDown>(hasMultiplier: 0.5);
         Single<O2JamModAdaptiveSpeed>(hasMultiplier: 0.5);
+        Single<O2JamModManiaScore>(hasMultiplier: maniaScore => maniaScore.UsesDefaultConfiguration ? 1 : 0.5);
+        Single<O2JamModClassic>(hasMultiplier: _ => classicMultiplier(Context.Score));
     }
 
     private static double rateAdjustMultiplier(double speedChange)
@@ -24,4 +28,7 @@ public sealed class O2JamScoreMultiplierCalculator : ScoreMultiplierCalculator
         var value = (int)(speedChange * 10) / 10.0 - 1;
         return speedChange >= 1 ? 1 + value / 5 : 0.6 + value;
     }
+
+    private static double classicMultiplier(ScoreInfo? score) =>
+        score != null && score.TotalScoreVersion < 30000017 ? 0.96 : 1;
 }

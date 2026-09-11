@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 using osu.Framework.Audio;
+using osu.Framework.Bindables;
 using osu.Game.Beatmaps;
 using osu.Game.Configuration;
 using osu.Game.Rulesets.Mania.Mods;
@@ -149,6 +150,37 @@ public class O2JamRateModTest
         {
             Assert.That(hitSound.AggregateFrequency.Value, Is.EqualTo(1));
             Assert.That(hitSound.AggregateTempo.Value, Is.EqualTo(speed));
+        });
+    }
+
+    [Test]
+    public void PauseFreezesAndRestoresGameplayHitSounds()
+    {
+        var mod = new O2JamModDoubleTime();
+        mod.AdjustPitch.Value = true;
+        var paused = new BindableBool();
+        var adjustments = new O2JamHitSoundRateAdjustments();
+        var hitSound = new AudioAdjustments();
+        adjustments.Configure([mod]);
+        adjustments.BindPlaybackDisabled(paused);
+        adjustments.Bind(hitSound);
+
+        Assert.That(hitSound.AggregateFrequency.Value, Is.EqualTo(1.5));
+
+        paused.Value = true;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hitSound.AggregateFrequency.Value, Is.Zero);
+            Assert.That(hitSound.AggregateTempo.Value, Is.EqualTo(1));
+        });
+
+        paused.Value = false;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hitSound.AggregateFrequency.Value, Is.EqualTo(1.5));
+            Assert.That(hitSound.AggregateTempo.Value, Is.EqualTo(1));
         });
     }
 

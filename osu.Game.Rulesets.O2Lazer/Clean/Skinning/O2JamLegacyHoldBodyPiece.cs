@@ -15,6 +15,7 @@ using osu.Game.Rulesets.Mania.Skinning;
 using osu.Game.Rulesets.Mania.Skinning.Legacy;
 using osu.Game.Rulesets.Mania.UI;
 using osu.Game.Rulesets.O2Lazer.Configuration;
+using osu.Game.Rulesets.O2Lazer.Objects;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
@@ -60,6 +61,9 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
     [BackgroundDependencyLoader]
     private void load(ISkinSource skin, IScrollingInfo scrollingInfo, Column column, StageDefinition stage, DrawableHitObject drawableObject)
     {
+        if (drawableObject.HitObject is not O2JamHoldBody)
+            return;
+
         direction.BindTo(scrollingInfo.Direction);
         missingStartTime = (drawableObject as DrawableHoldNote)?.MissingStartTime;
 

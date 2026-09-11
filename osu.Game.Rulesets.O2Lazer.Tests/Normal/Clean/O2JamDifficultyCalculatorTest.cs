@@ -57,7 +57,7 @@ public class O2JamDifficultyCalculatorTest
 
     [TestCase(0)]
     [TestCase(4.123456789012345)]
-    public void ChangingDisplayModsDoesNotChangeNativeStarsOrDecodeTheChart(double stars)
+    public void MetadataOnlyModsDoNotChangeNativeStarsOrDecodeTheChart(double stars)
     {
         var ruleset = new O2LazerRuleset();
         var info = new BeatmapInfo
@@ -71,14 +71,14 @@ public class O2JamDifficultyCalculatorTest
         };
         var calculator = ruleset.CreateDifficultyCalculator(new TestWorkingBeatmap(info));
         var before = calculator.Calculate();
-        var mania = calculator.Calculate([new O2JamModManiaScore(), new O2JamModMirror(), new O2JamModNoRelease()]);
+        var metadataOnly = calculator.Calculate([new O2JamModMirror(), new O2JamModNoRelease()]);
         var after = calculator.Calculate();
 
         Assert.Multiple(() =>
         {
             Assert.That(before.StarRating, Is.EqualTo(stars));
-            Assert.That(mania.StarRating, Is.EqualTo(stars));
-            Assert.That(mania.MaxCombo, Is.EqualTo(13));
+            Assert.That(metadataOnly.StarRating, Is.EqualTo(stars));
+            Assert.That(metadataOnly.MaxCombo, Is.EqualTo(13));
             Assert.That(after.StarRating, Is.EqualTo(before.StarRating));
             Assert.That(info.StarRating, Is.EqualTo(stars));
             Assert.That(info.Metadata.Tags, Is.EqualTo(O2JamStarRatingMetadata.ManiaVersionTag));
@@ -104,7 +104,7 @@ public class O2JamDifficultyCalculatorTest
         var calculator = ruleset.CreateDifficultyCalculator(source);
         Assert.That(calculator.Calculate().StarRating, Is.EqualTo(expected));
         Assert.That(calculator.Calculate([new O2JamModManiaScore()]).StarRating, Is.EqualTo(expected));
-        Assert.That(source.DecodeCount, Is.EqualTo(1));
+        Assert.That(source.DecodeCount, Is.EqualTo(1), "Switching MS must reuse the calculated baseline.");
     }
 
     private sealed class PreparedWorkingBeatmap(IBeatmap beatmap) : FlatWorkingBeatmap(beatmap)
@@ -114,7 +114,7 @@ public class O2JamDifficultyCalculatorTest
         public override IBeatmap GetPlayableBeatmap(IRulesetInfo ruleset, IReadOnlyList<Mod> mods, CancellationToken token)
         {
             DecodeCount++;
-            return Beatmap;
+            return base.GetPlayableBeatmap(ruleset, mods, token);
         }
     }
 
@@ -150,7 +150,7 @@ public class O2JamDifficultyCalculatorTest
             Assert.That(Math.Abs(doubleTime.StarRating - halfTime.StarRating), Is.GreaterThan(1e-6));
             Assert.That(restored.StarRating, Is.EqualTo(noMod.StarRating).Within(1e-12));
             Assert.That(beatmap.BeatmapInfo.StarRating, Is.EqualTo(baseline), "A display calculation must not overwrite the persisted baseline.");
-            Assert.That(source.DecodeCount, Is.EqualTo(2));
+            Assert.That(source.DecodeCount, Is.EqualTo(3), "Incomplete test metadata decodes once for the baseline and once per rate mod.");
         });
     }
 

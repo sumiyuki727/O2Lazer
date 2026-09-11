@@ -28,6 +28,8 @@ public sealed class O2JamImportPlanner
                                  var objectLength = timingMap.TimeAt(finalPosition) + 5000;
                                  var declaredLength = document.Metadata.Durations[(int)chart.Difficulty] * 1000d;
                                  var playable = chart.Notes.Where(note => note.IsPlayable).ToArray();
+                                 var beatmap = new OjnBeatmapFactory().Create(document, chart.Difficulty);
+                                 var maniaAttributes = O2JamManiaStarRating.CalculateAttributes(beatmap, [], false);
 
                                  return new O2JamImportChart(
                                      chart.Difficulty,
@@ -36,7 +38,8 @@ public sealed class O2JamImportPlanner
                                      Math.Max(objectLength, declaredLength),
                                      playable.Length,
                                      playable.Count(note => note.EndPosition != null),
-                                     O2JamManiaStarRating.Calculate(new OjnBeatmapFactory().Create(document, chart.Difficulty)));
+                                     maniaAttributes.StarRating,
+                                     maniaAttributes.MaxCombo);
                              })
                              .ToArray();
 

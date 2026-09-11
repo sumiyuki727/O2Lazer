@@ -5,6 +5,7 @@ using osu.Framework.Graphics.Containers;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mania.Objects.Drawables;
 using osu.Game.Rulesets.Mania.Skinning.Legacy;
+using osu.Game.Rulesets.O2Lazer.Objects;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Skinning;
 using osuTK.Graphics;
@@ -56,6 +57,9 @@ internal sealed partial class O2JamSkinTransformer : SkinTransformer
         [BackgroundDependencyLoader]
         private void load(DrawableHitObject drawableObject)
         {
+            if (drawableObject.HitObject is not (O2JamHoldHead or O2JamHoldTail))
+                return;
+
             missingStartTime = drawableObject switch
             {
                 DrawableHoldNote hold => hold.MissingStartTime,

@@ -21,6 +21,7 @@ public static class O2LazerStrings
     public static LocalisableString O2JamLevelGroupOver(int level) => get("o2jam_level_group_over", level);
     public static LocalisableString O2JamLevelAcronym => get("o2jam_level_acronym");
     public static LocalisableString LevelBadge(int level) => get("level_badge", level);
+    public static LocalisableString LevelFilterValue(int level) => get("level_filter_value", level);
     public static LocalisableString StarRating => get("star_rating");
     public static LocalisableString StarRatingAcronym => get("star_rating_acronym");
     public static LocalisableString MissingManiaStarRatingDescription => get("missing_mania_star_rating_description");
@@ -50,6 +51,7 @@ public static class O2LazerStrings
     public static LocalisableString DeleteAllImportedFiles => get("delete_all_imported_files");
     public static LocalisableString DeleteAllConfirmation => get("delete_all_confirmation");
     public static LocalisableString RefreshingProgress(int processed, int total) => get("refreshing_progress", processed, total);
+    public static LocalisableString SynchronisingCollections => get("synchronising_collections");
     public static LocalisableString RefreshComplete => get("refresh_complete");
     public static LocalisableString ImportSelectedFile => get("import_selected_file");
     public static LocalisableString ImportCurrentFolder => get("import_current_folder");
@@ -106,6 +108,22 @@ public static class O2LazerStrings
     public static LocalisableString ModManiaScoreName => get("mod_mania_score_name");
     public static LocalisableString ModManiaScoreAcronym => get("mod_mania_score_acronym");
     public static LocalisableString ModManiaScoreDescription => get("mod_mania_score_description");
+    public static LocalisableString ModEasyDescription => get("mod_easy_description");
+    public static LocalisableString ModEasyExtraLives => get("mod_easy_extra_lives");
+    public static LocalisableString ModEasyExtraLivesDescription => get("mod_easy_extra_lives_description");
+    public static LocalisableString ModEasyExtraLivesValue(int count) => get("mod_easy_extra_lives_value", count);
+    public static LocalisableString ModHardRockDescription => get("mod_hard_rock_description");
+    public static LocalisableString ModClassicDescription => get("mod_classic_description");
+    public static LocalisableString ManiaScoreOverallDifficulty => get("mania_score_overall_difficulty");
+    public static LocalisableString ManiaScoreOverallDifficultyAcronym => get("mania_score_overall_difficulty_acronym");
+    public static LocalisableString ManiaScoreOverallDifficultyDescription => get("mania_score_overall_difficulty_description");
+    public static LocalisableString ManiaScoreHealthDrain => get("mania_score_health_drain");
+    public static LocalisableString ManiaScoreHealthDrainAcronym => get("mania_score_health_drain_acronym");
+    public static LocalisableString ManiaScoreHealthDrainDescription => get("mania_score_health_drain_description");
+    public static LocalisableString ManiaScoreExtendedLimits => get("mania_score_extended_limits");
+    public static LocalisableString ManiaScoreExtendedLimitsDescription => get("mania_score_extended_limits_description");
+    public static LocalisableString ManiaScoreDifficultyValue(float value) => get("mania_score_difficulty_value", value);
+    public static LocalisableString ManiaScoreDifficultyBadge(LocalisableString acronym, float value) => get("mania_score_difficulty_badge", acronym, value);
 
     private static LocalisableString get(string key, params object[] args)
     {

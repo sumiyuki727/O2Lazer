@@ -21,24 +21,25 @@ internal static class O2JamManiaStarRating
     public static int Version { get; } = new ManiaDifficultyCalculator(maniaRuleset, new FlatWorkingBeatmap(new ManiaBeatmap(new StageDefinition(O2JamBeatmap.ColumnCount)))).Version;
 
     // The final digit versions our projection independently of the native mania algorithm.
-    public static int CacheVersion => checked(Version * 10 + 1);
+    public static int CacheVersion => checked(Version * 10 + 2);
 
-    public static double Calculate(O2JamBeatmap beatmap, CancellationToken cancellationToken = default)
-        => calculate(beatmap, [], false, cancellationToken);
+    public static double Calculate(O2JamBeatmap beatmap, CancellationToken cancellationToken = default) =>
+        CalculateAttributes(beatmap, [], false, cancellationToken).StarRating;
 
-    public static double CalculatePreprocessed(O2JamBeatmap beatmap, IReadOnlyList<Mod> mods, CancellationToken cancellationToken = default)
-        => calculate(beatmap, mods, true, cancellationToken);
+    public static double CalculatePreprocessed(O2JamBeatmap beatmap, IReadOnlyList<Mod> mods, CancellationToken cancellationToken = default) =>
+        CalculateAttributes(beatmap, mods, true, cancellationToken).StarRating;
 
-    private static double calculate(O2JamBeatmap beatmap, IReadOnlyList<Mod> mods, bool isPreprocessed, CancellationToken cancellationToken)
+    public static ManiaDifficultyAttributes CalculateAttributes(IBeatmap beatmap, IReadOnlyList<Mod> mods, bool isPreprocessed,
+                                                                CancellationToken cancellationToken = default)
     {
         // Preserve the OJN's seven columns and absolute note/hold times, but let mania apply
         // its own object defaults. O2Jam judgement and keysound data must not enter this pipeline.
         var mania = new ManiaBeatmap(new StageDefinition(O2JamBeatmap.ColumnCount))
         {
-            BeatmapInfo = new BeatmapInfo(maniaRuleset),
-            HitObjects = beatmap.HitObjects.Select<ManiaHitObject, ManiaHitObject>(hitObject => hitObject is HoldNote hold
-                ? new HoldNote { StartTime = hold.StartTime, Duration = hold.Duration, Column = hold.Column }
-                : new Note { StartTime = hitObject.StartTime, Column = hitObject.Column }).ToList(),
+            BeatmapInfo = new BeatmapInfo(maniaRuleset, new BeatmapDifficulty(beatmap.Difficulty)),
+            HitObjects = beatmap.HitObjects.Select(hitObject => hitObject is HoldNote hold
+                ? (ManiaHitObject)new HoldNote { StartTime = hold.StartTime, Duration = hold.Duration, Column = hold.Column }
+                : new Note { StartTime = hitObject.StartTime, Column = ((ManiaHitObject)hitObject).Column }).ToList(),
         };
         mania.Difficulty.CircleSize = O2JamBeatmap.ColumnCount;
 
@@ -48,11 +49,12 @@ internal static class O2JamManiaStarRating
         var difficultyMods = isPreprocessed
             ? ModUtils.FlattenMods(mods).Where(mod => mod is IApplicableToRate).ToArray()
             : [];
-        var stars = new ManiaDifficultyCalculator(maniaRuleset, new FlatWorkingBeatmap(mania))
-                    .Calculate(difficultyMods, cancellationToken).StarRating;
-        if (!double.IsFinite(stars) || stars < 0)
+        var attributes = (ManiaDifficultyAttributes)new ManiaDifficultyCalculator(maniaRuleset, new FlatWorkingBeatmap(mania))
+            .Calculate(difficultyMods, cancellationToken);
+        if (!double.IsFinite(attributes.StarRating) || attributes.StarRating < 0)
             throw new InvalidDataException("The mania difficulty calculator returned an invalid star rating.");
 
-        return stars;
+        attributes.Mods = mods.ToArray();
+        return attributes;
     }
 }

@@ -21,6 +21,7 @@ public sealed class O2JamModInvert : ManiaModInvert, IApplicableAfterBeatmapConv
     {
         var o2JamBeatmap = (O2JamBeatmap)beatmap;
         var newObjects = new List<ManiaHitObject>();
+        var usesManiaObjects = o2JamBeatmap.HitObjects.All(hitObject => hitObject is not IO2JamJudgedObject && hitObject is not O2JamHoldNote);
 
         foreach (var column in o2JamBeatmap.HitObjects.GroupBy(hitObject => hitObject.Column))
         {
@@ -36,16 +37,24 @@ public sealed class O2JamModInvert : ManiaModInvert, IApplicableAfterBeatmapConv
                 duration = Math.Max(duration / 2, duration - beatLength / 4);
                 var endTime = locations[i].StartTime + duration;
 
-                newObjects.Add(new O2JamHoldNote
-                {
-                    Column = column.Key,
-                    StartTime = locations[i].StartTime,
-                    Duration = duration,
-                    HeadChartPosition = o2JamBeatmap.TimingMap.PositionAt(locations[i].StartTime),
-                    TailChartPosition = o2JamBeatmap.TimingMap.PositionAt(endTime),
-                    TimingMap = o2JamBeatmap.TimingMap,
-                    NodeSamples = [locations[i].Samples, Array.Empty<HitSampleInfo>()],
-                });
+                newObjects.Add(usesManiaObjects
+                    ? new HoldNote
+                    {
+                        Column = column.Key,
+                        StartTime = locations[i].StartTime,
+                        Duration = duration,
+                        NodeSamples = [locations[i].Samples, Array.Empty<HitSampleInfo>()],
+                    }
+                    : new O2JamHoldNote
+                    {
+                        Column = column.Key,
+                        StartTime = locations[i].StartTime,
+                        Duration = duration,
+                        HeadChartPosition = o2JamBeatmap.TimingMap.PositionAt(locations[i].StartTime),
+                        TailChartPosition = o2JamBeatmap.TimingMap.PositionAt(endTime),
+                        TimingMap = o2JamBeatmap.TimingMap,
+                        NodeSamples = [locations[i].Samples, Array.Empty<HitSampleInfo>()],
+                    });
             }
         }
 

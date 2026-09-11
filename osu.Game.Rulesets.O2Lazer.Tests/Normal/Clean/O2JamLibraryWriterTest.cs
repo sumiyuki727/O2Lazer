@@ -77,6 +77,8 @@ public class O2JamLibraryWriterTest
             Assert.That(beatmap.StarRating, Is.EqualTo(3.25));
             Assert.That(O2JamStarRatingMetadata.ReadO2Jam(beatmap.Metadata.Tags), Is.Null);
             Assert.That(O2JamStarRatingMetadata.HasCurrentManiaVersion(beatmap.Metadata.Tags), Is.True);
+            Assert.That(O2JamStarRatingMetadata.ReadManiaMaxCombo(beatmap.Metadata.Tags),
+                Is.EqualTo(plan.Charts.Single().ManiaMaxCombo));
             Assert.That(beatmap.Hash, Is.EqualTo(O2JamBeatmapIdentity.FromSource(plan.SourceHash, O2JamDifficulty.EX)));
             Assert.That(set.Hash, Is.EqualTo(plan.SetHash));
             Assert.That(beatmap.ID, Is.EqualTo(originalId));
@@ -93,7 +95,8 @@ public class O2JamLibraryWriterTest
         beatmap.Metadata.Artist = plan.Artist;
         beatmap.Metadata.Author.Username = plan.Author;
         beatmap.Metadata.AudioFile = plan.FileName;
-        beatmap.Metadata.Tags = $"{O2JamLibraryWriter.MetadataMarker} {O2JamLibraryWriter.EncodingMarker} o2lazer-source-size:{plan.SourceData.LongLength} {O2JamStarRatingMetadata.ManiaVersionTag}";
+        beatmap.Metadata.Tags = $"{O2JamLibraryWriter.MetadataMarker} {O2JamLibraryWriter.EncodingMarker} o2lazer-source-size:{plan.SourceData.LongLength} "
+                                + $"{O2JamStarRatingMetadata.ManiaVersionTag} {O2JamStarRatingMetadata.CreateManiaMaxComboTag(plan.Charts.Single().ManiaMaxCombo)}";
         beatmap.LastLocalUpdate = O2JamLibraryWriter.getSourceTimestamp(plan.SourcePath);
         beatmap.StarRating = plan.Charts.Single().ManiaStarRating;
         beatmap.Hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, plan.Charts.Single().Difficulty);
@@ -110,7 +113,7 @@ public class O2JamLibraryWriterTest
         var nx = new BeatmapInfo(ex.Ruleset) { DifficultyName = "NX Lv.119", BeatmapSet = set };
         set.Beatmaps.Add(nx);
         var plan = createPlan("Title", "Artist", "Charter");
-        plan = plan with { Charts = [plan.Charts[0], new O2JamImportChart(O2JamDifficulty.NX, 119, "nx-md5", 1000, 20, 5, 6.123456789012345)] };
+        plan = plan with { Charts = [plan.Charts[0], new O2JamImportChart(O2JamDifficulty.NX, 119, "nx-md5", 1000, 20, 5, 6.123456789012345, 42)] };
 
         O2JamLibraryWriter.refreshMetadata(set, plan);
         Assert.Multiple(() =>
@@ -119,6 +122,8 @@ public class O2JamLibraryWriterTest
             Assert.That(nx.StarRating, Is.EqualTo(6.123456789012345));
             Assert.That(O2JamStarRatingMetadata.ReadO2Jam(ex.Metadata.Tags), Is.Null);
             Assert.That(O2JamStarRatingMetadata.ReadO2Jam(nx.Metadata.Tags), Is.Null);
+            Assert.That(O2JamStarRatingMetadata.ReadManiaMaxCombo(ex.Metadata.Tags), Is.EqualTo(plan.Charts[0].ManiaMaxCombo));
+            Assert.That(O2JamStarRatingMetadata.ReadManiaMaxCombo(nx.Metadata.Tags), Is.EqualTo(42));
             Assert.That(ex.Metadata, Is.Not.SameAs(nx.Metadata));
         });
     }
@@ -298,5 +303,5 @@ public class O2JamLibraryWriterTest
         author,
         120,
         [],
-        [new O2JamImportChart(O2JamDifficulty.EX, 41, "md5", 1000, 1, 0, 3.25)]);
+        [new O2JamImportChart(O2JamDifficulty.EX, 41, "md5", 1000, 1, 0, 3.25, 1)]);
 }

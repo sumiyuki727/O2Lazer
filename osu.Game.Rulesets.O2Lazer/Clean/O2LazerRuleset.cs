@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using osu.Framework.Graphics;
 using osu.Framework.Input.Bindings;
 using osu.Framework.Localisation;
@@ -25,7 +26,10 @@ using osu.Game.Rulesets.O2Lazer.UI;
 using osu.Game.Rulesets.O2Lazer.UI.Icons;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Rulesets.UI;
+using osu.Game.Scoring;
+using osu.Game.Screens.Ranking.Statistics;
 using osu.Game.Skinning;
+using osu.Game.Utils;
 
 namespace osu.Game.Rulesets.O2Lazer;
 
@@ -35,21 +39,7 @@ public sealed class O2LazerRuleset : Ruleset
 
     public O2LazerRuleset()
     {
-        O2JamWorkingBeatmapHook.InstallOnce();
-        O2JamDifficultyIconPatch.InstallOnce();
-        O2JamComboCompatibilityPatches.InstallOnce();
-        O2JamSongSelectRankPatch.InstallOnce();
-        O2JamBeatmapBoundaryPatches.InstallOnce();
-        O2JamReplayPersistencePatch.InstallOnce();
-        O2JamPerformanceEligibilityPatch.InstallOnce();
-        O2JamPlayerSettingsPatch.InstallOnce();
-        O2JamModSelectAttributesPatch.InstallOnce();
-        O2JamStarRatingDisplayPatch.InstallOnce();
-        O2JamStarRatingPresentationPatch.InstallOnce();
-        O2JamLevelSortPatch.InstallOnce();
-        O2JamLevelGroupPatch.InstallOnce();
-        O2JamHitSampleLookupPatch.InstallOnce();
-        O2JamEditorAccessPatch.InstallOnce();
+        O2JamCompatibilityPatches.InstallOnce();
     }
 
     public override string Description => O2LazerStrings.RulesetName.ToString();
@@ -85,6 +75,8 @@ public sealed class O2LazerRuleset : Ruleset
     public override DifficultyCalculator CreateDifficultyCalculator(IWorkingBeatmap beatmap) =>
         new O2JamDifficultyCalculator(RulesetInfo, beatmap);
 
+    public override PerformanceCalculator CreatePerformanceCalculator() => new O2JamPerformanceCalculator();
+
     public override ScoreProcessor CreateScoreProcessor() => new O2JamScoreProcessor(this);
 
     public override ScoreMultiplierCalculator CreateScoreMultiplierCalculator(ScoreMultiplierContext context) =>
@@ -96,12 +88,14 @@ public sealed class O2LazerRuleset : Ruleset
     {
         ModType.DifficultyReduction =>
         [
+            new O2JamModEasy(),
             new O2JamModNoFail(),
             new MultiMod(new O2JamModHalfTime(), new O2JamModDaycore()),
             new O2JamModNoRelease(),
         ],
         ModType.DifficultyIncrease =>
         [
+            new O2JamModHardRock(),
             new MultiMod(new O2JamModSuddenDeath(), new O2JamModPerfect()),
             new MultiMod(new O2JamModDoubleTime(), new O2JamModNightcore()),
             new MultiMod(new O2JamModFadeIn(), new O2JamModHidden(), new O2JamModCover()),
@@ -112,9 +106,10 @@ public sealed class O2LazerRuleset : Ruleset
         [
             new O2JamModRandom(),
             new O2JamModMirror(),
+            new O2JamModManiaScore(),
+            new O2JamModClassic(),
             new O2JamModInvert(),
             new O2JamModConstantSpeed(),
-            new O2JamModManiaScore(),
         ],
         ModType.Automation => [new O2JamModAutoplay()],
         ModType.Fun =>
@@ -131,15 +126,40 @@ public sealed class O2LazerRuleset : Ruleset
     public override IEnumerable<RulesetBeatmapAttribute> GetBeatmapAttributesForDisplay(IBeatmapInfo beatmapInfo, IReadOnlyCollection<Mod> mods) =>
         O2JamBeatmapAttributes.Create(beatmapInfo);
 
+    public override BeatmapDifficulty GetAdjustedDisplayDifficulty(IBeatmapInfo beatmapInfo, IReadOnlyCollection<Mod> mods)
+    {
+        var flattened = ModUtils.FlattenMods(mods).ToArray();
+        var maniaScore = flattened.OfType<O2JamModManiaScore>().SingleOrDefault();
+        if (maniaScore == null)
+            return base.GetAdjustedDisplayDifficulty(beatmapInfo, mods);
+
+        var adjusted = new BeatmapDifficulty(beatmapInfo.Difficulty)
+        {
+            OverallDifficulty = maniaScore.OverallDifficulty.Value ?? O2JamModManiaScore.DefaultDifficulty,
+            DrainRate = maniaScore.DrainRate.Value ?? O2JamModManiaScore.DefaultDifficulty,
+        };
+
+        foreach (var mod in flattened.Where(mod => mod is not O2JamModManiaScore).OfType<IApplicableToDifficulty>())
+            mod.ApplyToDifficulty(adjusted);
+
+        return adjusted;
+    }
+
     public override IEnumerable<HitResult> GetValidHitResults() =>
     [
         HitResult.Perfect,
+        HitResult.Great,
         HitResult.Good,
         HitResult.Ok,
+        HitResult.Meh,
         HitResult.Miss,
         HitResult.IgnoreHit,
+        HitResult.ComboBreak,
         HitResult.IgnoreMiss,
     ];
+
+    public override StatisticItem[] CreateStatisticsForScore(ScoreInfo score, IBeatmap playableBeatmap) =>
+        O2JamResultStatisticsAdapter.Create(score, playableBeatmap);
 
     public override LocalisableString GetDisplayNameForHitResult(HitResult result) => result switch
     {

@@ -119,6 +119,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                 });
                 var outdatedSources = writer.GetImportedSources();
                 Assert.That(outdatedSources[sourcePath].HasCurrentMetadata, Is.False);
+                Assert.That(outdatedSources[sourcePath].SourceHash, Is.Not.Null.And.Not.Empty);
                 var updates = new System.Collections.Generic.List<BeatmapInfo>();
                 writer.BeatmapUpdated += updates.Add;
                 var migration = new O2JamImportService(new O2JamImportPlanner(), writer).Refresh([sourcePath], outdatedSources);
@@ -169,6 +170,68 @@ public partial class O2JamLegacyLibraryMigrationTest
                 new O2JamImportService(new O2JamImportPlanner(), writer).Refresh([], writer.GetImportedSources());
 
                 Assert.That(realm.Run(database => database.All<BeatmapSetInfo>().Single().DeletePending), Is.True);
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+
+            await Task.CompletedTask;
+        }));
+
+        if (failure != null)
+            throw failure;
+    }
+
+    [Test]
+    public void RefreshMovedSourcePreservesBeatmapIdentity()
+    {
+        using var host = new TestRunHeadlessGameHost($"{nameof(O2JamLegacyLibraryMigrationTest)}-{Guid.NewGuid():N}");
+        Exception? failure = null;
+
+        host.Run(new MigrationTestGame(async () =>
+        {
+            try
+            {
+                using var storage = new TemporaryNativeStorage($"{nameof(O2JamLegacyLibraryMigrationTest)}-{Guid.NewGuid():N}", host);
+                using var realm = new RealmAccess(storage, "client.realm");
+                var originalDirectory = storage.GetFullPath("original-library");
+                var movedDirectory = storage.GetFullPath("moved-library");
+                Directory.CreateDirectory(originalDirectory);
+                Directory.CreateDirectory(movedDirectory);
+                var originalPath = Path.Combine(originalDirectory, "chart.ojn");
+                var movedPath = Path.Combine(movedDirectory, "chart.ojn");
+                File.WriteAllBytes(originalPath, OjnReaderTest.CreateChart());
+
+                realm.Write(database =>
+                {
+                    var ruleset = new O2LazerRuleset().RulesetInfo;
+                    database.Add(new RulesetInfo(ruleset.ShortName, ruleset.Name, ruleset.InstantiationInfo, ruleset.OnlineID)
+                    {
+                        Available = true,
+                    });
+                });
+
+                var writer = new O2JamLibraryWriter(realm, storage);
+                var planner = new O2JamImportPlanner();
+                var plan = planner.Create(originalPath);
+                Assert.That(writer.Write(plan), Is.EqualTo(O2JamLibraryWriteResult.Imported));
+                var originalBeatmapId = realm.Run(database => database.All<BeatmapInfo>().Single().ID);
+                var sources = writer.GetImportedSources();
+                Assert.That(sources[originalPath].SourceHash, Is.EqualTo(plan.SourceHash));
+
+                File.Move(originalPath, movedPath);
+                Assert.That(File.ReadAllBytes(movedPath), Is.EqualTo(plan.SourceData));
+                var summary = new O2JamImportService(planner, writer).Refresh([movedPath], sources);
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(summary.Updated, Is.EqualTo(1));
+                    Assert.That(summary.Imported + summary.Failed, Is.Zero);
+                    Assert.That(realm.Run(database => database.All<BeatmapSetInfo>().Single().DeletePending), Is.False);
+                    Assert.That(realm.Run(database => database.All<BeatmapInfo>().Single().ID), Is.EqualTo(originalBeatmapId));
+                    Assert.That(writer.GetImportedSources().Keys, Is.EquivalentTo(new[] { movedPath }));
+                });
             }
             catch (Exception exception)
             {

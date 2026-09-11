@@ -25,4 +25,5 @@ public sealed record O2JamImportChart(
     double Length,
     int TotalObjectCount,
     int HoldObjectCount,
-    double ManiaStarRating);
+    double ManiaStarRating,
+    int ManiaMaxCombo);

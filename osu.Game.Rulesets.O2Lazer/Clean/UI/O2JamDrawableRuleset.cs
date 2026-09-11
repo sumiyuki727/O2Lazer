@@ -96,6 +96,7 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
         }
 
         hitSoundRateAdjustments.Configure(Mods);
+        hitSoundRateAdjustments.BindPlaybackDisabled(IsPaused);
     }
 
     [BackgroundDependencyLoader]

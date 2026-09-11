@@ -201,8 +201,7 @@ internal static class O2JamStarRatingDisplayPatch
     {
         // Results icons do not share the adjacent badge's presentation state, so select the
         // colour-driving value from the score's recorded MS state explicitly.
-        var hasManiaScore = ModUtils.FlattenMods(mods).Any(mod => mod is O2JamModManiaScore);
-        return hasManiaScore
+        return O2JamGameplayProfile.UsesManiaScore(mods)
             ? maniaDifficulty
             : new StarDifficulty(O2JamStarRatingMetadata.ResolveLevel(beatmap) / 10d, maniaDifficulty.MaxCombo);
     }
@@ -262,7 +261,7 @@ internal static class O2JamStarRatingDisplayPatch
         if (ruleset.ShortName == O2LazerIdentity.ShortName)
         {
             var starAttribute = attributes.Single(attribute => attribute.Label == O2LazerStrings.StarRating);
-            if (!O2JamDifficultyCalculator.RequiresModdedCalculation(mods) && starAttribute.AdjustedValue >= 0)
+            if (!O2JamGameplayProfile.RequiresStarCalculation(mods) && starAttribute.AdjustedValue >= 0)
                 state.BaselineStars = starAttribute.AdjustedValue;
 
             if (starAttribute.AdjustedValue >= 0)
@@ -294,7 +293,7 @@ internal static class O2JamStarRatingDisplayPatch
             ? displayedStars
             : O2JamDisplayedDifficulty.GetStars(beatmap);
 
-        var isBaseline = !O2JamDifficultyCalculator.RequiresModdedCalculation(mods);
+        var isBaseline = !O2JamGameplayProfile.RequiresStarCalculation(mods);
 
         return attributes.Select(attribute => attribute.Label == O2LazerStrings.StarRating
             ? withAdjustedStars(attribute, stars,
@@ -365,14 +364,13 @@ internal static class O2JamStarRatingDisplayPatch
             return Task.FromCanceled<StarDifficulty?>(cancellationToken);
 
         var selectedMods = mods?.ToArray() ?? [];
-        if (O2JamDifficultyCalculator.RequiresModdedCalculation(selectedMods))
+        if (O2JamGameplayProfile.RequiresStarCalculation(selectedMods))
             return cache.GetDifficultyAsync(beatmapInfo, rulesetInfo, selectedMods, cancellationToken, computationDelay);
 
         if (O2JamStarRatingMetadata.ReadMania(beatmapInfo) == null)
             return cache.GetDifficultyAsync(beatmapInfo, rulesetInfo, selectedMods, cancellationToken, computationDelay);
 
-        var maxCombo = beatmapInfo.TotalObjectCount < 0 || beatmapInfo.EndTimeObjectCount < 0
-            ? 0 : Math.Max(0, beatmapInfo.TotalObjectCount + beatmapInfo.EndTimeObjectCount - 1);
+        var maxCombo = O2JamStarRatingMetadata.ResolveManiaMaxCombo(beatmapInfo);
         return Task.FromResult<StarDifficulty?>(new StarDifficulty(O2JamDisplayedDifficulty.GetStars(beatmapInfo), maxCombo));
     }
 

@@ -12,6 +12,7 @@ internal sealed class O2JamHitSoundRateAdjustments
     private readonly AudioAdjustments adjustments = new();
     private readonly BindableDouble speed = new(1);
     private readonly BindableBool adjustPitch = new();
+    private IBindable<bool>? playbackDisabled;
     private Bindable<double>? boundSpeed;
     private Bindable<bool>? boundAdjustPitch;
     private double fixedFrequency = 1;
@@ -81,24 +82,42 @@ internal sealed class O2JamHitSoundRateAdjustments
 
     internal void Bind(IAdjustableAudioComponent hitSound) => hitSound.BindAdjustments(adjustments);
 
+    internal void BindPlaybackDisabled(IBindable<bool> disabled)
+    {
+        playbackDisabled?.UnbindAll();
+        playbackDisabled = disabled.GetBoundCopy();
+        playbackDisabled.BindValueChanged(_ => update(), true);
+    }
+
     internal void UnbindAll()
     {
         speed.UnbindAll();
         adjustPitch.UnbindAll();
+        playbackDisabled?.UnbindAll();
+        playbackDisabled = null;
         boundSpeed = null;
         boundAdjustPitch = null;
     }
 
     private void update()
     {
+        double frequency;
+        double tempo;
+
         if (optionalPitchAdjustment)
         {
-            adjustments.Frequency.Value = adjustPitch.Value ? speed.Value : 1;
-            adjustments.Tempo.Value = adjustPitch.Value ? 1 : speed.Value;
-            return;
+            frequency = adjustPitch.Value ? speed.Value : 1;
+            tempo = adjustPitch.Value ? 1 : speed.Value;
+        }
+        else
+        {
+            frequency = fixedFrequency;
+            tempo = speed.Value / fixedFrequency;
         }
 
-        adjustments.Frequency.Value = fixedFrequency;
-        adjustments.Tempo.Value = speed.Value / fixedFrequency;
+        // O2Jam keysounds can contain long music stems. A zero frequency pauses existing sample
+        // channels at their current position while native gameplay suppresses new playback.
+        adjustments.Frequency.Value = playbackDisabled?.Value == true ? 0 : frequency;
+        adjustments.Tempo.Value = tempo;
     }
 }

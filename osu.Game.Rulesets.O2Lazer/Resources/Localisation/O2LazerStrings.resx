@@ -42,6 +42,9 @@
   <data name="level_badge" xml:space="preserve">
     <value>Lv.{0}</value>
   </data>
+  <data name="level_filter_value" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="star_rating" xml:space="preserve">
     <value>mania stars</value>
   </data>
@@ -149,6 +152,9 @@
   </data>
   <data name="refreshing_progress" xml:space="preserve">
     <value>Updating O2Jam beatmaps {0}/{1}</value>
+  </data>
+  <data name="synchronising_collections" xml:space="preserve">
+    <value>Synchronising collections...</value>
   </data>
   <data name="refresh_complete" xml:space="preserve">
     <value>Update complete.</value>
@@ -287,5 +293,53 @@
   </data>
   <data name="mod_mania_score_description" xml:space="preserve">
     <value>For pp farmers.</value>
+  </data>
+  <data name="mod_easy_description" xml:space="preserve">
+    <value>More forgiving HP drain, less accuracy required, and extra lives!</value>
+  </data>
+  <data name="mod_easy_extra_lives" xml:space="preserve">
+    <value>Extra Lives</value>
+  </data>
+  <data name="mod_easy_extra_lives_description" xml:space="preserve">
+    <value>Number of extra lives.</value>
+  </data>
+  <data name="mod_easy_extra_lives_value" xml:space="preserve">
+    <value>{0} extra lives</value>
+  </data>
+  <data name="mod_hard_rock_description" xml:space="preserve">
+    <value>Everything just got a bit harder...</value>
+  </data>
+  <data name="mod_classic_description" xml:space="preserve">
+    <value>Feeling nostalgic?</value>
+  </data>
+  <data name="mania_score_overall_difficulty" xml:space="preserve">
+    <value>Accuracy</value>
+  </data>
+  <data name="mania_score_overall_difficulty_acronym" xml:space="preserve">
+    <value>OD</value>
+  </data>
+  <data name="mania_score_overall_difficulty_description" xml:space="preserve">
+    <value>Override a beatmap's set OD.</value>
+  </data>
+  <data name="mania_score_health_drain" xml:space="preserve">
+    <value>HP Drain</value>
+  </data>
+  <data name="mania_score_health_drain_acronym" xml:space="preserve">
+    <value>HP</value>
+  </data>
+  <data name="mania_score_health_drain_description" xml:space="preserve">
+    <value>Override a beatmap's set HP.</value>
+  </data>
+  <data name="mania_score_extended_limits" xml:space="preserve">
+    <value>Extended Limits</value>
+  </data>
+  <data name="mania_score_extended_limits_description" xml:space="preserve">
+    <value>Adjust difficulty beyond sane limits.</value>
+  </data>
+  <data name="mania_score_difficulty_value" xml:space="preserve">
+    <value>{0:0.0}</value>
+  </data>
+  <data name="mania_score_difficulty_badge" xml:space="preserve">
+    <value>{0}{1:0.0}</value>
   </data>
 </root>

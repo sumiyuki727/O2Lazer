@@ -67,4 +67,15 @@ public class O2JamStarRatingMetadataTest
         beatmap.DifficultyName = "Edited name";
         Assert.That(O2JamStarRatingMetadata.ResolveLevel(beatmap), Is.Zero);
     }
+
+    [Test]
+    public void RoundTripsNativeManiaMaxCombo()
+    {
+        var tag = O2JamStarRatingMetadata.CreateManiaMaxComboTag(1234);
+        Assert.Multiple(() =>
+        {
+            Assert.That(O2JamStarRatingMetadata.ReadManiaMaxCombo($"other {tag}"), Is.EqualTo(1234));
+            Assert.That(O2JamStarRatingMetadata.ReadManiaMaxCombo("o2lazer-mania-max-combo:1:0:1234"), Is.Null);
+        });
+    }
 }

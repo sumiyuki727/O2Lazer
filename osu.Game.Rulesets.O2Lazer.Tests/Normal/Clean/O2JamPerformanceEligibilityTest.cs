@@ -15,6 +15,7 @@ using osu.Game.Overlays.Mods;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mania.Mods;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.O2Lazer.Difficulty;
 using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.O2Lazer.Scoring;
 using osu.Game.Rulesets.O2Lazer.UI;
@@ -36,6 +37,8 @@ public partial class O2JamPerformanceEligibilityTest
     [TestCase(true, "", 123.4d, 0.5f)]
     [TestCase(true, "MS", null, 1f)]
     [TestCase(true, "MS", 123.4d, 1f)]
+    [TestCase(true, "MS-DA", null, 0.5f)]
+    [TestCase(true, "MS-DA", 123.4d, 0.5f)]
     [TestCase(false, "", null, 1f)]
     [TestCase(false, "", 123.4d, 1f)]
     [TestCase(false, "RD", 123.4d, 0.5f)]
@@ -47,7 +50,10 @@ public partial class O2JamPerformanceEligibilityTest
         Mod[] mods = o2lazer ? createMods(o2Ruleset, selection) : selection == "RD" ? [new ManiaModRandom()] : [];
         var score = new ScoreInfo(ruleset: ruleset.RulesetInfo)
         {
-            BeatmapInfo = new BeatmapInfo(ruleset.RulesetInfo) { Status = BeatmapOnlineStatus.Ranked },
+            BeatmapInfo = new BeatmapInfo(ruleset.RulesetInfo)
+            {
+                Status = o2lazer ? BeatmapOnlineStatus.LocallyModified : BeatmapOnlineStatus.Ranked,
+            },
             Mods = mods,
             Rank = ScoreRank.A,
             PP = pp,
@@ -106,6 +112,9 @@ public partial class O2JamPerformanceEligibilityTest
     [TestCase("NF,CS", false)]
     [TestCase("MS", true)]
     [TestCase("MS,NF", true)]
+    [TestCase("MS,EZ", true)]
+    [TestCase("MS,HR", false)]
+    [TestCase("MS,CL", false)]
     [TestCase("MS,MR", true)]
     [TestCase("MS,NF,MR", true)]
     [TestCase("MS,RD", false)]
@@ -159,7 +168,21 @@ public partial class O2JamPerformanceEligibilityTest
             Assert.That(hasUnrankedMods(typeof(BeatmapLeaderboardScore.LeaderboardScoreTooltip.PerformanceStatisticRow), score), Is.EqualTo(!expected));
             Assert.That(mods.Select(mod => mod.Ranked), Is.EqualTo(originalRankedFlags));
             Assert.That(score.Mods.Select(mod => mod.Acronym), Is.EqualTo(mods.Select(mod => mod.Acronym)));
-            Assert.That(ruleset.CreatePerformanceCalculator(), Is.Null);
+            Assert.That(ruleset.CreatePerformanceCalculator(), Is.TypeOf<O2JamPerformanceCalculator>());
+        });
+    }
+
+    [Test]
+    public void AdjustedManiaScoreIsNotPerformanceEligible()
+    {
+        var maniaScore = new O2JamModManiaScore();
+        Assert.That(O2JamPerformanceEligibility.IsEligible([maniaScore]), Is.True);
+
+        maniaScore.OverallDifficulty.Value = 8;
+        Assert.Multiple(() =>
+        {
+            Assert.That(maniaScore.Ranked, Is.False);
+            Assert.That(O2JamPerformanceEligibility.IsEligible([maniaScore]), Is.False);
         });
     }
 
@@ -216,6 +239,13 @@ public partial class O2JamPerformanceEligibilityTest
 
     private static Mod[] createMods(O2LazerRuleset ruleset, string selection)
     {
+        if (selection == "MS-DA")
+        {
+            var maniaScore = new O2JamModManiaScore();
+            maniaScore.OverallDifficulty.Value = 8;
+            return [maniaScore];
+        }
+
         var available = ruleset.CreateAllMods().ToDictionary(mod => mod.Acronym);
         return selection.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(acronym => available[acronym]).ToArray();
     }

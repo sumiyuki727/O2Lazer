@@ -9,6 +9,7 @@ using osu.Framework.Graphics.Containers;
 using osu.Framework.IO.Stores;
 using osu.Framework.Testing;
 using osu.Game.Configuration;
+using osu.Game.Beatmaps;
 using osu.Game.Graphics;
 using osu.Game.Graphics.UserInterface;
 using osu.Game.Overlays;
@@ -59,6 +60,8 @@ public partial class O2JamPerfectSettingsTest
             dependencies.Cache(new OverlayColourProvider(OverlayColourScheme.Green));
             dependencies.Cache(new SessionStatics());
             dependencies.Cache(menuSamples);
+            dependencies.CacheAs<IBindable<WorkingBeatmap>>(
+                new Bindable<WorkingBeatmap>(new FlatWorkingBeatmap(new Beatmap())));
             return dependencies;
         }
 
@@ -79,7 +82,9 @@ public partial class O2JamPerfectSettingsTest
 
             try
             {
-                var controls = o2Settings.ChildrenOfType<SettingsCheckbox>().ToArray();
+                var controls = o2Settings.ChildrenOfType<SettingsCheckbox>()
+                                         .Where(control => control.LabelText.ToString() is "Restart on fail" or "Require perfect hits")
+                                         .ToArray();
                 var nativeControls = maniaSettings.ChildrenOfType<SettingsCheckbox>().ToArray();
                 if (++frames > 100)
                     throw new InvalidOperationException($"The native Perfect settings did not finish loading: phase={phase}, "

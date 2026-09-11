@@ -86,12 +86,18 @@ public partial class O2JamStarRatingDisplayTest
             if (o2lazer && !ms)
             {
                 Assert.That(starIcon.Width, Is.Zero);
+                Assert.That(starsText.X, Is.EqualTo(-1.5f));
+                Assert.That(starsText.Font.FixedWidth, Is.False);
+                Assert.That(starsText.Spacing.X, Is.Zero);
                 Assert.That(starsText.Text.ToString(), Is.EqualTo(O2LazerStrings.LevelBadge(75).ToString()));
                 Assert.That(background.Colour.AverageColour.SRGB, Is.EqualTo(new OsuColour().ForStarDifficulty(7.5)));
             }
             else
             {
                 Assert.That(starIcon.Width, Is.EqualTo(8));
+                Assert.That(starsText.X, Is.Zero);
+                Assert.That(starsText.Font.FixedWidth, Is.True);
+                Assert.That(starsText.Spacing.X, Is.EqualTo(-1.4f));
                 Assert.That(starsText.Text.ToString(), Is.EqualTo(expected.FormatStarRating().ToString()));
                 Assert.That(background.Colour.AverageColour.SRGB, Is.EqualTo(new OsuColour().ForStarDifficulty(expected)));
             }
@@ -139,7 +145,7 @@ public partial class O2JamStarRatingDisplayTest
         assertDisplayed(cache, binding, 3.25);
         cache.ChangeMods([]);
         assertDisplayed(cache, binding, 3.25);
-        Assert.That(cache.NativeLookups, Is.Zero);
+        Assert.That(cache.NativeLookups, Is.Zero, "MS toggles must use the stored Realm rating synchronously.");
 
         var native = await cache.GetDifficultyAsync(beatmap, ruleset.RulesetInfo, []);
         Assert.That(native?.Stars, Is.EqualTo(3.25));
@@ -151,7 +157,7 @@ public partial class O2JamStarRatingDisplayTest
         assertDisplayed(cache, binding, 4.5);
         cache.ChangeMods([new O2JamModManiaScore()]);
         assertDisplayed(cache, binding, 4.5);
-        Assert.That(cache.NativeLookups, Is.EqualTo(1));
+        Assert.That(cache.NativeLookups, Is.EqualTo(1), "Only the explicit native lookup should leave the metadata fast path.");
     }
 
     [Test]
@@ -170,6 +176,30 @@ public partial class O2JamStarRatingDisplayTest
         cache.ChangeMods([]);
         assertDisplayed(cache, binding, 3.25);
         Assert.That(cache.NativeLookups, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void SetSpreadSwitchesBetweenChartAndStarOrder()
+    {
+        var ruleset = new O2LazerRuleset().RulesetInfo;
+        var nx = createBeatmap(ruleset, 40, 1);
+        nx.DifficultyName = "NX Lv.40";
+        var hx = createBeatmap(ruleset, 90, 0.5);
+        hx.DifficultyName = "HX Lv.90";
+        var ex = createBeatmap(ruleset, 20, 5);
+        ex.DifficultyName = "EX Lv.20";
+        BeatmapInfo[] beatmaps = [nx, hx, ex];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(O2JamStarRatingPresentationPatch.OrderSpreadBeatmaps(beatmaps, true).Select(beatmap => beatmap.DifficultyName),
+                Is.EqualTo(new[] { "EX Lv.20", "NX Lv.40", "HX Lv.90" }));
+            Assert.That(O2JamStarRatingPresentationPatch.OrderSpreadBeatmaps(beatmaps, false).Select(beatmap => beatmap.DifficultyName),
+                Is.EqualTo(new[] { "HX Lv.90", "NX Lv.40", "EX Lv.20" }));
+            Assert.That(O2JamStarRatingPresentationPatch.encodeChartOrder(ex),
+                Is.LessThan(O2JamStarRatingPresentationPatch.encodeChartOrder(nx)));
+            Assert.That(O2JamStarRatingPresentationPatch.decodeChartLevel(O2JamStarRatingPresentationPatch.encodeChartOrder(nx)), Is.EqualTo(40));
+        });
     }
 
     [Test]
@@ -294,6 +324,9 @@ public partial class O2JamStarRatingDisplayTest
         Assert.Multiple(() =>
         {
             Assert.That(starIcon.Width, Is.Zero);
+            Assert.That(starsText.X, Is.EqualTo(-1.5f));
+            Assert.That(starsText.Font.FixedWidth, Is.False);
+            Assert.That(starsText.Spacing.X, Is.Zero);
             Assert.That(starsText.Text.ToString(), Is.EqualTo(O2LazerStrings.LevelBadge(75).ToString()));
             Assert.That(background.Colour.AverageColour.SRGB, Is.EqualTo(new OsuColour().ForStarDifficulty(7.5)));
         });
@@ -303,6 +336,9 @@ public partial class O2JamStarRatingDisplayTest
         Assert.Multiple(() =>
         {
             Assert.That(starIcon.Width, Is.EqualTo(8));
+            Assert.That(starsText.X, Is.Zero);
+            Assert.That(starsText.Font.FixedWidth, Is.True);
+            Assert.That(starsText.Spacing.X, Is.EqualTo(-1.4f));
             Assert.That(starsText.Text.ToString(), Is.EqualTo(4.875.FormatStarRating().ToString()));
             Assert.That(background.Colour.AverageColour.SRGB, Is.EqualTo(new OsuColour().ForStarDifficulty(4.875)));
         });

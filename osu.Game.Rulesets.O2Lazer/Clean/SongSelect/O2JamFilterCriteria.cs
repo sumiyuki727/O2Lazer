@@ -9,6 +9,7 @@ using osu.Game.Rulesets.Filter;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
+using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Screens.Select;
 using osu.Game.Screens.Select.Filter;
 
@@ -91,7 +92,14 @@ internal sealed class O2JamFilterCriteria : IRulesetFilterCriteria
         return true;
     }
 
-    public bool FilterMayChangeFromMods(FilterCriteria criteria, ValueChangedEvent<IReadOnlyList<Mod>> mods) => false;
+    public bool FilterMayChangeFromMods(FilterCriteria criteria, ValueChangedEvent<IReadOnlyList<Mod>> mods) =>
+        O2JamGameplayProfile.UsesManiaScore(mods.OldValue) != O2JamGameplayProfile.UsesManiaScore(mods.NewValue);
+
+    internal void AddLevelFilter(FilterCriteria.OptionalRange<double> range)
+    {
+        if (range.HasFilter)
+            levelFilters.Add(range);
+    }
 
     private static bool tryParseLevelThreshold(string value, out double level) =>
         double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out level) && double.IsFinite(level);

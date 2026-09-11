@@ -184,7 +184,10 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
             }, cancellationToken);
 
             if (syncSourceFolderCollections.Value)
+            {
+                notification.Text = O2LazerStrings.SynchronisingCollections;
                 await queueCollectionUpdate(true);
+            }
 
             if (result.RulesetUnavailable)
             {

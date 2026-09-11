@@ -8,6 +8,8 @@ using HarmonyLib;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Transforms;
 using osu.Framework.Logging;
+using osu.Framework.Localisation;
+using osu.Game.Localisation;
 using osu.Game.Overlays.Mods;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Scoring;
@@ -27,6 +29,7 @@ internal static class O2JamPerformanceEligibilityPatch
     private static FieldInfo? modDisplayBarField;
     private static MethodInfo? buttonUpdateDisplay;
     private static MethodInfo? setPerformanceValue;
+    private static MethodInfo? setPerformanceTooltip;
 
     internal static bool IsInstalled { get; private set; }
 
@@ -50,18 +53,22 @@ internal static class O2JamPerformanceEligibilityPatch
                 ];
 
                 setPerformanceValue = AccessTools.Method(typeof(PerformanceStatistic), "setPerformanceValue", [typeof(ScoreInfo), typeof(double?)]);
+                setPerformanceTooltip = AccessTools.PropertySetter(typeof(PerformanceStatistic), nameof(PerformanceStatistic.TooltipText));
                 buttonUpdateDisplay = AccessTools.Method(typeof(FooterButtonMods), "updateDisplay");
                 var buttonUpdate = AccessTools.Method(typeof(FooterButtonMods), "Update");
                 unrankedBadgeField = AccessTools.Field(typeof(FooterButtonMods), "unrankedBadge");
                 modDisplayBarField = AccessTools.Field(typeof(FooterButtonMods), "modDisplayBar");
 
                 if (patches.Any(patch => patch.Target == null || patch.Postfix == null)
-                    || buttonUpdateDisplay == null || buttonUpdate == null || unrankedBadgeField == null || modDisplayBarField == null || setPerformanceValue == null
+                    || buttonUpdateDisplay == null || buttonUpdate == null || unrankedBadgeField == null || modDisplayBarField == null
+                    || setPerformanceValue == null || setPerformanceTooltip == null
                     || AccessTools.Field(typeof(ModSelectFooterContent), "rankingInformationDisplay") == null)
                     throw new MissingMemberException("The native mod ranking display API is incompatible with O2Lazer.");
 
                 foreach (var patch in patches)
                     harmony.Patch(patch.Target!, postfix: new HarmonyMethod(patch.Postfix));
+                harmony.Patch(setPerformanceValue,
+                    postfix: new HarmonyMethod(method(nameof(adaptPerformanceStyling))));
                 harmony.Patch(patches[0].Target!,
                     prefix: new HarmonyMethod(method(nameof(prepareModSelection))),
                     transpiler: new HarmonyMethod(method(nameof(adaptModSelectionEligibility))),
@@ -165,6 +172,27 @@ internal static class O2JamPerformanceEligibilityPatch
         // Reuse the native dimming/tooltip policy without assigning PP to the stored score;
         // any future asynchronous calculation can still replace this display value normally.
         setPerformanceValue!.Invoke(__instance, [___score, (double?)0]);
+    }
+
+    private static void adaptPerformanceStyling(PerformanceStatistic __instance, ScoreInfo scoreInfo, double? pp)
+    {
+        if (!pp.HasValue || !isO2Lazer(scoreInfo.Ruleset))
+            return;
+
+        LocalisableString tooltip;
+        if (!O2JamPerformanceEligibility.IsEligible(scoreInfo.Mods))
+            tooltip = ResultsScreenStrings.NoPPForUnrankedMods;
+        else if (scoreInfo.Rank == ScoreRank.F)
+            tooltip = ResultsScreenStrings.NoPPForFailedScores;
+        else
+        {
+            __instance.Alpha = 1;
+            setPerformanceTooltip!.Invoke(__instance, [default(LocalisableString)]);
+            return;
+        }
+
+        __instance.Alpha = 0.5f;
+        setPerformanceTooltip!.Invoke(__instance, [tooltip]);
     }
 
     private static bool isO2Lazer(RulesetInfo? ruleset) =>

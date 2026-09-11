@@ -76,6 +76,20 @@ public class O2JamModTest
         Assert.That(actualGroups, Is.EqualTo(expectedGroups));
     }
 
+    [Test]
+    public void ManiaScoreReplacesDifficultyAdjustInManiaConversionOrder()
+    {
+        var actual = ModUtils.FlattenMods(new O2LazerRuleset().GetModsFor(ModType.Conversion))
+                             .Select(mod => mod.Acronym);
+        var expected = ModUtils.FlattenMods(new ManiaRuleset().GetModsFor(ModType.Conversion))
+                               .Where(mod => mod is ManiaModRandom or ManiaModMirror or ManiaModDifficultyAdjust
+                                   or ManiaModClassic or ManiaModInvert or ManiaModConstantSpeed)
+                               .Select(mod => mod is ManiaModDifficultyAdjust ? "MS" : mod.Acronym);
+
+        Assert.That(actual, Is.EqualTo(expected));
+    }
+
+    [TestCase(typeof(O2JamModManiaScore), typeof(ManiaModDifficultyAdjust))]
     [TestCase(typeof(O2JamModNoRelease), typeof(ManiaModNoRelease))]
     [TestCase(typeof(O2JamModFadeIn), typeof(ManiaModFadeIn))]
     [TestCase(typeof(O2JamModHidden), typeof(ManiaModHidden))]

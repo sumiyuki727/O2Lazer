@@ -9,9 +9,12 @@ internal static class O2JamStarRatingMetadata
 {
     public const string O2JamTagPrefix = "o2lazer-o2jam-stars:";
     public const string ManiaVersionPrefix = "o2lazer-mania-version:";
+    public const string ManiaMaxComboPrefix = "o2lazer-mania-max-combo:";
     private const string o2jam_current_prefix = O2JamTagPrefix + "1:";
 
     public static string ManiaVersionTag { get; } = $"{ManiaVersionPrefix}1:{O2JamManiaStarRating.Version}";
+
+    private static string maniaMaxComboCurrentPrefix => $"{ManiaMaxComboPrefix}1:{O2JamManiaStarRating.CacheVersion}:";
 
     public static string CreateO2JamTag(ushort level) =>
         o2jam_current_prefix + O2JamDifficultyRating.FromLevel(level).ToString("R", CultureInfo.InvariantCulture);
@@ -31,6 +34,28 @@ internal static class O2JamStarRatingMetadata
 
     public static bool HasCurrentManiaVersion(string tags) => Array.IndexOf(splitTags(tags), ManiaVersionTag) >= 0;
 
+    public static string CreateManiaMaxComboTag(int maxCombo) =>
+        maniaMaxComboCurrentPrefix + Math.Max(0, maxCombo).ToString(CultureInfo.InvariantCulture);
+
+    public static int? ReadManiaMaxCombo(string tags)
+    {
+        foreach (var tag in splitTags(tags))
+        {
+            if (tag.StartsWith(maniaMaxComboCurrentPrefix, StringComparison.Ordinal)
+                && int.TryParse(tag.AsSpan(maniaMaxComboCurrentPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var maxCombo)
+                && maxCombo >= 0)
+                return maxCombo;
+        }
+
+        return null;
+    }
+
+    public static int ResolveManiaMaxCombo(IBeatmapInfo beatmap) =>
+        ReadManiaMaxCombo(beatmap.Metadata.Tags)
+        ?? (beatmap.TotalObjectCount < 0 || beatmap.EndTimeObjectCount < 0
+            ? 0
+            : Math.Max(0, beatmap.TotalObjectCount + beatmap.EndTimeObjectCount - 1));
+
     public static double? ReadMania(IBeatmapInfo beatmap) =>
         double.IsFinite(beatmap.StarRating) && beatmap.StarRating >= 0
         && (HasCurrentManiaVersion(beatmap.Metadata.Tags)
@@ -49,6 +74,19 @@ internal static class O2JamStarRatingMetadata
                                  || beatmap.Ruleset is RulesetInfo ruleset && ruleset.LastAppliedDifficultyVersion >= O2JamManiaStarRating.CacheVersion;
         var fallback = ReadO2Jam(beatmap.Metadata.Tags) ?? (nativeContainsMania ? -1 : beatmap.StarRating);
         return O2JamDifficultyRating.ResolveLevel(beatmap.DifficultyName, fallback);
+    }
+
+    public static int ResolveChartOrder(IBeatmapInfo beatmap)
+    {
+        var name = beatmap.DifficultyName.TrimStart();
+        if (name.StartsWith("EX", StringComparison.OrdinalIgnoreCase))
+            return 0;
+        if (name.StartsWith("NX", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        if (name.StartsWith("HX", StringComparison.OrdinalIgnoreCase))
+            return 2;
+
+        return 3;
     }
 
     private static string[] splitTags(string tags) => tags.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);

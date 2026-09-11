@@ -1,11 +1,15 @@
 using System;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 using osu.Framework.Bindables;
 using osu.Framework.Logging;
 using osu.Game.Rulesets.Mania.Skinning.Legacy;
+using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Core;
+using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.O2Lazer.Scoring;
+using osu.Game.Utils;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Scoring;
 using osu.Game.Screens.Play;
@@ -77,6 +81,9 @@ internal static class O2JamComboCompatibilityPatches
         if (!string.Equals(score.Ruleset?.ShortName, O2LazerIdentity.ShortName, StringComparison.Ordinal))
             return;
 
+        if (O2JamGameplayProfile.UsesManiaScore(score.Mods))
+            return;
+
         // Results and leaderboard FC checks derive this from endpoint counts, not difficulty
         // attributes. Keep the stored statistics and earned MaxCombo intact; only the first
         // successful O2Jam endpoint contributes zero to the achievable combo.
@@ -86,7 +93,7 @@ internal static class O2JamComboCompatibilityPatches
     // Harmony field injection uses the patched class's private field name.
     private static bool adaptComboBreak(ref ValueChangedEvent<int> combo, ScoreProcessor ___processor)
     {
-        if (___processor is not O2JamScoreProcessor o2JamProcessor)
+        if (___processor is not O2JamScoreProcessor o2JamProcessor || o2JamProcessor.UsesManiaScoring)
             return true;
 
         if (o2JamProcessor.IsResettingComboSentinel)
@@ -106,7 +113,7 @@ internal static class O2JamComboCompatibilityPatches
 
     private static void attachDisplayedCombo(object __instance, ScoreProcessor scoreProcessor)
     {
-        if (scoreProcessor is not O2JamScoreProcessor)
+        if (scoreProcessor is not O2JamScoreProcessor o2JamProcessor || o2JamProcessor.UsesManiaScoring)
             return;
 
         Bindable<int>? current = __instance switch
@@ -124,7 +131,7 @@ internal static class O2JamComboCompatibilityPatches
         // They then receive the normal 0→1 increment and real N→0 break transitions, preserving
         // mania's own increment, rolling and miss animations without ever rendering -1.
         current.UnbindFrom(scoreProcessor.Combo);
-        var adapter = counterAdapters.GetValue(__instance, _ => new O2JamDisplayedComboAdapter(((O2JamScoreProcessor)scoreProcessor).GameplayState));
+        var adapter = counterAdapters.GetValue(__instance, _ => new O2JamDisplayedComboAdapter(o2JamProcessor.GameplayState));
         current.BindTo(adapter.Current);
     }
 }

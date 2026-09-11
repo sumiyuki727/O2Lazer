@@ -2,9 +2,12 @@ using System.Collections.Generic;
 using System.Linq;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Judgements;
+using osu.Game.Rulesets.Mania.Objects;
+using osu.Game.Rulesets.Mania.Scoring;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Core;
+using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Scoring;
@@ -14,11 +17,14 @@ namespace osu.Game.Rulesets.O2Lazer.Scoring;
 public sealed partial class O2JamScoreProcessor : ScoreProcessor
 {
     private readonly List<AppliedResolution> resolutionHistory = [];
+    private readonly ManiaScoreProcessorAdapter mania = new();
 
     private O2JamDifficulty difficulty = O2JamDifficulty.EX;
     private O2JamGameplayState gameplayState = new(O2JamDifficulty.EX);
 
     internal bool IsResettingComboSentinel { get; private set; }
+
+    internal bool UsesManiaScoring => O2JamGameplayProfile.UsesManiaScore(Mods.Value);
 
     public IO2JamGameplayStateSource GameplayState => gameplayState;
 
@@ -30,7 +36,9 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
 
     public override void ApplyBeatmap(IBeatmap beatmap)
     {
-        if (beatmap is O2JamBeatmap o2JamBeatmap)
+        ApplyNewJudgementsWhenFailed = !UsesManiaScoring;
+
+        if (!UsesManiaScoring && beatmap is O2JamBeatmap o2JamBeatmap)
         {
             difficulty = o2JamBeatmap.O2JamDifficulty;
             // The native fail override prevents exiting gameplay; the domain must also keep
@@ -40,6 +48,9 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
 
         base.ApplyBeatmap(beatmap);
     }
+
+    protected override IEnumerable<HitObject> EnumerateHitObjects(IBeatmap beatmap) =>
+        UsesManiaScoring ? mania.Enumerate(beatmap) : base.EnumerateHitObjects(beatmap);
 
     public O2JamResolvedJudgement Resolve(O2JamJudgementResult result, O2JamAccuracy requestedAccuracy)
     {
@@ -78,6 +89,12 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
 
     protected override void ApplyScoreChange(JudgementResult result)
     {
+        if (UsesManiaScoring)
+        {
+            base.ApplyScoreChange(result);
+            return;
+        }
+
         if (result is not O2JamJudgementResult o2JamResult)
             return;
 
@@ -89,6 +106,12 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
 
     protected override void RemoveScoreChange(JudgementResult result)
     {
+        if (UsesManiaScoring)
+        {
+            base.RemoveScoreChange(result);
+            return;
+        }
+
         if (result is not O2JamJudgementResult o2JamResult)
             return;
 
@@ -98,15 +121,33 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
     }
 
     protected override double ComputeTotalScore(double comboProgress, double accuracyProgress, double bonusPortion) =>
-        gameplayState.Current.Score;
+        UsesManiaScoring
+            ? mania.Compute(comboProgress, accuracyProgress, bonusPortion, Accuracy.Value)
+            : gameplayState.Current.Score;
 
-    public override int GetBaseScoreForResult(HitResult result) => result switch
+    protected override double GetComboScoreChange(JudgementResult result) =>
+        UsesManiaScoring ? mania.ComboScoreChange(result) : base.GetComboScoreChange(result);
+
+    public override int GetBaseScoreForResult(HitResult result)
     {
-        HitResult.Perfect => 200,
-        HitResult.Good => 100,
-        HitResult.Ok => 4,
-        _ => 0,
-    };
+        if (UsesManiaScoring)
+            return mania.GetBaseScoreForResult(result);
+
+        return result switch
+        {
+            HitResult.Perfect => 200,
+            HitResult.Good => 100,
+            HitResult.Ok => 4,
+            _ => 0,
+        };
+    }
+
+    public override ScoreRank RankFromScore(double accuracy, IReadOnlyDictionary<HitResult, int> results)
+    {
+        return UsesManiaScoring
+            ? mania.RankFromScore(accuracy, results)
+            : base.RankFromScore(accuracy, results);
+    }
 
     protected override void Reset(bool storeResults)
     {
@@ -120,7 +161,8 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
 
             resolutionHistory.Clear();
             gameplayState.Reset();
-            syncCombo();
+            if (!UsesManiaScoring)
+                syncCombo();
         }
         finally
         {
@@ -131,8 +173,19 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
     public override void PopulateScore(ScoreInfo score)
     {
         base.PopulateScore(score);
+        if (UsesManiaScoring)
+            return;
+
         score.Combo = System.Math.Max(0, gameplayState.Current.Combo);
         score.MaxCombo = System.Math.Max(0, gameplayState.Current.MaximumCombo);
+    }
+
+    protected override void Dispose(bool isDisposing)
+    {
+        if (isDisposing)
+            mania.Dispose();
+
+        base.Dispose(isDisposing);
     }
 
     private void rebuildGameplayState()
@@ -152,4 +205,17 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
     }
 
     private readonly record struct AppliedResolution(O2JamJudgementResult Result, O2JamAccuracy RequestedAccuracy);
+
+    private sealed partial class ManiaScoreProcessorAdapter : ManiaScoreProcessor
+    {
+        public IEnumerable<HitObject> Enumerate(IBeatmap beatmap) => base.EnumerateHitObjects(beatmap);
+
+        public double Compute(double comboProgress, double accuracyProgress, double bonusPortion, double accuracy)
+        {
+            Accuracy.Value = accuracy;
+            return base.ComputeTotalScore(comboProgress, accuracyProgress, bonusPortion);
+        }
+
+        public double ComboScoreChange(JudgementResult result) => base.GetComboScoreChange(result);
+    }
 }

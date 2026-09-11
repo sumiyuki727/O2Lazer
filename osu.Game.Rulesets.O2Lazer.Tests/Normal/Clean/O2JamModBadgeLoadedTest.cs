@@ -52,6 +52,10 @@ public partial class O2JamModBadgeLoadedTest
         => runProbe(throughOverlay: true, checkFooter: true);
 
     [Test]
+    public void ManiaScoreDependentModsRemainVisibleAndSynchroniseSelection()
+        => runProbe(throughOverlay: true, checkDependencies: true);
+
+    [Test]
     [Explicit("Loads another ruleset's bundled Harmony into an isolated test process.")]
     [Category("LocalDiagnostics")]
     public void LoadedNativeButtonAnimatesWithBmsLoadedFirst()
@@ -79,10 +83,11 @@ public partial class O2JamModBadgeLoadedTest
         _ = Activator.CreateInstance(assembly.GetType("osu.Game.Rulesets.BmsRuleset.BmsRuleset", throwOnError: true)!);
     }
 
-    private static void runProbe(bool refreshSelection = false, bool throughOverlay = false, bool checkFooter = false)
+    private static void runProbe(bool refreshSelection = false, bool throughOverlay = false, bool checkFooter = false,
+                                 bool checkDependencies = false)
     {
         using var host = new TestRunHeadlessGameHost($"O2JamModBadge-{Guid.NewGuid():N}");
-        var game = new BadgeProbeGame(refreshSelection, throughOverlay, checkFooter);
+        var game = new BadgeProbeGame(refreshSelection, throughOverlay, checkFooter, checkDependencies);
         host.Run(game);
         foreach (var observation in game.Observations)
             TestContext.Progress.WriteLine(observation);
@@ -98,6 +103,7 @@ public partial class O2JamModBadgeLoadedTest
         private readonly bool refreshSelection;
         private readonly bool throughOverlay;
         private readonly bool checkFooter;
+        private readonly bool checkDependencies;
         private readonly ModProbeContext gameContext = new();
         private readonly TemporaryNativeStorage storage = new($"O2JamModOverlay-{Guid.NewGuid():N}");
         private readonly OsuConfigManager config;
@@ -121,11 +127,12 @@ public partial class O2JamModBadgeLoadedTest
         public bool Completed;
         public List<string> Observations { get; } = [];
 
-        public BadgeProbeGame(bool refreshSelection, bool throughOverlay, bool checkFooter)
+        public BadgeProbeGame(bool refreshSelection, bool throughOverlay, bool checkFooter, bool checkDependencies)
         {
             this.refreshSelection = refreshSelection;
             this.throughOverlay = throughOverlay;
             this.checkFooter = checkFooter;
+            this.checkDependencies = checkDependencies;
             config = new OsuConfigManager(storage);
             previewTracks = new PreviewTrackManager(previewTrack);
             frameClock = new FramedClock(sourceClock);
@@ -212,6 +219,12 @@ public partial class O2JamModBadgeLoadedTest
                     return;
                 if (throughOverlay && !overlay.IsLoaded)
                     return;
+
+                if (checkDependencies)
+                {
+                    checkDependencySelection();
+                    return;
+                }
 
                 if (checkFooter)
                 {
@@ -317,6 +330,49 @@ public partial class O2JamModBadgeLoadedTest
             {
                 Failure = exception;
                 Exit();
+            }
+        }
+
+        private void checkDependencySelection()
+        {
+            var maniaScore = overlay.AllAvailableMods.Single(state => state.Mod is O2JamModManiaScore);
+            var easy = overlay.AllAvailableMods.Single(state => state.Mod is O2JamModEasy);
+            switch (phase++)
+            {
+                case 0:
+                    Assert.That(easy.ValidForSelection.Value, Is.True);
+                    easy.Active.Value = true;
+                    break;
+
+                case 1:
+                    Assert.That(songMods.Value.Select(mod => mod.GetType()),
+                        Is.EquivalentTo(new[] { typeof(O2JamModEasy), typeof(O2JamModManiaScore) }));
+                    maniaScore.Active.Value = false;
+                    break;
+
+                case 2:
+                    Assert.That(songMods.Value, Is.Empty, "Deselecting MS must also deselect its active dependent mods.");
+                    songMods.Value = [new O2JamModClassic()];
+                    break;
+
+                case 3:
+                    Assert.That(songMods.Value.Select(mod => mod.GetType()),
+                        Is.EquivalentTo(new[] { typeof(O2JamModClassic), typeof(O2JamModManiaScore) }));
+                    var classic = overlay.AllAvailableMods.Single(state => state.Mod is O2JamModClassic);
+                    classic.Active.Value = false;
+                    break;
+
+                case 4:
+                    maniaScore = overlay.AllAvailableMods.Single(state => state.Mod is O2JamModManiaScore);
+                    Assert.Multiple(() =>
+                    {
+                        Assert.That(songMods.Value.Select(mod => mod.GetType()), Is.EqualTo(new[] { typeof(O2JamModManiaScore) }));
+                        Assert.That(maniaScore.Active.Value, Is.True,
+                            "Removing the dependent mod must leave the committed MS selection active.");
+                    });
+                    Completed = true;
+                    Exit();
+                    break;
             }
         }
 

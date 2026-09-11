@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
-using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Localisation;
@@ -24,15 +24,18 @@ using osu.Game.Screens.Play;
 using osu.Game.Screens.Select;
 using osu.Game.Utils;
 using osuTK;
+using osuTK.Graphics;
 
 namespace osu.Game.Rulesets.O2Lazer.SongSelect;
 
 internal static class O2JamStarRatingPresentationPatch
 {
     private const string harmony_id = "osu.Game.Rulesets.O2Lazer.StarRatingPresentation";
+    private const float level_text_horizontal_offset = -1.5f;
     private static readonly object installLock = new();
     private static readonly ConditionalWeakTable<StarRatingDisplay, PresentationState> states = new();
-    private static readonly ConditionalWeakTable<PanelBeatmapStandalone.SpreadDisplay, SpreadPresentationState> spreadStates = new();
+    private static readonly ConditionalWeakTable<PanelBeatmapStandalone.SpreadDisplay, SpreadPresentationState> standaloneSpreadStates = new();
+    private static readonly ConditionalWeakTable<PanelBeatmapSet.SpreadDisplay, SpreadPresentationState> setSpreadStates = new();
     private static readonly OsuColour colours = new();
 
     private static FieldInfo backgroundField = null!;
@@ -52,10 +55,8 @@ internal static class O2JamStarRatingPresentationPatch
     private static MethodInfo standaloneModsGetter = null!;
     private static FieldInfo standaloneStarRatingDisplayField = null!;
     private static FieldInfo standaloneSpreadDisplayField = null!;
-    private static FieldInfo spreadPrecedingField = null!;
-    private static FieldInfo spreadSucceedingField = null!;
-    private static FieldInfo spreadRulesetField = null!;
-    private static FieldInfo spreadShowConvertedBeatmapsField = null!;
+    private static MethodInfo standaloneSpreadUpdateMethod = null!;
+    private static MethodInfo setSpreadUpdateMethod = null!;
     private static FieldInfo gameplayBeatmapField = null!;
     private static FieldInfo gameplayModsField = null!;
     private static FieldInfo gameplayStarRatingDisplayField = null!;
@@ -85,6 +86,8 @@ internal static class O2JamStarRatingPresentationPatch
                 var panelUpdate = AccessTools.Method(typeof(PanelBeatmap), "updateKeyCount");
                 var standaloneUpdate = AccessTools.Method(typeof(PanelBeatmapStandalone), "updateKeyCount");
                 var spreadUpdate = AccessTools.Method(typeof(PanelBeatmapStandalone.SpreadDisplay), "updateBeatmap");
+                var setSpreadLoadComplete = AccessTools.Method(typeof(PanelBeatmapSet.SpreadDisplay), "LoadComplete");
+                var setSpreadUpdate = AccessTools.Method(typeof(PanelBeatmapSet.SpreadDisplay), "updateBeatmapSet");
                 var gameplayLoad = AccessTools.Method(typeof(BeatmapMetadataDisplay), "load");
                 var modSelectLoad = AccessTools.Method(typeof(BeatmapAttributesDisplay), "LoadComplete");
                 var tooltipType = typeof(DifficultyIcon).Assembly.GetType("osu.Game.Beatmaps.Drawables.DifficultyIconTooltip");
@@ -108,10 +111,8 @@ internal static class O2JamStarRatingPresentationPatch
                 standaloneModsGetter = AccessTools.PropertyGetter(typeof(PanelBeatmapStandalone), "mods");
                 standaloneStarRatingDisplayField = AccessTools.Field(typeof(PanelBeatmapStandalone), "starRatingDisplay");
                 standaloneSpreadDisplayField = AccessTools.Field(typeof(PanelBeatmapStandalone), "spreadDisplay");
-                spreadPrecedingField = AccessTools.Field(typeof(PanelBeatmapStandalone.SpreadDisplay), "preceding");
-                spreadSucceedingField = AccessTools.Field(typeof(PanelBeatmapStandalone.SpreadDisplay), "succeeding");
-                spreadRulesetField = AccessTools.Field(typeof(PanelBeatmapStandalone.SpreadDisplay), "<ruleset>k__BackingField");
-                spreadShowConvertedBeatmapsField = AccessTools.Field(typeof(PanelBeatmapStandalone.SpreadDisplay), "showConvertedBeatmaps");
+                standaloneSpreadUpdateMethod = spreadUpdate;
+                setSpreadUpdateMethod = setSpreadUpdate;
                 gameplayBeatmapField = AccessTools.Field(typeof(BeatmapMetadataDisplay), "beatmap");
                 gameplayModsField = AccessTools.Field(typeof(BeatmapMetadataDisplay), "mods");
                 gameplayStarRatingDisplayField = AccessTools.Field(typeof(BeatmapMetadataDisplay), "starRatingDisplay");
@@ -122,6 +123,7 @@ internal static class O2JamStarRatingPresentationPatch
 
                 if (starChanged == null || titleWedgeLoad == null || titleWedgeUpdate == null
                     || panelUpdate == null || standaloneUpdate == null || spreadUpdate == null
+                    || setSpreadLoadComplete == null || setSpreadUpdate == null
                     || gameplayLoad == null || modSelectLoad == null || tooltipSetContent == null
                     || backgroundField == null || starIconField == null || starsTextField == null
                     || titleBeatmapGetter == null || titleModsGetter == null || titleStarRatingDisplayField == null
@@ -129,8 +131,7 @@ internal static class O2JamStarRatingPresentationPatch
                     || titleCountStatisticsDisplayField == null || titleDifficultyStatisticsDisplayField == null
                     || panelBeatmapGetter == null || panelModsGetter == null || panelStarRatingDisplayField == null
                     || standaloneBeatmapGetter == null || standaloneModsGetter == null || standaloneStarRatingDisplayField == null
-                    || standaloneSpreadDisplayField == null || spreadPrecedingField == null || spreadSucceedingField == null
-                    || spreadRulesetField == null || spreadShowConvertedBeatmapsField == null
+                    || standaloneSpreadDisplayField == null
                     || gameplayBeatmapField == null || gameplayModsField == null || gameplayStarRatingDisplayField == null
                     || modSelectStarRatingDisplayField == null
                     || tooltipStarRatingField == null || tooltipBeatmapField == null || tooltipModsField == null)
@@ -141,7 +142,9 @@ internal static class O2JamStarRatingPresentationPatch
                 harmony.Patch(titleWedgeUpdate, postfix: new HarmonyMethod(method(nameof(correctTitleWedgeAccent))));
                 harmony.Patch(panelUpdate, postfix: new HarmonyMethod(method(nameof(configurePanelBeatmap))));
                 harmony.Patch(standaloneUpdate, postfix: new HarmonyMethod(method(nameof(configureStandaloneBeatmap))));
-                harmony.Patch(spreadUpdate, postfix: new HarmonyMethod(method(nameof(refreshStandaloneSpread))));
+                harmony.Patch(spreadUpdate, transpiler: new HarmonyMethod(method(nameof(adaptStandaloneSpread))));
+                harmony.Patch(setSpreadLoadComplete, postfix: new HarmonyMethod(method(nameof(configureSetSpread))));
+                harmony.Patch(setSpreadUpdate, transpiler: new HarmonyMethod(method(nameof(adaptSetSpread))));
                 harmony.Patch(gameplayLoad, postfix: new HarmonyMethod(method(nameof(configureGameplay))));
                 harmony.Patch(modSelectLoad, postfix: new HarmonyMethod(method(nameof(configureModSelect))));
                 harmony.Patch(tooltipSetContent, postfix: new HarmonyMethod(method(nameof(configureTooltip))));
@@ -163,16 +166,10 @@ internal static class O2JamStarRatingPresentationPatch
     internal static void Configure(StarRatingDisplay display, IBeatmapInfo? beatmap, IEnumerable<Mod>? mods)
     {
         var state = states.GetOrCreateValue(display);
-        state.UseLevel = usesLevelPresentation(beatmap, mods);
+        state.UseLevel = O2JamGameplayProfile.UsesLevelPresentation(beatmap, mods);
         state.Level = beatmap == null ? (ushort)0 : O2JamStarRatingMetadata.ResolveLevel(beatmap);
         apply(display, display.IsLoaded ? display.DisplayedStars.Value : display.Current.Value.Stars);
     }
-
-    private static bool containsManiaScore(IEnumerable<Mod>? mods) =>
-        mods != null && ModUtils.FlattenMods(mods).Any(mod => mod is O2JamModManiaScore);
-
-    private static bool usesLevelPresentation(IBeatmapInfo? beatmap, IEnumerable<Mod>? mods) =>
-        beatmap?.Ruleset.ShortName == O2LazerIdentity.ShortName && !containsManiaScore(mods);
 
     private static void refreshPresentation(StarRatingDisplay __instance, ValueChangedEvent<double> __0) =>
         apply(__instance, __0.NewValue);
@@ -185,6 +182,8 @@ internal static class O2JamStarRatingPresentationPatch
         var background = (Box)backgroundField.GetValue(display)!;
         var starIcon = (SpriteIcon)starIconField.GetValue(display)!;
         var starsText = (OsuSpriteText)starsTextField.GetValue(display)!;
+        var nativeFont = state.NativeFont ??= starsText.Font;
+        var nativeSpacing = state.NativeSpacing ??= starsText.Spacing;
         LocalisableString formattedStars = stars < 0 ? "-" : stars.FormatStarRating();
         var colourStars = state.UseLevel ? state.Level / 10d : stars;
 
@@ -196,12 +195,20 @@ internal static class O2JamStarRatingPresentationPatch
         {
             starIcon.Size = new Vector2(0, 8);
             starIcon.Hide();
+            // The native grid keeps its 3 px icon-to-text spacer after the icon is hidden.
+            // Moving by half that width keeps the level text visually centred in the pill.
+            starsText.X = level_text_horizontal_offset;
+            starsText.Font = nativeFont.With(fixedWidth: false);
+            starsText.Spacing = new Vector2(0, nativeSpacing.Y);
             starsText.Text = O2LazerStrings.LevelBadge(state.Level);
         }
         else
         {
             starIcon.Size = new Vector2(8);
             starIcon.Show();
+            starsText.X = 0;
+            starsText.Font = nativeFont;
+            starsText.Spacing = nativeSpacing;
             starsText.Text = formattedStars;
         }
     }
@@ -250,64 +257,179 @@ internal static class O2JamStarRatingPresentationPatch
         var spread = (PanelBeatmapStandalone.SpreadDisplay)standaloneSpreadDisplayField.GetValue(__instance)!;
         var beatmap = __instance.Item == null ? null : (IBeatmapInfo?)standaloneBeatmapGetter.Invoke(__instance, null);
         Configure(display, beatmap, mods.Value);
-        configureSpread(spread, usesLevelPresentation(beatmap, mods.Value));
+        configureStandaloneSpread(spread, beatmap, mods.Value);
     }
 
-    private static void configureSpread(PanelBeatmapStandalone.SpreadDisplay display, bool useLevel)
+    private static void configureStandaloneSpread(PanelBeatmapStandalone.SpreadDisplay display, IBeatmapInfo? beatmap, IEnumerable<Mod> mods)
     {
-        spreadStates.GetOrCreateValue(display).UseLevel = useLevel;
-        applySpread(display);
+        var useLevel = O2JamGameplayProfile.UsesLevelPresentation(beatmap, mods);
+        standaloneSpreadStates.GetOrCreateValue(display).UseLevel = useLevel;
+        if (beatmap?.Ruleset.ShortName == O2LazerIdentity.ShortName)
+        {
+            var stars = useLevel
+                ? encodeChartOrder(beatmap)
+                : O2JamDisplayedDifficulty.GetStars(beatmap);
+            display.StarDifficulty.Value = new StarDifficulty(stars, display.StarDifficulty.Value.MaxCombo);
+        }
+
+        standaloneSpreadUpdateMethod.Invoke(display, null);
     }
 
-    private static void refreshStandaloneSpread(PanelBeatmapStandalone.SpreadDisplay __instance) => applySpread(__instance);
-
-    private static void applySpread(PanelBeatmapStandalone.SpreadDisplay display)
+    private static IEnumerable<CodeInstruction> adaptStandaloneSpread(IEnumerable<CodeInstruction> instructions)
     {
-        if (!spreadStates.TryGetValue(display, out var state) || display.Beatmap.Value?.BeatmapSet == null)
-            return;
+        var linqAdapted = adaptSpreadLinq(instructions, typeof(PanelBeatmapStandalone.SpreadDisplay),
+            nameof(orderStandaloneBeatmaps), nameof(selectStandaloneRatings), null);
+        return adaptStandaloneSpreadColour(linqAdapted);
+    }
 
-        var ruleset = (IBindable<RulesetInfo>)spreadRulesetField.GetValue(display)!;
-        var showConvertedBeatmaps = (Bindable<bool>)spreadShowConvertedBeatmapsField.GetValue(display)!;
-        var preceding = (FillFlowContainer)spreadPrecedingField.GetValue(display)!;
-        var succeeding = (FillFlowContainer)spreadSucceedingField.GetValue(display)!;
+    private static IOrderedEnumerable<BeatmapInfo> orderStandaloneBeatmaps(IEnumerable<BeatmapInfo> source,
+                                                                           Func<BeatmapInfo, double> nativeSelector,
+                                                                           PanelBeatmapStandalone.SpreadDisplay display) =>
+        standaloneSpreadStates.TryGetValue(display, out var state) && state.UseLevel
+            ? OrderSpreadBeatmaps(source, true)
+            : source.OrderBy(nativeSelector);
 
-        // Native spread dots retain only the numeric star value. Rebuild the same visible window
-        // so each dot can use its own chart level without changing native ordering or placement.
-        var otherBeatmaps = display.Beatmap.Value.BeatmapSet.Beatmaps
-                                   .Except([display.Beatmap.Value])
-                                   .Where(beatmap => beatmap.AllowGameplayWithRuleset(ruleset.Value, showConvertedBeatmaps.Value))
-                                   .OrderBy(beatmap => beatmap.StarRating)
-                                   .ToList();
+    private static IEnumerable<double> selectStandaloneRatings(IEnumerable<BeatmapInfo> source,
+                                                                Func<BeatmapInfo, double> nativeSelector,
+                                                                PanelBeatmapStandalone.SpreadDisplay display) =>
+        standaloneSpreadStates.TryGetValue(display, out var state) && state.UseLevel
+            ? source.Select(encodeChartOrder)
+            : source.Select(nativeSelector);
 
-        if (otherBeatmaps.Count == 0)
-            return;
+    private static IEnumerable<CodeInstruction> adaptStandaloneSpreadColour(IEnumerable<CodeInstruction> instructions)
+    {
+        var result = new List<CodeInstruction>();
+        var nativeColour = AccessTools.Method(typeof(OsuColour), nameof(OsuColour.ForStarDifficulty), [typeof(double)]);
+        var calls = 0;
 
-        const int max_difficulties_total = 11;
-        var startIndex = 0;
-        var endIndex = otherBeatmaps.Count - 1;
-
-        if (otherBeatmaps.Count > max_difficulties_total)
+        foreach (var instruction in instructions)
         {
-            var otherStarDifficulties = otherBeatmaps.Select(beatmap => beatmap.StarRating).ToList();
-            startIndex = otherStarDifficulties.BinarySearch(display.StarDifficulty.Value.Stars);
-            if (startIndex < 0)
-                startIndex = ~startIndex - 1;
+            if (instruction.Calls(nativeColour))
+            {
+                var loadDisplay = new CodeInstruction(OpCodes.Ldarg_0);
+                loadDisplay.labels.AddRange(instruction.labels);
+                loadDisplay.blocks.AddRange(instruction.blocks);
+                instruction.labels.Clear();
+                instruction.blocks.Clear();
+                result.Add(loadDisplay);
+                instruction.opcode = OpCodes.Call;
+                instruction.operand = method(nameof(getStandaloneSpreadColour));
+                calls++;
+            }
 
-            startIndex = Math.Clamp(startIndex - max_difficulties_total / 2, 0, otherBeatmaps.Count - 1);
-            endIndex = Math.Clamp(startIndex + max_difficulties_total, 0, otherBeatmaps.Count - 1);
+            result.Add(instruction);
         }
 
-        var precedingIndex = 0;
-        var succeedingIndex = 0;
+        if (calls != 1)
+            throw new MissingMemberException("The native standalone difficulty spread colour has changed.");
 
-        for (var i = startIndex; i <= endIndex; i++)
+        return result;
+    }
+
+    private static Colour4 getStandaloneSpreadColour(OsuColour colourProvider, double rating,
+                                                       PanelBeatmapStandalone.SpreadDisplay display) =>
+        colourProvider.ForStarDifficulty(
+            standaloneSpreadStates.TryGetValue(display, out var state) && state.UseLevel
+                ? decodeChartLevel(rating) / 10d
+                : rating);
+
+    private static void configureSetSpread(PanelBeatmapSet.SpreadDisplay __instance)
+    {
+        var mods = (IBindable<IReadOnlyList<Mod>>)__instance.Dependencies.Get(typeof(IBindable<IReadOnlyList<Mod>>));
+        var state = setSpreadStates.GetOrCreateValue(__instance);
+        mods.BindValueChanged(change =>
         {
-            var beatmap = otherBeatmaps[i];
-            var target = beatmap.StarRating < display.StarDifficulty.Value.Stars ? preceding : succeeding;
-            var childIndex = target == preceding ? precedingIndex++ : succeedingIndex++;
-            if (childIndex < target.Count && target[childIndex] is Circle circle)
-                circle.Colour = colours.ForStarDifficulty(GetColourStars(beatmap, state.UseLevel));
+            state.UseLevel = !O2JamGameplayProfile.UsesManiaScore(change.NewValue);
+            if (__instance.BeatmapSet.Value?.Beatmaps.Any(isO2LazerBeatmap) == true)
+                setSpreadUpdateMethod.Invoke(__instance, null);
+        }, true);
+    }
+
+    private static IEnumerable<CodeInstruction> adaptSetSpread(IEnumerable<CodeInstruction> instructions) =>
+        adaptSpreadLinq(instructions, typeof(PanelBeatmapSet.SpreadDisplay), nameof(orderSetBeatmaps), null, nameof(getSetColourStars));
+
+    private static IOrderedEnumerable<BeatmapInfo> orderSetBeatmaps(IEnumerable<BeatmapInfo> source,
+                                                                    Func<BeatmapInfo, double> nativeSelector,
+                                                                    PanelBeatmapSet.SpreadDisplay display) =>
+        setSpreadStates.TryGetValue(display, out var state) && state.UseLevel && source.Any(isO2LazerBeatmap)
+            ? OrderSpreadBeatmaps(source, true)
+            : source.OrderBy(nativeSelector);
+
+    private static double getSetColourStars(BeatmapInfo beatmap, PanelBeatmapSet.SpreadDisplay display) =>
+        GetColourStars(beatmap, setSpreadStates.TryGetValue(display, out var state) && state.UseLevel);
+
+    internal static IOrderedEnumerable<BeatmapInfo> OrderSpreadBeatmaps(IEnumerable<BeatmapInfo> source, bool useLevel) =>
+        useLevel
+            ? source.OrderBy(O2JamStarRatingMetadata.ResolveChartOrder)
+                    .ThenBy(O2JamStarRatingMetadata.ResolveLevel)
+            : source.OrderBy(beatmap => beatmap.StarRating);
+
+    internal static double encodeChartOrder(IBeatmapInfo beatmap) =>
+        O2JamStarRatingMetadata.ResolveChartOrder(beatmap) * chart_order_stride
+        + O2JamStarRatingMetadata.ResolveLevel(beatmap);
+
+    internal static ushort decodeChartLevel(double encoded) =>
+        (ushort)Math.Clamp((int)Math.Round(encoded) % chart_order_stride, 0, ushort.MaxValue);
+
+    private const int chart_order_stride = ushort.MaxValue + 1;
+
+    private static bool isO2LazerBeatmap(IBeatmapInfo beatmap) =>
+        beatmap.Ruleset.ShortName == O2LazerIdentity.ShortName;
+
+    private static IEnumerable<CodeInstruction> adaptSpreadLinq(IEnumerable<CodeInstruction> instructions, Type displayType,
+                                                                 string orderReplacement, string? selectReplacement,
+                                                                 string? colourReplacement)
+    {
+        var result = new List<CodeInstruction>();
+        var orderCalls = 0;
+        var selectCalls = 0;
+        var colourCalls = 0;
+        var starGetter = AccessTools.PropertyGetter(typeof(BeatmapInfo), nameof(BeatmapInfo.StarRating));
+
+        foreach (var instruction in instructions)
+        {
+            if (instruction.operand is MethodInfo called && called.IsGenericMethod
+                && called.DeclaringType == typeof(Enumerable)
+                && called.GetGenericArguments().FirstOrDefault() == typeof(BeatmapInfo)
+                && (called.Name == nameof(Enumerable.OrderBy) || called.Name == nameof(Enumerable.Select)))
+            {
+                var replacementName = called.Name == nameof(Enumerable.OrderBy) ? orderReplacement : selectReplacement;
+                if (replacementName != null)
+                {
+                    var loadDisplay = new CodeInstruction(OpCodes.Ldarg_0);
+                    loadDisplay.labels.AddRange(instruction.labels);
+                    loadDisplay.blocks.AddRange(instruction.blocks);
+                    instruction.labels.Clear();
+                    instruction.blocks.Clear();
+                    result.Add(loadDisplay);
+                    instruction.opcode = OpCodes.Call;
+                    instruction.operand = method(replacementName);
+                    if (called.Name == nameof(Enumerable.OrderBy))
+                        orderCalls++;
+                    else
+                        selectCalls++;
+                }
+            }
+            else if (colourReplacement != null && instruction.Calls(starGetter))
+            {
+                var loadDisplay = new CodeInstruction(OpCodes.Ldarg_0);
+                loadDisplay.labels.AddRange(instruction.labels);
+                loadDisplay.blocks.AddRange(instruction.blocks);
+                instruction.labels.Clear();
+                instruction.blocks.Clear();
+                result.Add(loadDisplay);
+                instruction.opcode = OpCodes.Call;
+                instruction.operand = method(colourReplacement);
+                colourCalls++;
+            }
+
+            result.Add(instruction);
         }
+
+        if (orderCalls != 1 || selectReplacement != null && selectCalls != 1 || colourReplacement != null && colourCalls != 1)
+            throw new MissingMemberException($"The native {displayType.Name} difficulty spread has changed.");
+
+        return result;
     }
 
     internal static double GetColourStars(IBeatmapInfo beatmap, bool useLevel) =>
@@ -344,6 +466,8 @@ internal static class O2JamStarRatingPresentationPatch
     {
         public bool UseLevel;
         public ushort Level;
+        public FontUsage? NativeFont;
+        public Vector2? NativeSpacing;
     }
 
     private sealed class SpreadPresentationState
