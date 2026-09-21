@@ -4,6 +4,15 @@
 
 [English](./README.md)
 
+## 设计定位
+
+O2Lazer 将已有可靠依据的 O2Jam 判定、分数、生命、连击、Jam、药丸、长条及 OJM 事件行为作为玩法真值，
+同时以原生 ruleset 的方式融入 osu!lazer。当 osu! 需要而 O2Jam 没有定义某项概念时，ruleset 会通过最接近的
+mania／lazer 契约给出符合 O2Jam 语言的结果；非 MS 的准确率与字母评级即采用这一策略。对于 O2Jam 客户端
+和加载器之间没有统一结论的应用生命周期行为，包括暂停与恢复，则沿用 lazer。仅当宿主的通用假设无法表达
+O2Jam 的独立性时，才使用限定于本 ruleset 的兼容补丁，同时保留原生控件、布局、动画与交互习惯。
+详见[架构决策顺序](docs/clean-rewrite-architecture.md#design-intent-and-decision-precedence)。
+
 ## 特性
 
 - 支持经典与新版加密 OJN 文件，包含 EX、NX、HX 三种难度。
@@ -16,13 +25,14 @@
 - EX、NX、HX 难度分别保存独立成绩显示。
 - 基于字段校验和保守的目录提示，自动区分 CP949、GBK/CP936 与 UTF-8；不再仅凭 OJN 版本判断编码。
 - 在谱面位置坐标中计算 O2Jam 风格的 COOL/GOOD/BAD/MISS，支持局内 BPM 变化、原生风格计分、血量、Jam、药丸及独立的 LN 首尾判定。
-- 选歌与本地展开结算面板按当前或成绩记录的 Mod 使用原生 mania 星数。未选择 Mania Score 时，星数胶囊只显示 `Lv.N`，胶囊、同一 set 内其他难度的小胶囊和结算 ruleset icon 均按各自 `等级 / 10` 取色，set 内难度依次按 EX、NX、HX 排列；选择 Mania Score 后立即恢复原生星形、mania 星数、颜色和星数排序。基础模式切换直接读取 Realm 中带版本的信息，不读取谱面；只有变速或结构性 Mod 才重新计算。星数搜索与全局难度排序使用基础数值；新导入不再保存等级除以 10 的标签；使用“刷新谱面”可清除已有谱面的旧标签。
+- 非 MS 准确率按 O2Jam 基础判定值（`COOL=200`、`GOOD=100`、`BAD=4`、`MISS=0`）计算，再映射到 osu! 通用字母评级区间。这些兼容指标不会替代 O2Jam 原始分数；选择 Mania Score 后则将两者都委托给原生 mania。
+- 选歌与本地展开结算面板按当前或成绩记录的 Mod 使用原生 mania 星数。未选择 Mania Score 时，星数胶囊只显示 `Lv.N`，胶囊、同一 set 内其他难度的小胶囊和结算 ruleset icon 均按各自 `等级 / 10` 取色，set 内难度按等级排列，等级相同时再按 EX、NX、HX 区分；选择 Mania Score 后立即恢复原生星形、mania 星数、颜色和星数排序。基础模式切换直接读取 Realm 中带版本的信息，不读取谱面；只有变速或结构性 Mod 才重新计算。星数搜索与全局难度排序使用基础数值；新导入不再保存等级除以 10 的标签；使用“刷新谱面”可清除已有谱面的旧标签。
 - 禁用 O2Lazer 的原生谱面编辑器入口，保护导入谱面；皮肤编辑器保持可用。OJM 键音不受原生“谱面打击音效”开关影响，也不受全局效果音量影响。
 - 选歌界面继续显示 o2ma、SR 和等级；O2Lazer 的 Mod 选择界面右下角不再显示这三项，左侧星数胶囊与 BPM 保持显示。
 - 提供固定曲库路径和优化后的增量更新；既有未变化谱面不会进入解析／写入批次，同时仍会处理已修改及已失去源文件的谱面。
 - 复用 osu!mania 原生游玩区域和 stable 皮肤表现，同时保持 O2Jam 判定与计分状态独立。
 - 支持重构版 replay 录制、播放，以及 O2Jam 专用 HUD／Playfield 皮肤编辑器层。
-- 提供原生自动游玩，以及与 mania 一致的 No Fail、Half Time、Daycore、No Release、Sudden Death、Perfect、Double Time、Nightcore、Fade In、Hidden、Cover、Flashlight、Accuracy Challenge、Random、Mirror、Invert、Constant Speed、Wind Up、Wind Down、Muted 和 Adaptive Speed。名称、英文描述、设置、图标、排序、分数倍率与计表现分状态均与 mania 保持一致；O2 专用适配在复用原生 Mod 行为时保留准确的音符／长条类型、谱面位置判定与 OJM 音频。HT／DT 默认保持 BGM 与 keysound 音高，Adjust Pitch 设置同时作用于两者；DC／NC 对两条音频路径应用 mania 的变调规则，NC 也保留原生节拍音。动态变速 Mod 的画面流速与玩家触发的 keysound 会跟随实时速度。Constant Speed 替代原来的固定流速设置，不改变判定时机。Mania Score 会将游玩物件转换为原生 mania 物件，并把计分、连击、评级、血量、结算统计与 PP 委托给 mania；内置 OD／HP 调整默认均为 7，保持默认时可计表现分，修改后遵循 mania 的不计表现分策略。Easy、Hard Rock 与 Classic 在未选择 MS 时呈不可选灰色；强制选择或从其他模式带入其中任意一个都会同时实际开启 MS，关闭 MS 会移除这些 Mod，而只关闭这些依赖 Mod 时会保留 MS。未选择 Mania Score 时，包括 No Mod 在内的所有组合均不计表现分。
+- 提供原生自动游玩，以及与 mania 一致的 No Fail、Easy、Half Time、Daycore、No Release、Sudden Death、Perfect、Hard Rock、Double Time、Nightcore、Fade In、Hidden、Cover、Flashlight、Accuracy Challenge、Random、Mirror、Mania Score、Classic、Invert、Constant Speed、Wind Up、Wind Down、Muted 和 Adaptive Speed。名称、英文描述、设置、图标、排序、分数倍率与计表现分状态均与 mania 保持一致；O2 专用适配在复用原生 Mod 行为时保留准确的音符／长条类型、谱面位置判定与 OJM 音频。HT／DT 默认保持 BGM 与 keysound 音高，Adjust Pitch 设置同时作用于两者；DC／NC 对两条音频路径应用 mania 的变调规则，NC 也保留原生节拍音。动态变速 Mod 的画面流速与玩家触发的 keysound 会跟随实时速度。Constant Speed 替代原来的固定流速设置，不改变判定时机。Mania Score 会将游玩物件转换为原生 mania 物件，并把计分、连击、评级、血量、结算统计与 PP 委托给 mania；内置 OD／HP 调整默认均为 7，保持默认时可计表现分，修改后遵循 mania 的不计表现分策略。Easy、Hard Rock 与 Classic 在未选择 MS 时呈不可选灰色；强制选择或从其他模式带入其中任意一个都会同时实际开启 MS，关闭 MS 会移除这些 Mod，而只关闭这些依赖 Mod 时会保留 MS。未选择 Mania Score 时，包括 No Mod 在内的所有组合均不计表现分。
 
 默认键位为 `S D F Space J K L`。
 
@@ -32,7 +42,8 @@
 **1.0.0**。该版本面向 osu!lazer **2026.804.2**。构建或获取兼容的
 `osu.Game.Rulesets.O2Lazer.dll`，退出 lazer 后替换数据目录中 `rulesets` 下的 DLL，再启动游戏。
 备份请放在 `rulesets` 目录之外，不要同时安装两个 O2Lazer 版本。
-持久化 ruleset 身份保持不变，已有导入和成绩关联可以保留。重构前 replay 不再支持，但不会删除已有成绩记录。
+持久化 ruleset 身份保持不变，已有导入和成绩关联可以保留。重构前 replay 来自结构尚未成熟的测试构建，
+因此不再支持，但不会删除已有成绩记录；重构版 replay schema v5 作为正式冻结格式，不再计划修改。
 
 ## 导入曲库
 

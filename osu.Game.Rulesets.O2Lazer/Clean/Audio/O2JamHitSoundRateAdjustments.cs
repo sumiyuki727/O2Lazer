@@ -1,7 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using osu.Framework.Audio;
+using osu.Framework.Audio.Sample;
 using osu.Framework.Bindables;
+using osu.Framework.Graphics;
+using osu.Framework.Graphics.Audio;
+using osu.Framework.Lists;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Mods;
 
@@ -9,7 +14,11 @@ namespace osu.Game.Rulesets.O2Lazer.Audio;
 
 internal sealed class O2JamHitSoundRateAdjustments
 {
+    private static readonly ConditionalWeakTable<Drawable, O2JamHitSoundRateAdjustments> owners = new();
     private readonly AudioAdjustments adjustments = new();
+    private readonly BindableDouble channelPlaybackFrequency = new(1);
+    private readonly WeakList<SampleChannel> channels = new();
+    private readonly WeakList<Drawable> soundContainers = new();
     private readonly BindableDouble speed = new(1);
     private readonly BindableBool adjustPitch = new();
     private IBindable<bool>? playbackDisabled;
@@ -80,7 +89,39 @@ internal sealed class O2JamHitSoundRateAdjustments
         update();
     }
 
-    internal void Bind(IAdjustableAudioComponent hitSound) => hitSound.BindAdjustments(adjustments);
+    internal void Bind(IAdjustableAudioComponent hitSound)
+    {
+        hitSound.BindAdjustments(adjustments);
+        if (hitSound is Drawable drawable)
+        {
+            if (owners.TryGetValue(drawable, out var owner) && ReferenceEquals(owner, this))
+                return;
+
+            owners.Remove(drawable);
+            owners.Add(drawable, this);
+            soundContainers.Add(drawable);
+        }
+    }
+
+    internal static void BindChannel(DrawableSample sample, SampleChannel channel)
+    {
+        // Only musical OJM samples inside this gameplay's registered sound containers
+        // need tail suspension. Menu sounds and other rulesets retain native behaviour.
+        if (!channel.Name.StartsWith("o2jam/", System.StringComparison.OrdinalIgnoreCase))
+            return;
+
+        for (Drawable? ancestor = sample; ancestor != null; ancestor = ancestor.Parent)
+        {
+            if (!owners.TryGetValue(ancestor, out var owner))
+                continue;
+
+            // The sound's drawable may leave the pool hierarchy before its long tail ends.
+            // Keep pause control on the channel itself; do not duplicate its rate/pitch factors.
+            channel.AddAdjustment(AdjustableProperty.Frequency, owner.channelPlaybackFrequency);
+            owner.channels.Add(channel);
+            return;
+        }
+    }
 
     internal void BindPlaybackDisabled(IBindable<bool> disabled)
     {
@@ -91,6 +132,21 @@ internal sealed class O2JamHitSoundRateAdjustments
 
     internal void UnbindAll()
     {
+        foreach (var container in soundContainers)
+        {
+            if (owners.TryGetValue(container, out var owner) && ReferenceEquals(owner, this))
+                owners.Remove(container);
+        }
+        soundContainers.Clear();
+
+        // Leaving gameplay is terminal, unlike pausing. Do not leave suspended tails
+        // behind to resume in another play or after their owner has been disposed.
+        foreach (var channel in channels)
+        {
+            if (!channel.IsDisposed)
+                channel.Stop();
+        }
+        channels.Clear();
         speed.UnbindAll();
         adjustPitch.UnbindAll();
         playbackDisabled?.UnbindAll();
@@ -119,5 +175,6 @@ internal sealed class O2JamHitSoundRateAdjustments
         // channels at their current position while native gameplay suppresses new playback.
         adjustments.Frequency.Value = playbackDisabled?.Value == true ? 0 : frequency;
         adjustments.Tempo.Value = tempo;
+        channelPlaybackFrequency.Value = playbackDisabled?.Value == true ? 0 : 1;
     }
 }

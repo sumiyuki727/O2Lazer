@@ -1,5 +1,7 @@
 using System;
 using HarmonyLib;
+using osu.Framework.Audio.Sample;
+using osu.Framework.Graphics.Audio;
 using osu.Framework.Logging;
 using osu.Game.Audio;
 using osu.Game.Skinning;
@@ -19,24 +21,32 @@ internal static class O2JamHitSampleLookupPatch
             if (IsInstalled)
                 return true;
 
+            var harmony = new Harmony("osu.Game.Rulesets.O2Lazer.HitSampleLookup");
             try
             {
                 var target = AccessTools.Method(typeof(BeatmapSkinProvidingContainer), "AllowSampleLookup", [typeof(ISampleInfo)]);
-                if (target == null)
+                var getChannel = AccessTools.Method(typeof(DrawableSample), nameof(DrawableSample.GetChannel));
+                if (target == null || getChannel == null)
                     throw new MissingMethodException("The native beatmap sample lookup gate is unavailable.");
 
-                new Harmony("osu.Game.Rulesets.O2Lazer.HitSampleLookup").Patch(target,
+                harmony.Patch(target,
                     postfix: new HarmonyMethod(AccessTools.Method(typeof(O2JamHitSampleLookupPatch), nameof(allowKeySound))));
+                harmony.Patch(getChannel,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(O2JamHitSampleLookupPatch), nameof(bindPlaybackChannel))));
                 IsInstalled = true;
                 return true;
             }
             catch (Exception exception)
             {
+                harmony.UnpatchAll(harmony.Id);
                 Logger.Error(exception, "O2Lazer could not install its keysound lookup adapter.");
                 return false;
             }
         }
     }
+
+    private static void bindPlaybackChannel(DrawableSample __instance, SampleChannel __result) =>
+        O2JamHitSoundRateAdjustments.BindChannel(__instance, __result);
 
     private static void allowKeySound(ISampleInfo sampleInfo, ISkin ___skin, ref bool __result)
     {

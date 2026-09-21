@@ -37,7 +37,7 @@ public partial class O2JamStarRatingDisplayTest
     [TestCase(true, true, true, 3.25)]
     [TestCase(false, false, false, 3.25)]
     [TestCase(false, false, true, 3.25)]
-    public void NativeResultsUseManiaStarsRegardlessOfMS(bool o2lazer, bool ms, bool inLibrary, double expected)
+    public void ResultsKeepLevelTextSeparateFromTheColourScale(bool o2lazer, bool ms, bool inLibrary, double expected)
     {
         var previousContext = SynchronizationContext.Current;
         try
@@ -65,7 +65,7 @@ public partial class O2JamStarRatingDisplayTest
             realm.Write(database => database.Add(new BeatmapInfo { ID = beatmap.ID }));
 
         using var cache = new TestDifficultyCache(ruleset);
-        cache.ChangeMods(ms ? [] : [new O2JamModManiaScore()]);
+        cache.ChangeMods(ms ? [new O2JamModManiaScore()] : []);
         var score = new ScoreInfo(ruleset: ruleset) { BeatmapInfo = beatmap, Mods = ms ? [new O2JamModManiaScore()] : [] };
         using var panel = new ExpandedPanelMiddleContent(score);
         typeof(ExpandedPanelMiddleContent).GetMethod("load", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [realm, cache]);
@@ -73,13 +73,14 @@ public partial class O2JamStarRatingDisplayTest
         var display = panel.ChildrenOfType<StarRatingDisplay>().Single();
         var icon = panel.ChildrenOfType<DifficultyIcon>().Single();
         var expectedIconStars = o2lazer && !ms ? 7.5 : expected;
+        var expectedColourStars = o2lazer && !ms ? 7.5 : expected;
         var starIcon = (SpriteIcon)typeof(StarRatingDisplay).GetField("starIcon", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(display)!;
         var starsText = (OsuSpriteText)typeof(StarRatingDisplay).GetField("starsText", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(display)!;
-        var background = (Box)typeof(StarRatingDisplay).GetField("background", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(display)!;
         Assert.Multiple(() =>
         {
             Assert.That(O2JamStarRatingPresentationPatch.IsInstalled, Is.True);
-            Assert.That(display.Current.Value.Stars, Is.EqualTo(expected));
+            Assert.That(display.Current.Value.Stars, Is.EqualTo(expectedColourStars),
+                "The internal value drives the native colour animation; the badge text is asserted separately.");
             Assert.That(icon.Current.Value.Stars, Is.EqualTo(expectedIconStars), "The ruleset icon must use the score's display-mode colour.");
             Assert.That(getTooltipStars(icon), Is.EqualTo(expectedIconStars), "The ruleset icon tooltip must receive the same colour-driving value.");
 
@@ -90,7 +91,6 @@ public partial class O2JamStarRatingDisplayTest
                 Assert.That(starsText.Font.FixedWidth, Is.False);
                 Assert.That(starsText.Spacing.X, Is.Zero);
                 Assert.That(starsText.Text.ToString(), Is.EqualTo(O2LazerStrings.LevelBadge(75).ToString()));
-                Assert.That(background.Colour.AverageColour.SRGB, Is.EqualTo(new OsuColour().ForStarDifficulty(7.5)));
             }
             else
             {
@@ -99,7 +99,6 @@ public partial class O2JamStarRatingDisplayTest
                 Assert.That(starsText.Font.FixedWidth, Is.True);
                 Assert.That(starsText.Spacing.X, Is.EqualTo(-1.4f));
                 Assert.That(starsText.Text.ToString(), Is.EqualTo(expected.FormatStarRating().ToString()));
-                Assert.That(background.Colour.AverageColour.SRGB, Is.EqualTo(new OsuColour().ForStarDifficulty(expected)));
             }
         });
         Assert.That(beatmap.StarRating, Is.EqualTo(3.25), "The display must never overwrite native mania stars.");
@@ -124,7 +123,7 @@ public partial class O2JamStarRatingDisplayTest
         var icon = panel.ChildrenOfType<DifficultyIcon>().Single();
         Assert.Multiple(() =>
         {
-            Assert.That(display.Current.Value.Stars, Is.EqualTo(4.875));
+            Assert.That(display.Current.Value.Stars, Is.EqualTo(7.5));
             Assert.That(icon.Current.Value.Stars, Is.EqualTo(7.5));
             Assert.That(getTooltipStars(icon), Is.EqualTo(7.5));
             Assert.That(cache.NativeLookups, Is.EqualTo(1));
@@ -132,10 +131,36 @@ public partial class O2JamStarRatingDisplayTest
     }
 
     [Test]
-    public async Task NativeDisplayBindingKeepsManiaStarsAcrossModChanges()
+    public void ColourBindingKeepsLevelColourSeparateFromNativeStars()
     {
         var ruleset = new O2LazerRuleset();
-        Assert.That(O2JamStarRatingDisplayPatch.IsInstalled, Is.True);
+        var beatmap = createBeatmap(ruleset.RulesetInfo, 75, 3.25);
+        var native = new Bindable<StarDifficulty>(new StarDifficulty(3.25, 100));
+        var binding = new O2JamDifficultyColourBinding(native, beatmap, ruleset.RulesetInfo, []);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(binding.ColourDifficulty.Value.Stars, Is.EqualTo(7.5));
+            Assert.That(binding.ColourDifficulty.Value.MaxCombo, Is.Zero);
+        });
+        native.Value = new StarDifficulty(4.875, 100);
+        Assert.That(binding.ColourDifficulty.Value.Stars, Is.EqualTo(7.5),
+            "Native recalculation must not create a second colour update while level presentation is active.");
+
+        binding.UpdateProfile(ruleset.RulesetInfo, [new O2JamModManiaScore()]);
+        Assert.That(binding.ColourDifficulty.Value.Stars, Is.EqualTo(4.875));
+        native.Value = new StarDifficulty(3.25, 100);
+        Assert.That(binding.ColourDifficulty.Value.Stars, Is.EqualTo(3.25));
+
+        binding.UpdateProfile(ruleset.RulesetInfo, []);
+        Assert.That(binding.ColourDifficulty.Value.Stars, Is.EqualTo(7.5));
+        Assert.That(native.Value.Stars, Is.EqualTo(3.25), "Presentation must never overwrite the native mania difficulty.");
+    }
+
+    [Test]
+    public void NativeDifficultyCacheUsesStoredManiaStarsAcrossMSChanges()
+    {
+        var ruleset = new O2LazerRuleset();
         var beatmap = createBeatmap(ruleset.RulesetInfo, 75, 3.25);
         using var cache = new TestDifficultyCache(ruleset.RulesetInfo);
         var binding = cache.GetBindableDifficulty(beatmap);
@@ -145,23 +170,17 @@ public partial class O2JamStarRatingDisplayTest
         assertDisplayed(cache, binding, 3.25);
         cache.ChangeMods([]);
         assertDisplayed(cache, binding, 3.25);
-        Assert.That(cache.NativeLookups, Is.Zero, "MS toggles must use the stored Realm rating synchronously.");
 
-        var native = await cache.GetDifficultyAsync(beatmap, ruleset.RulesetInfo, []);
-        Assert.That(native?.Stars, Is.EqualTo(3.25));
-        Assert.That(beatmap.StarRating, Is.EqualTo(3.25));
-
-        var refreshed = createBeatmap(ruleset.RulesetInfo, 99, 4.5);
-        refreshed.ID = beatmap.ID;
-        cache.Invalidate(beatmap, refreshed);
-        assertDisplayed(cache, binding, 4.5);
-        cache.ChangeMods([new O2JamModManiaScore()]);
-        assertDisplayed(cache, binding, 4.5);
-        Assert.That(cache.NativeLookups, Is.EqualTo(1), "Only the explicit native lookup should leave the metadata fast path.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(O2JamDifficultyCachePatch.IsInstalled, Is.True);
+            Assert.That(cache.NativeLookups, Is.Zero);
+            Assert.That(beatmap.StarRating, Is.EqualTo(3.25));
+        });
     }
 
     [Test]
-    public void NativeDisplayBindingUsesTheModdedDifficultyLookupForRateMods()
+    public void NativeDifficultyCacheAlwaysUsesManiaStars()
     {
         var ruleset = new O2LazerRuleset();
         var beatmap = createBeatmap(ruleset.RulesetInfo, 75, 3.25);
@@ -179,13 +198,16 @@ public partial class O2JamStarRatingDisplayTest
     }
 
     [Test]
-    public void SetSpreadSwitchesBetweenChartAndStarOrder()
+    public void SetSpreadOrdersByChartedLevelRatherThanChartLetter()
     {
         var ruleset = new O2LazerRuleset().RulesetInfo;
-        var nx = createBeatmap(ruleset, 40, 1);
-        nx.DifficultyName = "NX Lv.40";
-        var hx = createBeatmap(ruleset, 90, 0.5);
-        hx.DifficultyName = "HX Lv.90";
+
+        // The NX chart out-levelling the HX chart mirrors real O2Jam sets, where the letters only
+        // name a tier while the charted level decides how hard the difficulty actually is.
+        var nx = createBeatmap(ruleset, 70, 1);
+        nx.DifficultyName = "NX Lv.70";
+        var hx = createBeatmap(ruleset, 40, 0.5);
+        hx.DifficultyName = "HX Lv.40";
         var ex = createBeatmap(ruleset, 20, 5);
         ex.DifficultyName = "EX Lv.20";
         BeatmapInfo[] beatmaps = [nx, hx, ex];
@@ -193,17 +215,16 @@ public partial class O2JamStarRatingDisplayTest
         Assert.Multiple(() =>
         {
             Assert.That(O2JamStarRatingPresentationPatch.OrderSpreadBeatmaps(beatmaps, true).Select(beatmap => beatmap.DifficultyName),
-                Is.EqualTo(new[] { "EX Lv.20", "NX Lv.40", "HX Lv.90" }));
+                Is.EqualTo(new[] { "EX Lv.20", "HX Lv.40", "NX Lv.70" }));
             Assert.That(O2JamStarRatingPresentationPatch.OrderSpreadBeatmaps(beatmaps, false).Select(beatmap => beatmap.DifficultyName),
-                Is.EqualTo(new[] { "HX Lv.90", "NX Lv.40", "EX Lv.20" }));
-            Assert.That(O2JamStarRatingPresentationPatch.encodeChartOrder(ex),
-                Is.LessThan(O2JamStarRatingPresentationPatch.encodeChartOrder(nx)));
-            Assert.That(O2JamStarRatingPresentationPatch.decodeChartLevel(O2JamStarRatingPresentationPatch.encodeChartOrder(nx)), Is.EqualTo(40));
+                Is.EqualTo(new[] { "HX Lv.40", "NX Lv.70", "EX Lv.20" }));
+            Assert.That(O2JamStarRatingPresentationPatch.GetLevelColourStars(nx), Is.EqualTo(7.0),
+                "Level / 10 is only the input to the native colour gradient.");
         });
     }
 
     [Test]
-    public void NativeDisplayBindingCalculatesAMissingBaseline()
+    public void NativeDifficultyCacheCalculatesAMissingBaseline()
     {
         var ruleset = new O2LazerRuleset();
         var beatmap = createBeatmap(ruleset.RulesetInfo, 75, 3.25);
@@ -221,7 +242,7 @@ public partial class O2JamStarRatingDisplayTest
         var ruleset = new O2LazerRuleset();
         var beatmap = createBeatmap(ruleset.RulesetInfo, 75, 3.25);
         var attributes = O2JamStarRatingDisplayPatch.GetSongSelectAttributes(
-            ruleset, beatmap, [new O2JamModDoubleTime()], 4.875, beatmap).ToArray();
+            ruleset, beatmap, [new O2JamModDoubleTime()], 4.875).ToArray();
 
         Assert.Multiple(() =>
         {
@@ -231,35 +252,19 @@ public partial class O2JamStarRatingDisplayTest
     }
 
     [Test]
-    public void SongSelectIgnoresPreviousRulesetStarsWhileRebindingTheBeatmap()
+    public void SongSelectStarAttributeNeverUsesTheLevelColourScale()
     {
         var ruleset = new O2LazerRuleset();
         var beatmap = createBeatmap(ruleset.RulesetInfo, 75, 3.25);
-        var previousBeatmap = createBeatmap(new ManiaRuleset().RulesetInfo, 90, 8);
         var attributes = O2JamStarRatingDisplayPatch.GetSongSelectAttributes(
-            ruleset, beatmap, [new O2JamModDoubleTime()], 8, previousBeatmap).ToArray();
+            ruleset, beatmap, [], 3.25).ToArray();
         var stars = attributes.Single(attribute => attribute.Label == O2LazerStrings.StarRating);
 
         Assert.Multiple(() =>
         {
             Assert.That(stars.OriginalValue, Is.EqualTo(3.25));
             Assert.That(stars.AdjustedValue, Is.EqualTo(3.25));
-        });
-    }
-
-    [Test]
-    public void SongSelectUsesAnUnadjustedBaselineForTheFirstUpdateAfterRebinding()
-    {
-        var ruleset = new O2LazerRuleset();
-        var beatmap = createBeatmap(ruleset.RulesetInfo, 75, 3.25);
-        var attributes = O2JamStarRatingDisplayPatch.GetSongSelectAttributes(
-            ruleset, beatmap, [new O2JamModDoubleTime()], 3.25, beatmap, true).ToArray();
-        var stars = attributes.Single(attribute => attribute.Label == O2LazerStrings.StarRating);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(stars.OriginalValue, Is.EqualTo(3.25));
-            Assert.That(stars.AdjustedValue, Is.EqualTo(3.25));
+            Assert.That(stars.AdjustedValue, Is.Not.EqualTo(7.5), "Level / 10 is a colour input, not a star rating.");
         });
     }
 
@@ -272,11 +277,11 @@ public partial class O2JamStarRatingDisplayTest
                                                   .Select(attribute => new BeatmapTitleWedge.StatisticDifficulty.Data(attribute))
                                                   .ToArray();
         var ready = O2JamStarRatingDisplayPatch.GetSongSelectAttributes(
-            ruleset, beatmap, [], 3.25, beatmap, true)
+            ruleset, beatmap, [], 3.25)
                                                   .Select(attribute => new BeatmapTitleWedge.StatisticDifficulty.Data(attribute))
                                                   .ToArray();
         var modded = O2JamStarRatingDisplayPatch.GetSongSelectAttributes(
-            ruleset, beatmap, [new O2JamModDoubleTime()], 4.875, beatmap, knownBaselineStars: 3.25)
+            ruleset, beatmap, [new O2JamModDoubleTime()], 4.875)
                                                    .Select(attribute => new BeatmapTitleWedge.StatisticDifficulty.Data(attribute))
                                                    .ToArray();
 
@@ -285,7 +290,7 @@ public partial class O2JamStarRatingDisplayTest
             Assert.That(O2JamStarRatingDisplayPatch.ShouldApplySongSelectStatistics(unavailable), Is.False);
             Assert.That(O2JamStarRatingDisplayPatch.ShouldApplySongSelectStatistics(ready), Is.True);
             Assert.That(ready.Single(data => data.BeatmapAttribute?.Label == O2LazerStrings.StarRating).Value, Is.EqualTo(3.25));
-            Assert.That(modded.Single(data => data.BeatmapAttribute?.Label == O2LazerStrings.StarRating).Value, Is.EqualTo(3.25));
+            Assert.That(modded.Single(data => data.BeatmapAttribute?.Label == O2LazerStrings.StarRating).Value, Is.EqualTo(4.875));
             Assert.That(modded.Single(data => data.BeatmapAttribute?.Label == O2LazerStrings.StarRating).AdjustedValue, Is.EqualTo(4.875));
         });
     }
@@ -305,7 +310,7 @@ public partial class O2JamStarRatingDisplayTest
     }
 
     [Test]
-    public void LevelPresentationSurvivesAnimatedStarUpdatesAndRestoresForMS()
+    public void LevelColourValueNeverReplacesLevelTextAndMSRestoresStars()
     {
         var ruleset = new O2LazerRuleset();
         var beatmap = createBeatmap(ruleset.RulesetInfo, 75, 3.25);
@@ -320,7 +325,7 @@ public partial class O2JamStarRatingDisplayTest
         var background = (Box)typeof(StarRatingDisplay).GetField("background", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(display)!;
 
         O2JamStarRatingPresentationPatch.Configure(display, beatmap, []);
-        callback.Invoke(display, [new ValueChangedEvent<double>(3.25, 4.875)]);
+        callback.Invoke(display, [new ValueChangedEvent<double>(3.25, 7.5)]);
         Assert.Multiple(() =>
         {
             Assert.That(starIcon.Width, Is.Zero);

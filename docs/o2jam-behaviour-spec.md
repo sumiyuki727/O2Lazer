@@ -26,6 +26,20 @@ compiled into or copied by O2Lazer.
 - Player observation confirms that the first COOL/GOOD displays `0` combo and the second displays
   `1` combo.
 
+## Compatibility choices
+
+O2Lazer is an osu!lazer ruleset rather than a standalone O2Jam client. Confirmed O2Jam behaviour
+remains authoritative for the mechanics which identify the game. When O2Jam has no equivalent for
+a concept required by osu!, O2Lazer uses the closest mania/lazer contract and defines an O2-language
+projection. When O2Jam clients and loaders do not agree on application lifecycle behaviour, the
+native lazer behaviour is authoritative; pause and resume are the primary example.
+
+Compatibility patches may correct a generic host assumption when it would hide or misrepresent an
+O2Jam distinction. They remain scoped to O2Lazer and reuse native controls, animation, layout and
+localisation so the ruleset keeps an independent identity without becoming a separate application
+inside lazer. The detailed precedence and patch constraints are recorded in the
+[architecture document](clean-rewrite-architecture.md#design-intent-and-decision-precedence).
+
 ## Position and judgement
 
 One full measure is 192 O2Jam ticks. Judgement compares the current integrated chart position with
@@ -116,6 +130,12 @@ use Tempo for any custom-speed difference. Nightcore also retains mania's beat-s
 percussion overlay. Gameplay-triggered OJM keysounds receive these adjustments through a scoped
 drawable-ruleset dependency, independently of global effect volume and unrelated UI samples.
 
+Continuous BGM layers and discrete keysound events do not need the same DSP operation to implement
+this policy. Tracks apply Tempo to their continuous timeline. A keysound's onset follows the
+rate-adjusted O2Jam event clock; without Adjust Pitch its authored pitch and sample envelope are
+preserved, while Frequency changes both when pitch adjustment is requested. This is the intended
+event-sample contract and is not an audio desynchronisation by itself.
+
 ## Combo
 
 - Internal combo starts at `-1`; COOL and GOOD increment it by one.
@@ -186,6 +206,28 @@ that a broken Jam resets COOL value to 200. The rewrite therefore treats that ag
 CXO2 discrepancy rather than native behaviour. Score policy remains isolated so an original-client
 golden replay can still override it without changing judgement, HUD or presentation code.
 
+## Accuracy and rank
+
+Non-MS play supplies accuracy and letter rank because they are part of the common osu! score and
+results contract, even though the inspected O2Jam evidence does not define equivalent values.
+O2Lazer deliberately defines them in O2Jam terms rather than copying mania's judgement weights:
+
+```text
+accuracy = (200 * COOL + 100 * GOOD + 4 * BAD) / (200 * judged endpoints)
+```
+
+MISS contributes zero. Every tap, long-note head and long-note release is one endpoint. The result
+therefore measures the realised proportion of O2Jam's base judgement value after pill conversion,
+independently of Jam bonuses, combo, the remaining pill count and the raw score's `-10` MISS penalty.
+For example, one COOL and one GOOD produce 75% accuracy.
+
+The resulting value uses osu!'s common grade boundaries: X at 100%, S from 95%, A from 90%, B from
+80%, C from 70% and D below 70%; a failed play is F. These are intentionally O2Lazer compatibility
+metrics: osu! supplies the concepts and result presentation, while O2Jam supplies the values being
+measured. With Mania Score selected, both accuracy weights and rank calculation are instead delegated
+to the native mania score processor. Native rank-adjusting mods may decorate a passing grade with
+their ordinary osu! variant, such as XH or SH.
+
 ### Mod behaviour
 
 No Release disables release timing only while a long note is still held when its tail reaches the
@@ -216,9 +258,16 @@ eligibility policy independently of the gameplay score calculation:
 With Mania Score selected, any mod whose native mania `Ranked` property is false makes the
 combination ineligible. The selection is re-evaluated on mod/settings changes; stored scores use
 their own mod lists. Neither individual mod properties nor other rulesets' eligibility are changed.
-Mania Score remains registered for eligibility presentation and stored scores, but its selection
-UI is currently hidden using the native unimplemented-mod filter. Mania scoring and PP calculation
-are not implemented, and gameplay continues to use the O2Jam score model above.
+Mania Score is a visible Conversion mod. It converts O2Jam objects to native mania objects before
+difficulty mods run, then delegates judgement, scoring, combo, health, rank, result statistics,
+difficulty and performance calculation to mania. Its integrated OD and HP settings default to 7;
+unchanged defaults are ranked and edits follow mania's native unranked difficulty-adjust policy.
+Easy, Hard Rock and Classic require MS: selecting or carrying one into O2Lazer selects MS, removing
+MS removes those dependent mods, and removing only a dependent mod leaves MS selected.
+
+Using a mod for this complete scoring-profile switch is deliberate. It follows lazer's precedent of
+using Conversion mods such as Classic to expose a legacy rules interpretation while retaining one
+ruleset identity, library and native score/replay representation.
 
 The song-select button reuses osu!'s unranked badge. No Mod places it at the upper left above MODS,
 without widening the button; an ineligible nonempty combination places it at the upper right.

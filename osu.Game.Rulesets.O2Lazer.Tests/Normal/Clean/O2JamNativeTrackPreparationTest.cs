@@ -6,11 +6,15 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using ManagedBass;
+using ManagedBass.Mix;
 using NUnit.Framework;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Mixing;
 using osu.Framework.Audio.Sample;
 using osu.Framework.Audio.Track;
+using osu.Framework.Bindables;
+using osu.Framework.Graphics.Audio;
+using osu.Framework.Graphics.Containers;
 using osu.Framework.Development;
 using osu.Framework.Threading;
 using osu.Game.Audio;
@@ -60,6 +64,95 @@ public class O2JamNativeTrackPreparationTest
         });
         resources.Dispose();
         Bass.Free();
+    }
+
+    [Test]
+    public void DetachedGameplayKeySoundPausesAndResumesTheSameNativeChannel()
+    {
+        Assert.That(O2JamHitSampleLookupPatch.InstallOnce(), Is.True);
+        var samples = (ISampleStore)Activator.CreateInstance(typeof(Sample).Assembly.GetType("osu.Framework.Audio.Sample.SampleStore")!,
+            BindingFlags.Instance | BindingFlags.NonPublic, null, [resources, mixer], null)!;
+        var sampleManager = (AudioComponent)samples;
+        var paused = new BindableBool();
+        var adjustments = new O2JamHitSoundRateAdjustments();
+        adjustments.Configure([]);
+        adjustments.BindPlaybackDisabled(paused);
+        using var container = new AudioContainer<DrawableSample>();
+        adjustments.Bind(container);
+        try
+        {
+            var sample = samples.Get("o2jam/7");
+            onAudioThread(() =>
+            {
+                mixer.Update();
+                sampleManager.Update();
+            });
+            using var drawable = new DrawableSample(sample, disposeSampleOnDisposal: false);
+            container.Add(drawable);
+            var channel = drawable.GetChannel();
+            channel.Frequency.Value = 1.5;
+            onAudioThread(() =>
+            {
+                mixer.Update();
+                channel.Update();
+                channel.Play();
+                sampleManager.Update();
+                mixer.Update();
+                channel.Update();
+            });
+            container.Remove(drawable, false);
+
+            var channelHandle = (int)channel.GetType().GetField("channel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(channel)!;
+            var mixerHandle = (int)mixer.GetType().GetProperty("Handle")!.GetValue(mixer)!;
+            var buffer = new float[2048];
+            void render() => onAudioThread(() =>
+            {
+                sampleManager.Update();
+                mixer.Update();
+                channel.Update();
+                Assert.That(Bass.ChannelGetData(mixerHandle, buffer, buffer.Length * sizeof(float)), Is.GreaterThanOrEqualTo(0));
+            });
+
+            render();
+            var initialPosition = Bass.ChannelGetPosition(channelHandle);
+            Assert.That(initialPosition, Is.GreaterThan(0));
+            for (var i = 0; i < 3; i++)
+            {
+                paused.Value = true;
+                render();
+                Assert.That(BassMix.ChannelHasFlag(channelHandle, BassFlags.MixerChanPause), Is.True);
+                var pausedPosition = Bass.ChannelGetPosition(channelHandle);
+                Thread.Sleep(30);
+                render();
+                Assert.That(Bass.ChannelGetPosition(channelHandle), Is.EqualTo(pausedPosition));
+                Assert.That(channel.IsDisposed, Is.False);
+                Assert.That(channel.Playing, Is.True, "Zero-frequency suspension must not let the sample store reclaim a musical tail.");
+                paused.Value = false;
+                render();
+                Assert.That(BassMix.ChannelHasFlag(channelHandle, BassFlags.MixerChanPause), Is.False);
+                Assert.That(channel.AggregateFrequency.Value, Is.EqualTo(1.5), "Resume must preserve pitch/rate rather than multiply it twice.");
+                // This fixture uses a native non-decoding output mixer. Reading its buffer
+                // does not advance playback synchronously, even on the no-sound device.
+                var timeout = Stopwatch.StartNew();
+                while (Bass.ChannelGetPosition(channelHandle) <= pausedPosition && timeout.ElapsedMilliseconds < 500)
+                {
+                    Thread.Sleep(10);
+                    render();
+                }
+                Assert.That(Bass.ChannelGetPosition(channelHandle), Is.GreaterThan(pausedPosition));
+                Assert.That((int)channel.GetType().GetField("channel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(channel)!,
+                    Is.EqualTo(channelHandle), "Resume must keep the original voice rather than restart or replace it.");
+            }
+        }
+        finally
+        {
+            adjustments.UnbindAll();
+            onAudioThread(() =>
+            {
+                sampleManager.Dispose();
+                sampleManager.Update();
+            });
+        }
     }
 
     [Test]

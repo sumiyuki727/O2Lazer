@@ -21,6 +21,31 @@ The clean root ruleset derives directly from `Ruleset`, is not an `ILegacyRulese
 and input protocol. Pre-rewrite replay compatibility has been removed; this does not change the
 integer key bindings, ruleset identity, existing beatmap library or stored score records.
 
+## Design intent and decision precedence
+
+O2Lazer is designed as a first-class osu!lazer ruleset for O2Jam, rather than a separate O2Jam
+application embedded inside lazer. Its independent identity comes from the rules which define
+O2Jam play and from their accurate presentation; application-wide behaviour should continue to
+feel native to osu!lazer.
+
+Implementation decisions follow this precedence:
+
+1. Reliable O2Jam behaviour owns judgement, raw score, life, combo, Jam, pills, long-note endpoints
+   and OJM event semantics.
+2. When osu! requires a ruleset concept which O2Jam does not define, O2Lazer supplies an
+   O2Jam-language projection through the nearest mania/lazer contract. Non-MS accuracy and rank are
+   examples: osu! owns the result concepts, while O2Jam judgement values define their meaning.
+3. Application lifecycle and interaction behaviour with no consistent O2Jam authority follows
+   osu!lazer. Pause and resume use the native player contract for this reason.
+4. When a generic lazer assumption cannot express O2Jam correctly, a ruleset-scoped adapter or
+   compatibility patch may change that assumption while retaining native controls, layout,
+   animation, localisation and interaction conventions.
+
+This precedence intentionally separates gameplay independence from product consistency. Reusing a
+mania or lazer mechanism is preferred when its meaning is compatible; custom behaviour is reserved
+for an O2Jam distinction or a missing ruleset extension point. Reference clients remain evidence for
+O2Jam behaviour, but disagreement between loaders does not displace a coherent native lazer contract.
+
 ## Active modules and dependency boundaries
 
 `Core` and `Clean` are the only compiled source roots. `Clean` is the historical directory name
@@ -104,12 +129,19 @@ The native replay pipeline follows osu!mania's separation of responsibilities:
 - `Replays/O2JamFramedReplayInputHandler.cs` restores the frame state into the mania input stack.
 - `Replays/O2JamAutoGenerator.cs` supplies the exposed autoplay mod and the native editor/skin-editor contract.
 
-Only clean replay schema v5 is supported. Pre-rewrite frames, interim mania-frame conversion,
+Only clean replay schema v5 is supported and it is the frozen release contract. Pre-rewrite frames,
+interim mania-frame conversion,
 stable bitmask conversion, branch-decision payloads and filename-based beatmap guessing have been
 removed. The archive reader validates the schema version and frame data before creating a replay.
 Current recordings and imports require both replay schema v5 and an `o2lazer` ruleset marker.
 Unmarked test builds and pre-rewrite replay schemas are unsupported. Imports also require embedded
 chart hashes and a matching O2Jam beatmap.
+
+The incompatible formats were produced by prerelease test builds whose replay model was still
+changing. Testers were expected to lose those replays, and retaining several speculative readers
+would preserve immature state and filename heuristics in the release architecture. No further
+schema change is planned; future work treats v5 as persistent user data rather than another
+temporary migration input.
 
 The import patch does not claim foreign JSON/gzip envelopes, which BMSRuleset also uses. Unsupported
 old files fail the native import header check without creating a score. For stored O2Jam scores,
@@ -141,8 +173,15 @@ than a second stored rating. O2Lazer uses these storage boundaries as follows:
 | Legacy level metadata | No longer written; removed on refresh. Read-only compatibility recognises the old per-difficulty `o2lazer-o2jam-stars:1:<level / 10>` metadata tag, with invariant round-trip formatting. |
 | Mania cache version | `o2lazer-mania-version:1:<native algorithm version>` metadata tag; the first version covers our projection. |
 | Native mania max combo | `o2lazer-mania-max-combo:1:<difficulty cache version>:<combo>` metadata tag; avoids decoding hold durations when MS needs difficulty attributes. |
-| Main star badge | Without MS it displays only `Lv.N`, uses `level / 10` for its colour, and gives neighbouring difficulty markers and the results ruleset icon their respective level colours; MS restores the native star glyph, mania-star value and colour. Set spreads also switch from EX/NX/HX order to native star order. |
+| Main star badge | Without MS it displays only `Lv.N`, uses `level / 10` for its colour, and gives neighbouring difficulty markers and the results ruleset icon their respective level colours; MS restores the native star glyph, mania-star value and colour. Set spreads also switch from level order to native star order. |
 | Mania stars attribute | Uses the asynchronous selected-mod mania result in song select; positioned between o2ma and O2Jam level. |
+
+The two scales do not compete for one uncontrolled display value. O2Lazer's guarded presentation,
+filter, sort, group and results adapters explicitly select the visible scale for the active gameplay
+profile: non-MS uses Level and level ordering where O2 presentation is intended, while MS restores
+native stars and star ordering. The reused range control stores separate Level and star ranges across
+profile changes. Native `stars` queries and the explicitly native global difficulty operation continue
+to mean mania stars in both profiles.
 
 `O2JamImportPlanner` uses the existing `OjnBeatmapFactory` to resolve seven-column note and hold
 times, then `O2JamManiaStarRating` projects only those objects into a plain native `ManiaBeatmap`.
@@ -163,13 +202,13 @@ mods are not applied twice. Missing, invalid or outdated baseline values can be 
 the source without relying on the import settings UI. Without MS, O2Jam combo remains based on
 note/hold endpoints; MS uses native mania hold children and duration-based maximum combo.
 
-`O2JamStarRatingDisplayPatch` replaces one difficulty lookup only inside osu!'s display-bindable
-update path. Baseline lookups remain metadata-only, while DT, NC, HT, DC, configured rates and
-chart-transform mods return to the native difficulty cache. The adapter leaves native scheduling,
-mod tracking, cancellation and invalidation intact,
-and forwards other rulesets to the original lookup. Direct difficulty calculations and all native
-search/sort code remain untouched. A second, validated adapter replaces the difficulty-icon
-constructors in both native results panel layouts. Local expanded results retain
+`O2JamDifficultyCachePatch` replaces one difficulty lookup only inside osu!'s display-bindable
+update path. Its bindables always contain mania stars: baseline lookups remain metadata-only, while
+DT, NC, HT, DC, configured rates and chart-transform mods return to the native difficulty cache.
+The adapter leaves native scheduling, mod tracking, cancellation and invalidation intact and
+forwards other rulesets to the original lookup. Direct difficulty calculations and all native
+search/sort code remain untouched. `O2JamStarRatingDisplayPatch` separately replaces the
+difficulty-icon constructors in both native results panel layouts. Local expanded results retain
 the native calculation for the score's recorded mods and give the icon the same value; unavailable
 scores and the contracted fallback use their stored baseline. Neither adapter changes stored
 ratings or PP calculation. The public song-select attribute provider reads stored mania stars
@@ -229,8 +268,10 @@ remain outside the transform.
 
 Wind Up, Wind Down and Adaptive Speed inherit the native live-rate implementations. The gameplay
 clock receives their native track adjustments, while O2Jam visual compensation and endpoint
-keysounds bind directly to the same `SpeedChange`. Their Adjust Pitch bindable selects Frequency
-or Tempo for both BGM and player-triggered OJM sounds. Muted inherits native combo-driven volume,
+keysounds bind directly to the same `SpeedChange`. Continuous tracks use Frequency or Tempo according
+to Adjust Pitch. Event-sample onsets follow the same rate-adjusted clock; their channels use Frequency
+when a pitch change is requested and otherwise preserve the authored sample pitch and envelope. Muted
+inherits native combo-driven volume,
 metronome, hitsound and score-processor behaviour; the working beatmap track and drawable audio
 containers remain the native application boundaries. Exact-type score multiplier entries retain
 mania's 0.5 value for WU, WD and AS.
@@ -238,7 +279,7 @@ mania's 0.5 value for WU, WD and AS.
 Rate mods use the native `IApplicableToTrack` path for preview and gameplay BGM. Preview background
 layers and automatic keysounds already bind to `O2JamPreviewTrack`, including recreated layers after
 a seek. Player-triggered tap and LN endpoint sounds bind to `O2JamHitSoundRateAdjustments`, cached only
-inside their `O2JamDrawableRuleset`. The adapter mirrors native Frequency/Tempo policy and live settings
+inside their `O2JamDrawableRuleset`. The adapter mirrors native pitch policy and live settings
 without applying rate mods to the entire drawable audio tree, so Nightcore percussion and unrelated
 sounds stay on their native path. Visual time range binds directly to `SpeedChange`; this avoids applying
 the native single-track audio helper to a second target while preserving mania's scroll compensation.
@@ -265,6 +306,11 @@ MS ordering and formulas through `ManiaScoreProcessor`, the difficulty projectio
 `ManiaDifficultyCalculator`, and performance inherits `ManiaPerformanceCalculator`. Results and
 replays retain the selected MS settings. OD and HP are integrated into MS with a stable default of 7;
 unchanged values are ranked and adjusted values use native DA's unranked policy.
+
+MS changes the complete scoring profile, but representing that choice as a Conversion mod is
+deliberate. lazer already uses mods such as Classic to expose a legacy rules interpretation without
+creating a second ruleset identity. Keeping MS in the same native selection, score and replay
+contract makes the alternative explicit and comparable while preserving one O2Lazer library.
 Easy, Hard Rock and Classic implement one domain marker consumed by the central dependency policy.
 The native selection UI renders them disabled without MS, forced selection adds MS, and removing MS
 removes all three. A ruleset-switch adapter runs after native acronym conversion and commits MS to the
@@ -468,6 +514,11 @@ native editors also reject creating or switching to O2Lazer difficulties before 
 database writes. Blocked shortcuts/main-menu actions show a localised notification. This does
 not affect other rulesets' editors or the independent gameplay skin editor.
 
+This is a deliberate maintenance boundary rather than a temporary missing screen. A lossless OJN/OJM
+editor would require broad patches across private editor creation, conversion, timing, sample and
+persistence paths. Disabling entry at the narrow native boundaries protects imported source data and
+avoids a second editor implementation whose patch surface would exceed the rest of the ruleset.
+
 ## Song-select metadata and search
 
 `Clean/SongSelect/O2JamBeatmapAttributes` supplies the public
@@ -476,22 +527,34 @@ imported o2ma identifier, mania stars, then the native O2Jam level. The identifi
 the level bar uses 150 as its maximum and lets osu!'s renderer clamp overflow without changing
 the displayed level. Labels and acronyms use the bilingual `O2LazerStrings` resources.
 `Clean/SongSelect/O2JamStarRatingDisplayPatch` feeds the title wedge's asynchronous selected-mod
-difficulty back into its SR attribute after calculation. It tracks which beatmap owns the current
-native bindable. A missing baseline re-enters osu!'s native asynchronous difficulty cache, while
-the title wedge keeps its previous stable statistics instead of presenting the `-1` uncalculated
-sentinel. The first valid attribute update after a beatmap or ruleset rebind immediately completes
-only that equal-value transition, preventing an invalid intermediate value from leaving a false
-adjustment colour. Subsequent mod changes retain the native adjusted bar and animation.
-`Clean/SongSelect/O2JamStarRatingPresentationPatch`
-uses only `Lv.N` plus the native colour at `level / 10` for non-MS star pills, applies the same
+mania difficulty back into its SR attribute after calculation. The presentation adapter records
+which beatmap owns that raw native bindable, so the SR bar never reads the level colour target. A
+missing baseline re-enters osu!'s native asynchronous difficulty cache, while the title wedge keeps
+its previous stable statistics instead of presenting the `-1` uncalculated sentinel. Subsequent mod
+changes retain the native adjusted bar and animation.
+`Clean/SongSelect/O2JamStarRatingPresentationPatch` and
+`Clean/SongSelect/O2JamDifficultyColourBinding` use only `Lv.N` plus the native colour at
+`level / 10` for non-MS star pills, apply the same
 per-chart level colours to neighbouring difficulty markers and results ruleset icons, and restores
 the native star glyph, mania-star value and colour under MS. It also makes the title wedge choose
 its statistics accent from the level scale, while the SR attribute retains osu!'s native base-versus-
 adjusted visual. Level text uses proportional Torus with its natural character spacing and shifts
 left by half of the native grid's retained three-pixel icon spacer; MS restores the original
 fixed-width numeric font, negative spacing and position. Both native set spread controls bind to the selected mods and rebuild immediately:
-non-MS O2Jam difficulties use EX, NX, HX order and level colours; MS uses stored mania stars and
-native star ordering. `Clean/UI/O2JamModSelectAttributesPatch` suppresses
+non-MS O2Jam difficulties follow their charted level order and level colours, with the EX/NX/HX letter
+only breaking ties between equal levels; MS uses stored mania stars and native star ordering. The set
+spread's presentation state is created during its load rather than its load completion, because the
+panel already renders the row when it assigns its beatmap set, which happens in between; creating the
+state later would show one star-coloured frame before the level colours. Each dynamic native display
+receives one stable colour-only bindable. It starts synchronously at the chart's level colour before a
+pooled panel binds to it, ignores later mania-SR cache updates while level presentation is active, and
+switches that same bindable back to raw mania stars under MS. This leaves colour interpolation to
+`StarRatingDisplay` and prevents a second correction during scrolling. The `level / 10` value never
+becomes visible text, stored difficulty, SR statistics, search input or sort input. Both directions use
+the native colour spectrum, including saturation to black for high levels.
+The carousel's separate native star counter continues to receive raw mania SR; only its accent
+colour follows the level-coloured pill, so `level / 10` is never exposed as a star count.
+`Clean/UI/O2JamModSelectAttributesPatch` suppresses
 o2ma, SR and level on the right side of the O2Lazer mod-select footer, leaving its star pill and BPM
 as well as every other ruleset unchanged.
 
@@ -582,6 +645,12 @@ framework Track contract. In particular, Stop must publish a stopped source cloc
 otherwise DecouplingFramedClock can observe the old running state and resume its own clock during a
 pause. A stopped track may preload resources but does not consume scheduled audio events.
 
+Pause and resume deliberately follow osu!lazer's player lifecycle. O2Jam clients and loaders do not
+provide one consistent behaviour to preserve, while an osu! ruleset must obey the host's suspension,
+resume, replay and screen-transition expectations. O2Lazer therefore preserves the current chart
+position, stops scheduled consumption, restores every still-active background layer and lets native
+player state decide when playback resumes.
+
 Both BGM and key samples follow universal and music volume. Their stores are deliberately attached
 to the music mixer rather than the global sample/effect-volume tree, satisfying the ruleset contract
 that neither background nor key samples are affected by effect volume. Gameplay disables the
@@ -605,15 +674,24 @@ and check both its working beatmap and O2Lazer's, as well as overlapping icon/st
 
 ## Harmony policy
 
-Harmony is not part of the domain or gameplay design. If osu!lazer exposes no public hook for an
-O2Jam WorkingBeatmap or event-based Song Select preview, a compatibility patch may be added to the
-relevant adapter module only when all of the following are true:
+Harmony is not part of the domain or gameplay rules, but the patch layer is an intentional part of
+presenting O2Jam as an independent osu! mode. It corrects generic host assumptions which would
+otherwise hide or mislabel O2Jam concepts, while reusing lazer's existing controls and design
+language instead of replacing them with a parallel interface. If osu!lazer exposes no public hook
+for the required behaviour, a compatibility patch may be added to the relevant adapter module only
+when all of the following are true:
 
 1. the target object is confirmed to represent an `o2lazer` beatmap;
 2. the original method runs unchanged for every other ruleset;
 3. failure disables only the O2Jam integration feature;
 4. a focused integration test covers the scope guard;
 5. the patch has a unique Harmony ID that does not overlap BmsRuleset.
+
+The current patch set follows these constraints and has no known case of taking ownership of an
+unrelated ruleset or replacing a complete native screen. Private host APIs remain a maintenance risk,
+so target validation and focused loaded-control tests are reviewed with every supported lazer update.
+When lazer gains a suitable public extension point, the corresponding patch should be reduced or
+removed without changing the visible O2Lazer contract.
 
 `O2JamCompatibilityPatches` is the single registration and capability boundary. The ruleset
 constructor invokes only this registry; each feature still validates and rolls back its own private

@@ -4,6 +4,17 @@ An osu!lazer ruleset for playing native O2Jam libraries directly from `.ojn` and
 
 [简体中文](./README.zh-CN.md)
 
+## Design
+
+O2Lazer treats confirmed O2Jam judgement, score, life, combo, Jam, pill, long-note and OJM event
+behaviour as gameplay truth while participating in osu!lazer as a native ruleset. When osu! needs a
+concept which O2Jam does not define, the ruleset supplies an O2Jam-language result through the
+closest mania/lazer contract; non-MS accuracy and letter rank follow this policy. Application
+lifecycle behaviour without a consistent O2Jam authority, including pause and resume, follows
+lazer. Ruleset-scoped compatibility patches correct host assumptions only where required to expose
+O2Jam's identity, while retaining native controls, layouts, animation and interaction conventions.
+See the [architecture decision precedence](docs/clean-rewrite-architecture.md#design-intent-and-decision-precedence).
+
 ## Features
 
 - Reads classic and newly encrypted OJN files with EX, NX, and HX difficulties.
@@ -16,13 +27,14 @@ An osu!lazer ruleset for playing native O2Jam libraries directly from `.ojn` and
 - Keeps score displays separate for EX, NX, and HX difficulties.
 - Automatically distinguishes CP949, GBK/CP936 and UTF-8 metadata using field validation and conservative folder hints; the OJN version alone is not an encoding marker.
 - Uses O2Jam-style COOL/GOOD/BAD/MISS judgement in chart-position space, including BPM changes within a song, raw score, life, Jam, pills and independently judged LN endpoints.
-- Song-select and local expanded-results star badges use native mania difficulty for the selected or recorded mods. Without Mania Score, the badge displays only `Lv.N`; the badge, neighbouring set markers and results ruleset icon take their colours from `level / 10`, and set difficulties are ordered EX, NX, then HX. Mania Score immediately restores native star glyphs, mania-star values, colours and star ordering. Baseline switches read versioned Realm values without chart I/O; only rate or structural mods recalculate. Native StarRating also supplies star searches and global difficulty sorting. New imports store no level-divided-by-ten tags; Refresh beatmaps removes those tags from existing charts.
+- Defines non-MS accuracy from O2Jam base judgement values (`COOL=200`, `GOOD=100`, `BAD=4`, `MISS=0`) and maps it to osu!'s common letter-grade boundaries. These compatibility metrics do not replace the raw O2Jam score; Mania Score delegates both values to native mania instead.
+- Song-select and local expanded-results star badges use native mania difficulty for the selected or recorded mods. Without Mania Score, the badge displays only `Lv.N`; the badge, neighbouring set markers and results ruleset icon take their colours from `level / 10`, and set difficulties are ordered by level with EX/NX/HX only breaking ties. Mania Score immediately restores native star glyphs, mania-star values, colours and star ordering. Baseline switches read versioned Realm values without chart I/O; only rate or structural mods recalculate. Native StarRating also supplies star searches and global difficulty sorting. New imports store no level-divided-by-ten tags; Refresh beatmaps removes those tags from existing charts.
 - Disables the native beatmap editor for O2Lazer to protect imported charts; the skin editor remains available. OJM keysounds are independent of the native beatmap hitsounds switch and global effect volume.
 - Keeps o2ma, SR and level visible in song select while omitting all three from the right side of the O2Lazer mod-select footer. Its star badge and BPM display remain available.
 - Provides a persistent library path and an optimised incremental update that keeps unchanged charts out of parse/write batches while still handling changed and removed sources.
 - Reuses osu!mania's native playfield and stable-skin presentation while keeping O2Jam judgement and scoring state independent.
 - Supports clean-format replay recording/playback and O2Jam-specific HUD/playfield skin-editor layers.
-- Includes native autoplay and mania-compatible No Fail, Half Time, Daycore, No Release, Sudden Death, Perfect, Double Time, Nightcore, Fade In, Hidden, Cover, Flashlight, Accuracy Challenge, Random, Mirror, Invert, Constant Speed, Wind Up, Wind Down, Muted and Adaptive Speed. Names, English descriptions, settings, icons, ordering, score multipliers and ranking states follow mania. O2-specific adapters preserve exact note/hold objects, chart-position judgement and OJM audio while reusing native mod behaviour. HT/DT preserve BGM and keysound pitch by default; their Adjust Pitch setting affects both. DC/NC apply mania's pitch policy to both audio paths, and NC retains the native beat overlay. Dynamic rate mods also keep visual scrolling and player-triggered keysounds synchronised with their live speed. Constant Speed replaces the former fixed-scroll-speed setting without changing judgement timing. Mania Score converts gameplay to native mania objects and delegates scoring, combo, ranking, health, result statistics and PP to mania. Its integrated OD/HP adjustment defaults to 7; unchanged settings remain performance-eligible, while edits use mania's unranked policy. Easy, Hard Rock and Classic are shown as unavailable until MS is selected; forcing or carrying one into O2Lazer selects MS, disabling MS removes them, and disabling the dependent mod leaves MS selected. Without Mania Score, all selections, including No Mod, are ineligible for PP.
+- Includes native autoplay and mania-compatible No Fail, Easy, Half Time, Daycore, No Release, Sudden Death, Perfect, Hard Rock, Double Time, Nightcore, Fade In, Hidden, Cover, Flashlight, Accuracy Challenge, Random, Mirror, Mania Score, Classic, Invert, Constant Speed, Wind Up, Wind Down, Muted and Adaptive Speed. Names, English descriptions, settings, icons, ordering, score multipliers and ranking states follow mania. O2-specific adapters preserve exact note/hold objects, chart-position judgement and OJM audio while reusing native mod behaviour. HT/DT preserve BGM and keysound pitch by default; their Adjust Pitch setting affects both. DC/NC apply mania's pitch policy to both audio paths, and NC retains the native beat overlay. Dynamic rate mods also keep visual scrolling and player-triggered keysounds synchronised with their live speed. Constant Speed replaces the former fixed-scroll-speed setting without changing judgement timing. Mania Score converts gameplay to native mania objects and delegates scoring, combo, ranking, health, result statistics and PP to mania. Its integrated OD/HP adjustment defaults to 7; unchanged settings remain performance-eligible, while edits use mania's unranked policy. Easy, Hard Rock and Classic are shown as unavailable until MS is selected; forcing or carrying one into O2Lazer selects MS, disabling MS removes them, and disabling the dependent mod leaves MS selected. Without Mania Score, all selections, including No Mod, are ineligible for PP.
 
 The default key bindings are `S D F Space J K L`.
 
@@ -33,7 +45,8 @@ The current clean-rewrite prerelease tag is **1.0.0-test**; its persisted assemb
 `osu.Game.Rulesets.O2Lazer.dll`, close lazer, replace the DLL in its data directory's `rulesets`
 folder, and restart. Keep DLL backups outside `rulesets`; do not install two O2Lazer versions there.
 The persisted ruleset identity is unchanged, so existing imports and score associations are retained.
-Pre-rewrite replays are not supported; existing score records are not deleted.
+Pre-rewrite replays came from test builds with an immature schema and are not supported; existing
+score records are not deleted. Clean replay schema v5 is the frozen release contract.
 
 ## Importing a library
 

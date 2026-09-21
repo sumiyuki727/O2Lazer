@@ -6,16 +6,22 @@ version remains `1.0.0` to preserve ruleset identity compatibility.
 
 ## Highlights
 
-- Adds mania-compatible No Fail, Half Time, Daycore, No Release, Sudden Death, Perfect,
-  Double Time, Nightcore, Fade In, Hidden, Cover, Flashlight, Accuracy Challenge, Random,
-  Mirror, Invert, Constant Speed, Wind Up, Wind Down, Muted and Adaptive Speed mods.
+- Adds mania-compatible No Fail, Easy, Half Time, Daycore, No Release, Sudden Death, Perfect,
+  Hard Rock, Double Time, Nightcore, Fade In, Hidden, Cover, Flashlight, Accuracy Challenge,
+  Random, Mirror, Mania Score, Classic, Invert, Constant Speed, Wind Up, Wind Down, Muted and
+  Adaptive Speed mods.
 - Preserves O2Jam chart-position judgement, exact note/hold types and OJM audio routing while
   reusing native mania mod presentation and behaviour where compatible.
 - Applies HT/DT pitch settings to BGM and player keysounds, applies DC/NC pitch policy to both,
   and keeps dynamic rate-mod audio and visual scrolling on the same live speed.
 - Makes all O2Jam score combinations ineligible for PP without Mania Score. With Mania Score,
-  eligibility follows each selected mania mod's native ranking state. Mania Score remains hidden
-  until its scoring and performance calculation are implemented.
+  eligibility follows each selected mania mod's native ranking state. Mania Score is a visible
+  Conversion mod which delegates judgement, scoring, combo, health, rank, difficulty, result
+  statistics and PP to native mania. Its integrated OD/HP settings default to 7; Easy, Hard Rock
+  and Classic require MS and participate in the same selection policy.
+- Defines non-MS accuracy from O2Jam base judgement values and presents the result with osu!'s
+  common letter-grade boundaries, providing native score/result fields without replacing O2Jam
+  raw score, Jam, pills or life rules.
 - Adds the O2Lazer No Mod unranked-badge position and transition paths while retaining osu!'s
   native animations for all native destinations.
 - Stores native mania stars separately from O2Jam level stars. Song select gains O2Jam Level sort
@@ -34,19 +40,22 @@ version remains `1.0.0` to preserve ruleset identity compatibility.
    O2Jam/mania star metadata without replacing beatmap IDs or score associations.
 
 The original `.ojn` and matching `.ojm`, `.omc` or `.m30` files must remain available. Replay data
-from the pre-rewrite format is not supported, but existing score records are retained.
+from the pre-rewrite test format is not supported, but existing score records are retained. Those
+test builds used an immature replay model; omitting speculative compatibility readers keeps the
+release implementation small. Clean replay schema v5 is now frozen and has no planned format change.
 
 ## Known limitations
 
-- Mania Score is a hidden placeholder; mania scoring and PP calculation are not implemented.
-- Easy, Hard Rock and Classic are deferred until Mania Score is implemented.
-- The sample backend exposes Tempo but cannot time-stretch small sample channels. Pitch-preserving
-  rate mods therefore keep small keysounds at their original pitch and duration while their trigger
-  timing follows the gameplay clock.
+- Dedicated Jam and pill HUD components are not yet implemented; the gameplay state and score
+  projections already retain their complete values.
+- The native beatmap editor is intentionally unavailable. Lossless OJN/OJM editing would require a
+  much broader private patch surface than the maintained playback and library integration.
+- Imported charts continue to reference their external OJN/OJM audio archive, so the source library
+  must remain available.
 - This is a test release. Back up the lazer database before testing library migration or refresh
   behaviour with irreplaceable data.
 
-See the [behaviour specification](https://github.com/sumiyuki727/O2Lazer/blob/1.0.0-test/docs/o2jam-behaviour-spec.md),
-[architecture notes](https://github.com/sumiyuki727/O2Lazer/blob/1.0.0-test/docs/clean-rewrite-architecture.md) and
-[rate-mod audio notes](https://github.com/sumiyuki727/O2Lazer/blob/1.0.0-test/docs/rate-mod-audio-readiness.md)
+See the [behaviour specification](o2jam-behaviour-spec.md),
+[architecture notes](clean-rewrite-architecture.md) and
+[rate-mod audio notes](rate-mod-audio-readiness.md)
 for implementation boundaries and evidence.
