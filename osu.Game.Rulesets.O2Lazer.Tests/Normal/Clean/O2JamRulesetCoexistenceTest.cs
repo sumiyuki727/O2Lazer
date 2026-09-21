@@ -98,7 +98,7 @@ public partial class O2JamRulesetCoexistenceTest
 
                 var sourceDirectory = storage.GetFullPath("o2jam-library");
                 Directory.CreateDirectory(sourceDirectory);
-                File.WriteAllBytes(Path.Combine(sourceDirectory, "chart.ojn"), OjnReaderTest.CreateChart());
+                File.WriteAllBytes(Path.Combine(sourceDirectory, "chart.ojn"), OjnTestData.CreateChart());
                 var o2Set = new BeatmapSetInfo();
                 var o2Beatmap = new BeatmapInfo(o2Lazer.RulesetInfo)
                 {

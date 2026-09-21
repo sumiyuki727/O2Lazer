@@ -249,7 +249,7 @@ public class OjnMetadataEncodingTest
 
     private static byte[] chart(byte[] title)
     {
-        var bytes = OjnReaderTest.CreateChart();
+        var bytes = OjnTestData.CreateChart();
         BinaryPrimitives.WriteSingleLittleEndian(bytes.AsSpan(8, 4), 2.9f);
         setField(bytes, 108, 64, title);
         return bytes;

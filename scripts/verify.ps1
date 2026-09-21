@@ -34,6 +34,22 @@ if ($NoBuild) {
 
 Push-Location $repositoryRoot
 try {
+    $formatArguments = @(
+        'test',
+        (Join-Path $repositoryRoot 'O2Jam.Formats.Tests/O2Jam.Formats.Tests.csproj'),
+        '-c', $Configuration,
+        '--filter', 'FullyQualifiedName~.Normal.',
+        '--logger', 'trx;LogFileName=formats.trx',
+        '--results-directory', (Join-Path $repositoryRoot '.artifacts/test-results')
+    )
+    if ($NoBuild) {
+        $formatArguments += '--no-build'
+    }
+    & $DotNet @formatArguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Format verification failed (exit code $LASTEXITCODE)."
+    }
+
     & $DotNet @testArguments
     if ($LASTEXITCODE -ne 0) {
         throw "Verification failed (exit code $LASTEXITCODE)."

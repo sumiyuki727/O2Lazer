@@ -16,7 +16,7 @@ public class OjnDocumentCacheTest
 
         try
         {
-            File.WriteAllBytes(path, OjnReaderTest.CreateChart());
+            File.WriteAllBytes(path, OjnTestData.CreateChart());
             var first = OjnDocumentCache.Shared.Get(path, O2JamDifficulty.EX);
             var reused = OjnDocumentCache.Shared.Get(path, O2JamDifficulty.EX);
 

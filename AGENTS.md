@@ -7,6 +7,8 @@
 - Treat sibling checkouts as read-only references. Never edit, format, stage, commit, or otherwise modify files in `..\osu`, `..\osu-framework`, or `..\rulesets`.
 - Make all implementation changes in this repository. The old BMS-derived project is retained as a read-only reference at `D:\o2jam-lazer`.
 
+- The pre-refactor worktree at `D:\o2lazer-clean-rewrite` is a read-only implementation reference. Make refactor changes in `D:\o2lazer` on `master`.
+
 ## Ruleset Rules
 
 - Background Sample and KeySound volumes should NOT be affected by the effect volume of global volume settings.

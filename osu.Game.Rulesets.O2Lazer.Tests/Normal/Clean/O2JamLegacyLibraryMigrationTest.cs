@@ -95,7 +95,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                 var sourceDirectory = storage.GetFullPath("refresh-library");
                 Directory.CreateDirectory(sourceDirectory);
                 var sourcePath = Path.Combine(sourceDirectory, "chart.ojn");
-                File.WriteAllBytes(sourcePath, OjnReaderTest.CreateChart());
+                File.WriteAllBytes(sourcePath, OjnTestData.CreateChart());
 
                 realm.Write(database =>
                 {
@@ -201,7 +201,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                 Directory.CreateDirectory(movedDirectory);
                 var originalPath = Path.Combine(originalDirectory, "chart.ojn");
                 var movedPath = Path.Combine(movedDirectory, "chart.ojn");
-                File.WriteAllBytes(originalPath, OjnReaderTest.CreateChart());
+                File.WriteAllBytes(originalPath, OjnTestData.CreateChart());
 
                 realm.Write(database =>
                 {
@@ -260,7 +260,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                 var sourceDirectory = storage.GetFullPath("external-library");
                 Directory.CreateDirectory(sourceDirectory);
                 var sourcePath = Path.Combine(sourceDirectory, "chart.ojn");
-                File.WriteAllBytes(sourcePath, OjnReaderTest.CreateChart());
+                File.WriteAllBytes(sourcePath, OjnTestData.CreateChart());
                 var plan = new O2JamImportPlanner().Create(sourcePath);
                 var originalBeatmapId = Guid.NewGuid();
                 var originalScoreId = Guid.NewGuid();

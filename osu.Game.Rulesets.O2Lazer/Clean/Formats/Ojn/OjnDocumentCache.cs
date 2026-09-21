@@ -89,7 +89,7 @@ internal sealed class OjnDocumentCache
     private static OjnDocument read(string path, O2JamDifficulty difficulty)
     {
         using var stream = File.OpenRead(path);
-        return new OjnReader(OjnMetadataEncoding.Automatic, () => OjnDirectoryEncoding.Shared.GetForFile(path)).ReadChart(stream, difficulty);
+        return new OjnReader(OjnMetadataEncoding.Automatic, () => OjnDirectoryEncoding.Shared.GetForFile(path)).ReadChart(stream, difficulty.ToFormat());
     }
 
     private readonly record struct CacheKey(string Path, long Length, long LastWriteTicks, O2JamDifficulty Difficulty);

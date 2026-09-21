@@ -26,7 +26,7 @@ public class O2JamImportPlannerTest
     public void CreatesStablePlanWithoutDatabaseDependency()
     {
         var path = Path.Combine(directory, "chart.ojn");
-        File.WriteAllBytes(path, OjnReaderTest.CreateChart());
+        File.WriteAllBytes(path, OjnTestData.CreateChart());
 
         var planner = new O2JamImportPlanner();
         var first = planner.Create(path);

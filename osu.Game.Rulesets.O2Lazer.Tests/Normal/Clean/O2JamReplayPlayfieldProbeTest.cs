@@ -57,7 +57,7 @@ public partial class O2JamReplayPlayfieldProbeTest
         Assert.That(metadata.Statistics, Is.Not.Empty);
         Assert.That(O2JamReplayArchive.TryReadScore(new ScoreInfo { Statistics = metadata.Statistics }, replayBytes, out var score), Is.True);
         using var source = File.OpenRead(Path.Combine(corpusPath!, "ESong", "o2ma387.ojn"));
-        var document = new OjnReader().ReadChart(source, O2JamDifficulty.HX);
+        var document = new OjnReader().ReadChart(source, OjnDifficulty.HX);
         var beatmap = new OjnBeatmapFactory().Create(document, O2JamDifficulty.HX);
         foreach (var note in beatmap.HitObjects)
         {

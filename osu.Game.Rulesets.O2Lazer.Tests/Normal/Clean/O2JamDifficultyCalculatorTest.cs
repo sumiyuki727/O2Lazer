@@ -90,7 +90,7 @@ public class O2JamDifficultyCalculatorTest
     public void LegacyValuesAndNativeVersionResetsRecalculateMania(bool reset)
     {
         var ruleset = new O2LazerRuleset();
-        var beatmap = new OjnBeatmapFactory().Create(new OjnReader().Read(OjnReaderTest.CreateChart()), O2JamDifficulty.EX);
+        var beatmap = new OjnBeatmapFactory().Create(new OjnReader().Read(OjnTestData.CreateChart()), O2JamDifficulty.EX);
         beatmap.HitObjects.Add(new O2JamNote { StartTime = 1500, Column = 1 });
         beatmap.HitObjects.Add(new O2JamNote { StartTime = 1750, Column = 2 });
         var expected = O2JamManiaStarRating.Calculate(beatmap);
@@ -122,7 +122,7 @@ public class O2JamDifficultyCalculatorTest
     public void RateModsCalculateManiaStarsAndRestoreTheStoredBaseline()
     {
         var ruleset = new O2LazerRuleset();
-        var beatmap = new OjnBeatmapFactory().Create(new OjnReader().Read(OjnReaderTest.CreateChart()), O2JamDifficulty.EX);
+        var beatmap = new OjnBeatmapFactory().Create(new OjnReader().Read(OjnTestData.CreateChart()), O2JamDifficulty.EX);
         beatmap.HitObjects.Add(new O2JamNote { StartTime = 250, Column = 1 });
         beatmap.HitObjects.Add(new O2JamNote { StartTime = 500, Column = 2 });
         beatmap.HitObjects.Add(new O2JamNote { StartTime = 750, Column = 3 });

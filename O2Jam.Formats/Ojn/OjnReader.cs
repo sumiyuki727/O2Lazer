@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using osu.Game.Rulesets.O2Lazer.Core;
 
 namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
 
@@ -68,7 +67,7 @@ public sealed class OjnReader
     /// Song select already uses imported background resources, so decoding the other two charts and cover payloads
     /// here only delays preview startup.
     /// </summary>
-    public OjnDocument ReadChart(Stream stream, O2JamDifficulty difficulty)
+    public OjnDocument ReadChart(Stream stream, OjnDifficulty difficulty)
     {
         ArgumentNullException.ThrowIfNull(stream);
 
@@ -124,7 +123,7 @@ public sealed class OjnReader
         return new OjnDocument(header.Metadata, charts);
     }
 
-    private OjnDocument readChart(byte[] source, O2JamDifficulty difficulty)
+    private OjnDocument readChart(byte[] source, OjnDifficulty difficulty)
     {
         if (source.Length < headerSize)
             throw new InvalidDataException("The OJN header is truncated.");
@@ -198,7 +197,7 @@ public sealed class OjnReader
         var blockCount = header.BlockCounts[difficultyIndex];
 
         if (blockCount == 0 || offset == 0)
-            return new OjnChart((O2JamDifficulty)difficultyIndex, header.Metadata.Levels[difficultyIndex], [], [], [], 0);
+            return new OjnChart((OjnDifficulty)difficultyIndex, header.Metadata.Levels[difficultyIndex], [], [], [], 0);
         if (blockCount > maximumBlockCount)
             throw new InvalidDataException("The OJN block count is outside the supported range.");
         if (offset < headerSize || offset >= reader.BaseStream.Length)
@@ -207,7 +206,7 @@ public sealed class OjnReader
         var blockEnd = findBlockEnd(header, difficultyIndex, reader.BaseStream.Length);
 
         reader.BaseStream.Position = offset;
-        var bpmEvents = new List<O2JamBpmEvent>();
+        var bpmEvents = new List<OjnBpmEvent>();
         var notes = new List<OjnNoteEvent>();
         var fractions = new SortedDictionary<int, double>();
         var measureCount = 0u;
@@ -243,7 +242,7 @@ public sealed class OjnReader
                             fractions[checked((int)measure + 1)] = value;
                     }
                     else if (value > 0)
-                        bpmEvents.Add(new O2JamBpmEvent(position, value));
+                        bpmEvents.Add(new OjnBpmEvent(position, value));
 
                     continue;
                 }
@@ -282,7 +281,7 @@ public sealed class OjnReader
         {
             Position = normalisedPosition(note.Position, fractions),
         });
-        return new OjnChart((O2JamDifficulty)difficultyIndex, header.Metadata.Levels[difficultyIndex],
+        return new OjnChart((OjnDifficulty)difficultyIndex, header.Metadata.Levels[difficultyIndex],
             normalisedBpmEvents.OrderBy(evt => evt.Position).ToArray(), normaliseLongNotes(normalisedNotes.ToList()), measureFractions, measureCount);
     }
 

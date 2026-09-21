@@ -22,7 +22,7 @@
         <UseLocalOsuBinary Condition="'$(UseLocalOsu)' == 'true'">true</UseLocalOsuBinary>
         <OsuManiaAssemblyPath Condition="'$(UseLocalOsuBinary)' == 'true' and '$(OsuManiaAssemblyPath)' == '' and '$(OsuGameProjectPath)' != ''">$([System.IO.Path]::Combine($([System.IO.Path]::GetDirectoryName('$(OsuGameProjectPath)')), 'osu.Game.Rulesets.Mania.dll'))</OsuManiaAssemblyPath>
     </PropertyGroup>
-    <Target Name="ValidateO2LazerReferences" BeforeTargets="ResolveAssemblyReferences" Condition="'$(UseLocalOsuBinary)' == 'true'">
+    <Target Name="ValidateO2LazerReferences" BeforeTargets="ResolveAssemblyReferences" Condition="'$(UseLocalOsuBinary)' == 'true' and '$(RequiresOsuReferences)' != 'false'">
         <PropertyGroup>
             <_O2LazerGameReferenceExtension>$([System.IO.Path]::GetExtension('$(OsuGameProjectPath)'))</_O2LazerGameReferenceExtension>
         </PropertyGroup>

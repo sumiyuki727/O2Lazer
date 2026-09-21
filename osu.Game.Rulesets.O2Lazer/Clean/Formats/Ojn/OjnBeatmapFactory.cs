@@ -11,17 +11,19 @@ namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
 
 public sealed class OjnBeatmapFactory
 {
+    public O2JamBeatmap Create(OjnDocument document, OjnDifficulty difficulty) => Create(document, difficulty.ToGameplay());
+
     public O2JamBeatmap Create(OjnDocument document, O2JamDifficulty difficulty)
     {
-        var chart = document.Charts.Single(candidate => candidate.Difficulty == difficulty);
-        var timingMap = new O2JamTimingMap(document.Metadata.InitialBpm, chart.BpmEvents);
+        var chart = document.Charts.Single(candidate => candidate.Difficulty == difficulty.ToFormat());
+        var timingMap = new O2JamTimingMap(document.Metadata.InitialBpm, chart.BpmEvents.Select(change => change.ToGameplay()));
         var beatmap = new O2JamBeatmap(difficulty, timingMap)
         {
             Level = chart.Level,
         };
 
         beatmap.Difficulty.OverallDifficulty = System.Math.Clamp((int)chart.Level, 0, 10);
-        addTimingPoints(beatmap, document.Metadata.InitialBpm, chart.BpmEvents);
+        addTimingPoints(beatmap, document.Metadata.InitialBpm, chart.BpmEvents.Select(change => change.ToGameplay()));
         addMeasureLines(beatmap, chart);
 
         foreach (var note in chart.Notes)
@@ -73,7 +75,7 @@ public sealed class OjnBeatmapFactory
         return beatmap;
     }
 
-    private static void addTimingPoints(O2JamBeatmap beatmap, float initialBpm, IReadOnlyList<O2JamBpmEvent> events)
+    private static void addTimingPoints(O2JamBeatmap beatmap, float initialBpm, IEnumerable<O2JamBpmEvent> events)
     {
         beatmap.ControlPointInfo.Add(0, new TimingControlPoint { BeatLength = 60_000 / initialBpm });
 

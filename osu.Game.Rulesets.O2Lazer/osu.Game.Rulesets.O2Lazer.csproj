@@ -32,7 +32,7 @@
     <ItemGroup>
         <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.45" PrivateAssets="all" />
         <PackageReference Include="Lib.Harmony" Version="2.4.2" />
-        <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0"/>
+        <ProjectReference Include="../O2Jam.Formats/O2Jam.Formats.csproj" />
     </ItemGroup>
     <ItemGroup>
         <Compile Include="Core\**\*.cs" />
@@ -67,6 +67,9 @@
             <O2LazerRepackInternalizeExclude Include="^MonoMod\." />
             <O2LazerRepackInputAssemblies Include="$(TargetPath)" />
             <O2LazerRepackInputAssemblies Include="@(O2LazerHarmonyAssembly)" />
+            <!-- Embed the format module to retain the single-DLL ruleset deployment. -->
+            <O2LazerRepackInputAssemblies Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'O2Jam.Formats'" />
+            <O2LazerRepackInternalizeExclude Include="^osu\.Game\.Rulesets\.O2Lazer\.Formats\." />
         </ItemGroup>
         <Error Condition="'@(O2LazerHarmonyAssembly)' == ''" Text="Unable to locate 0Harmony.dll for the O2Lazer ruleset repack." />
         <ILRepack

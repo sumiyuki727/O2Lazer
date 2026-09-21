@@ -17,6 +17,7 @@
         <ProjectReference Include="..\osu.Game.Rulesets.O2Lazer\osu.Game.Rulesets.O2Lazer.csproj"/>
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="../tests/Fixtures/OjnTestData.cs" Link="Fixtures/OjnTestData.cs" />
         <Compile Include="Normal\Core\**\*.cs" />
         <Compile Include="Normal\Clean\**\*.cs" />
     </ItemGroup>
@@ -39,4 +40,11 @@
             <Private>true</Private>
         </Reference>
     </ItemGroup>
+    <!-- The ruleset embeds these types; reference that identity in host integration tests. -->
+    <Target Name="UseEmbeddedFormatTypes" BeforeTargets="CoreCompile">
+        <ItemGroup>
+            <ReferencePath Remove="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'O2Jam.Formats'" />
+            <ReferencePathWithRefAssemblies Remove="@(ReferencePathWithRefAssemblies)" Condition="'%(ReferencePathWithRefAssemblies.Filename)' == 'O2Jam.Formats'" />
+        </ItemGroup>
+    </Target>
 </Project>

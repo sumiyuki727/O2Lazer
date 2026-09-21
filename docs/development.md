@@ -54,6 +54,25 @@ project. `UseLocalOsu=false` retains the NuGet reference route for environments 
 `ppy.osu.Game` and `ppy.osu.Game.Rulesets.Mania` versions are available; do not substitute a different
 release simply to make restore succeed.
 
+## Independent format module
+
+`O2Jam.Formats` reads OJN and OJM/OMC/M30 without Game, Mania, framework,
+Realm, Harmony or gameplay-core references. No `OsuBinaryDirectory` is needed:
+
+```powershell
+dotnet test O2Jam.Formats.Tests/O2Jam.Formats.Tests.csproj -c Release `
+  --filter 'FullyQualifiedName~.Normal.'
+```
+
+The host references this project and embeds it into the delivered ruleset DLL.
+Do not install `O2Jam.Formats.dll` separately into the rulesets directory.
+Host integration tests compile against the embedded types; standalone format
+tests compile against the independent library. This avoids mixing two runtime
+identities for the same format types. The routine script runs both projects.
+
+See [the architecture refactor](architecture-refactor.md) for module boundaries
+and the distinction between decoded format data and the future gameplay input model.
+
 ## Routine verification
 
 ```powershell

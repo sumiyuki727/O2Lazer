@@ -23,7 +23,7 @@ public sealed class O2JamImportPlanner
                              .Where(chart => chart.Notes.Any(note => note.IsPlayable))
                              .Select(chart =>
                              {
-                                 var timingMap = new Core.O2JamTimingMap(document.Metadata.InitialBpm, chart.BpmEvents);
+                                 var timingMap = new Core.O2JamTimingMap(document.Metadata.InitialBpm, chart.BpmEvents.Select(change => change.ToGameplay()));
                                  var finalPosition = chart.Notes.Select(note => note.EndPosition ?? note.Position).DefaultIfEmpty(0).Max();
                                  var objectLength = timingMap.TimeAt(finalPosition) + 5000;
                                  var declaredLength = document.Metadata.Durations[(int)chart.Difficulty] * 1000d;
@@ -32,9 +32,9 @@ public sealed class O2JamImportPlanner
                                  var maniaAttributes = O2JamManiaStarRating.CalculateAttributes(beatmap, [], false);
 
                                  return new O2JamImportChart(
-                                     chart.Difficulty,
+                                     chart.Difficulty.ToGameplay(),
                                      chart.Level,
-                                     calculateDifficultyMd5(sourceData, chart.Difficulty),
+                                     calculateDifficultyMd5(sourceData, chart.Difficulty.ToGameplay()),
                                      Math.Max(objectLength, declaredLength),
                                      playable.Length,
                                      playable.Count(note => note.EndPosition != null),

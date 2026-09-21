@@ -214,7 +214,7 @@ public class O2JamLibraryWriterTest
 
         try
         {
-            var bytes = OjnReaderTest.CreateChart();
+            var bytes = OjnTestData.CreateChart();
             BitConverter.GetBytes(version).CopyTo(bytes, 8);
             Convert.FromHexString("DEEFE3EA00").CopyTo(bytes, 108);
             File.WriteAllBytes(path, bytes);
@@ -262,7 +262,7 @@ public class O2JamLibraryWriterTest
         var path = Path.GetTempFileName();
         try
         {
-            var bytes = OjnReaderTest.CreateChart();
+            var bytes = OjnTestData.CreateChart();
             File.WriteAllBytes(path, bytes);
             var source = new O2JamImportedSource(Guid.NewGuid(), O2JamLibraryWriter.getSourceTimestamp(path), bytes.LongLength, true, false);
             Assert.That(O2JamImportService.isUnchanged(path, source), Is.True);

@@ -161,7 +161,7 @@ public class OjmReaderTest
     {
         var archive = new OjmReader().Read(new MemoryStream(createM30(0,
             [(0, (ushort)5, "zero"u8.ToArray()), (1, (ushort)5, "one!"u8.ToArray()), (0, (ushort)0, "bgm!"u8.ToArray())])));
-        var chart = new OjnReader().Read(new MemoryStream(OjnReaderTest.CreateChart())).Charts[0];
+        var chart = new OjnReader().Read(new MemoryStream(OjnTestData.CreateChart())).Charts[0];
 
         Assert.Multiple(() =>
         {
@@ -176,7 +176,7 @@ public class OjmReaderTest
     {
         var archive = new OjmReader().Read(new MemoryStream(createM30(0,
             [(1, (ushort)5, "wrong"u8.ToArray())])));
-        var chart = new OjnReader().Read(new MemoryStream(OjnReaderTest.CreateChart())).Charts[0];
+        var chart = new OjnReader().Read(new MemoryStream(OjnTestData.CreateChart())).Charts[0];
 
         Assert.Multiple(() =>
         {

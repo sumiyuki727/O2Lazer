@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using osu.Game.Rulesets.O2Lazer.Core;
 
 namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
 
@@ -19,9 +18,9 @@ public sealed record OjnMetadata(
 public sealed record OjnDocument(OjnMetadata Metadata, IReadOnlyList<OjnChart> Charts);
 
 public sealed record OjnChart(
-    O2JamDifficulty Difficulty,
+    OjnDifficulty Difficulty,
     ushort Level,
-    IReadOnlyList<O2JamBpmEvent> BpmEvents,
+    IReadOnlyList<OjnBpmEvent> BpmEvents,
     IReadOnlyList<OjnNoteEvent> Notes,
     IReadOnlyList<OjnMeasureFraction> MeasureFractions,
     uint MeasureCount);

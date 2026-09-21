@@ -31,7 +31,7 @@ public class O2JamManiaStarRatingTest
         notes.Add(new OjnNoteEvent(0.25, 9, 1, 100, 0, OjnNoteType.Tap, OjnSampleKind.Background));
         var document = new OjnDocument(
             new OjnMetadata(100, 2.9f, 120, "Test", "Test", "Test", "missing.ojm", [75, 0, 0], [3, 0, 0], [], []),
-            [new OjnChart(O2JamDifficulty.EX, 75, [new O2JamBpmEvent(1, 240)], notes, [], 2)]);
+            [new OjnChart(OjnDifficulty.EX, 75, [new OjnBpmEvent(1, 240)], notes, [], 2)]);
         var o2jam = new OjnBeatmapFactory().Create(document, O2JamDifficulty.EX);
         var originalInfo = o2jam.BeatmapInfo;
 
@@ -71,7 +71,7 @@ public class O2JamManiaStarRatingTest
     [TestCase(1.8)]
     public void PreprocessedRateMatchesNativeMania(double rate)
     {
-        var document = new OjnReader().Read(OjnReaderTest.CreateChart());
+        var document = new OjnReader().Read(OjnTestData.CreateChart());
         var o2jam = new OjnBeatmapFactory().Create(document, O2JamDifficulty.EX);
         o2jam.HitObjects.Add(new O2JamNote { StartTime = 250, Column = 1 });
         o2jam.HitObjects.Add(new O2JamNote { StartTime = 500, Column = 2 });

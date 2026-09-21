@@ -112,7 +112,7 @@ public class O2JamHoldReplayDiagnosticTest
             var source = Path.Combine((string)beatmap.Metadata.Source, (string)beatmap.Metadata.AudioFile);
             TestContext.Progress.WriteLine($"Chart={source}; difficulty={beatmap.DifficultyName}");
             using var stream = File.OpenRead(source);
-            var document = new OjnReader().ReadChart(stream, O2JamDifficulty.HX);
+            var document = new OjnReader().ReadChart(stream, OjnDifficulty.HX);
             var chart = new OjnBeatmapFactory().Create(document, O2JamDifficulty.HX);
             var holds = chart.HitObjects.OfType<O2JamHoldNote>().ToArray();
             TestContext.Progress.WriteLine($"Title={chart.Metadata.Title}; holds={holds.Length}; shortest={holds.Min(hold => hold.Duration):F3}; longest={holds.Max(hold => hold.Duration):F3}; BPM={document.Metadata.InitialBpm}");

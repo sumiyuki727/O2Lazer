@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>14</LangVersion>
+        <RequiresOsuReferences>false</RequiresOsuReferences>
+        <ApplicationManifest />
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+        <InternalsVisibleTo Include="osu.Game.Rulesets.O2Lazer" />
+        <InternalsVisibleTo Include="O2Jam.Formats.Tests" />
+        <InternalsVisibleTo Include="osu.Game.Rulesets.O2Lazer.Tests" />
+    </ItemGroup>
+</Project>

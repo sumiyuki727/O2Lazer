@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>14</LangVersion>
+        <IsTestProject>true</IsTestProject>
+        <RequiresOsuReferences>false</RequiresOsuReferences>
+        <ApplicationManifest />
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+        <PackageReference Include="NUnit" Version="4.5.1" />
+        <PackageReference Include="NUnit3TestAdapter" Version="6.1.0" />
+        <ProjectReference Include="../O2Jam.Formats/O2Jam.Formats.csproj" />
+        <Compile Include="../tests/Fixtures/OjnTestData.cs" Link="Fixtures/OjnTestData.cs" />
+    </ItemGroup>
+</Project>

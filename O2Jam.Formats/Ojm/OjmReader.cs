@@ -17,9 +17,9 @@ public sealed class OjmReader
 
     /// <summary>
     /// Indexes selected samples without loading their payloads. Each payload is read from the source file
-    /// only when osu!framework first requests that specific sound.
+    /// only when the consumer first requests that specific sound.
     /// </summary>
-    internal OjmArchive ReadLazy(string path, IReadOnlySet<int>? sampleIds)
+    public OjmArchive ReadLazy(string path, IReadOnlySet<int>? sampleIds = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
