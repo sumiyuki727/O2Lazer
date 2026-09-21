@@ -4,6 +4,8 @@
 
 [English](./README.md)
 
+本次架构重构的阶段、进度与验收条件见[重构路线图](docs/refactor-roadmap.md)。
+
 ## 设计定位
 
 O2Lazer 将已有可靠依据的 O2Jam 判定、分数、生命、连击、Jam、药丸、长条及 OJM 事件行为作为玩法真值，

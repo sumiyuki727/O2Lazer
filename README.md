@@ -4,6 +4,8 @@ An osu!lazer ruleset for playing native O2Jam libraries directly from `.ojn` and
 
 [简体中文](./README.zh-CN.md)
 
+See the [refactor roadmap (Chinese)](docs/refactor-roadmap.md) for stages, progress and acceptance criteria.
+
 ## Design
 
 O2Lazer treats confirmed O2Jam judgement, score, life, combo, Jam, pill, long-note and OJM event

@@ -1,5 +1,7 @@
 # Architecture refactor
 
+Track implementation order, open decisions and acceptance in the [refactor roadmap (Chinese)](refactor-roadmap.md).
+
 ## Baseline and workspaces
 
 - `master`: active refactor, at `D:/o2lazer` locally and the GitHub default branch.
@@ -81,9 +83,10 @@ shared cached decode results.
 
 The existing host still owns `OjnBeatmapFactory`, directory encoding fallback,
 document/archive caches, import, timing maps, audio scheduling and gameplay.
-These are not claimed as completed architecture layers. Next, specify the
-format-to-core chart translation and complete hold-state ownership before
-changing gameplay. Do not change level presentation or Mania Score policy as
+These are not claimed as completed architecture layers. Next, define the import
+identity, persistence fields and migration contract before restructuring Realm
+writes. The format-to-core translation and complete hold-state ownership follow
+as tracked in the roadmap, before changing gameplay. Do not change level presentation or Mania Score policy as
 part of decoding extraction.
 
 ### Build and deployment
