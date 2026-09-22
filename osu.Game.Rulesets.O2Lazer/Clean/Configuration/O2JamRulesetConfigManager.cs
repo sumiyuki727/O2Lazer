@@ -1,3 +1,4 @@
+using System;
 using osu.Framework.Configuration.Tracking;
 using osu.Game.Configuration;
 using osu.Game.Localisation;
@@ -12,6 +13,35 @@ namespace osu.Game.Rulesets.O2Lazer.Configuration;
 
 public sealed class O2JamRulesetConfigManager : RulesetConfigManager<O2JamRulesetSetting>
 {
+    private readonly object librarySessionLock = new();
+    private O2JamLibrarySettingsSession? librarySession;
+    private bool disposed;
+
+    // The native config cache outlives settings views; task ownership must follow that lifetime.
+    internal O2JamLibrarySettingsSession GetLibrarySession(Func<O2JamLibrarySettingsSession> create)
+    {
+        lock (librarySessionLock)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            return librarySession ??= create();
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        O2JamLibrarySettingsSession? session = null;
+        lock (librarySessionLock)
+        {
+            if (disposing && !disposed)
+            {
+                disposed = true;
+                session = librarySession;
+            }
+        }
+        session?.Dispose();
+        base.Dispose(disposing);
+    }
+
     public const double MinimumScrollSpeed = 1;
     public const double MaximumScrollSpeed = 40;
     public const double DefaultScrollSpeed = 8;

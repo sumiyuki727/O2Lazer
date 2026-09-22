@@ -342,4 +342,7 @@
   <data name="mania_score_difficulty_badge" xml:space="preserve">
     <value>{0}{1:0.0}</value>
   </data>
+  <data name="library_operation_failed" xml:space="preserve">
+    <value>曲库操作失败。</value>
+  </data>
 </root>

@@ -1,16 +1,11 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Input.Events;
 using osu.Framework.Localisation;
-using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Framework.Screens;
 using osu.Game.Beatmaps;
@@ -25,7 +20,6 @@ using osu.Game.Overlays.Settings;
 using osu.Game.Overlays.Settings.Sections.Maintenance;
 using osu.Game.Rulesets.Mania.Configuration;
 using osu.Game.Rulesets.Mania.UI;
-using osu.Game.Rulesets.O2Lazer.Import;
 using osu.Game.Rulesets.O2Lazer.Localisation;
 using osu.Game.Rulesets.O2Lazer.UI;
 using osu.Game.Screens;
@@ -40,16 +34,13 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
     [Cached]
     private readonly OverlayColourProvider colourProvider = new(OverlayColourScheme.Purple);
 
-    private O2JamLibraryWriter? libraryWriter;
-    private O2JamSourceFolderCollectionService? collectionService;
+    private O2JamLibrarySettingsSession library = null!;
     private O2JamRulesetConfigManager config = null!;
-    private INotificationOverlay? notifications;
     private Bindable<string> importPath = null!;
     private Bindable<bool> syncSourceFolderCollections = null!;
     private RoundedButton refreshButton = null!;
-    private bool refreshRunning;
-    private readonly object collectionUpdateLock = new();
-    private Task collectionUpdateTask = Task.CompletedTask;
+    private DangerousRoundedButton deleteButton = null!;
+    private bool disposed;
 
     [Resolved(CanBeNull = true)]
     private IPerformFromScreenRunner? performer { get; set; }
@@ -67,14 +58,7 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
                       IWorkingBeatmapCache? workingBeatmaps = null, BeatmapDifficultyCache? difficultyCache = null)
     {
         config = (O2JamRulesetConfigManager)Config;
-        this.notifications = notifications;
-        libraryWriter = new O2JamLibraryWriter(realm, host.Storage);
-        libraryWriter.BeatmapUpdated += beatmap =>
-        {
-            workingBeatmaps?.Invalidate(beatmap);
-            difficultyCache?.Invalidate(beatmap, beatmap);
-        };
-        collectionService = new O2JamSourceFolderCollectionService(realm);
+        library = O2JamLibrarySettingsSession.Get(config, realm, host.Storage, notifications, workingBeatmaps, difficultyCache);
         importPath = config.GetBindable<string>(O2JamRulesetSetting.LastImportPath);
         syncSourceFolderCollections = config.GetBindable<bool>(O2JamRulesetSetting.SyncSourceFolderCollections);
         refreshButton = new RoundedButton
@@ -83,19 +67,19 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
             TooltipText = O2LazerStrings.RefreshBeatmapsTooltip,
             RelativeSizeAxes = Axes.X,
             Height = 36,
-            Action = refreshBeatmaps,
+            Action = () => _ = library.RefreshAsync(),
             Padding = SettingsPanel.CONTENT_PADDING,
         };
 
-        var children = new List<Drawable>
-        {
+        Drawable[] children =
+        [
             new ClickableImportPathField
             {
                 Current = importPath,
                 Clicked = () => performer?.PerformFromScreen(menu => menu.Push(new O2JamDirectorySelectScreen(config))),
             },
             refreshButton,
-            new DangerousRoundedButton
+            deleteButton = new DangerousRoundedButton
             {
                 Text = O2LazerStrings.DeleteAllImportedFiles,
                 RelativeSizeAxes = Axes.X,
@@ -134,171 +118,47 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
                 HintText = O2LazerStrings.PercyLongNoteBodyRepeatDescription,
                 Current = config.GetBindable<bool>(O2JamRulesetSetting.PercyLongNoteBodyRepeat),
             }),
-        };
+        ];
 
         Children = children;
-        importPath.BindValueChanged(path =>
-        {
-            updateRefreshButtonState(path);
-            if (syncSourceFolderCollections.Value)
-                _ = queueCollectionUpdate(true);
-        }, true);
-        syncSourceFolderCollections.BindValueChanged(enabled => _ = queueCollectionUpdate(enabled.NewValue), true);
+        library.Application.ActivityChanged += onLibraryActivityChanged;
+        updateButtons();
     }
 
-    private async void refreshBeatmaps()
+    private void onLibraryActivityChanged()
     {
-        var activeWriter = libraryWriter;
-        var path = importPath.Value;
-        if (refreshRunning || activeWriter == null || string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        if (!disposed)
+            Schedule(updateButtons);
+    }
+
+    private void updateButtons()
+    {
+        if (disposed)
             return;
-
-        refreshRunning = true;
-        refreshButton.Enabled.Value = false;
-        var notification = new ProgressNotification
-        {
-            Text = O2LazerStrings.RefreshingProgress(0, 0),
-            Progress = 0,
-            State = ProgressNotificationState.Active,
-        };
-        notifications?.Post(notification);
-        var cancellationToken = notification.CancellationToken;
-
-        try
-        {
-            var result = await Task.Run(() =>
-            {
-                var paths = enumerateCharts(path, cancellationToken);
-                var sources = activeWriter.GetImportedSources();
-                var importer = new O2JamImportService(new O2JamImportPlanner(), activeWriter);
-                return importer.Refresh(
-                    paths,
-                    sources,
-                    (processed, total) =>
-                    {
-                        notification.Text = O2LazerStrings.RefreshingProgress(processed, total);
-                        notification.Progress = total == 0 ? 1 : (float)processed / total;
-                    },
-                    (exception, sourcePath) => Logger.Error(exception, $"O2Jam refresh failed for '{sourcePath}'."),
-                    cancellationToken);
-            }, cancellationToken);
-
-            if (syncSourceFolderCollections.Value)
-            {
-                notification.Text = O2LazerStrings.SynchronisingCollections;
-                await queueCollectionUpdate(true);
-            }
-
-            if (result.RulesetUnavailable)
-            {
-                notification.CompletionText = O2LazerStrings.RulesetUnavailable;
-                notification.State = ProgressNotificationState.Cancelled;
-            }
-            else
-            {
-                notification.CompletionText = O2LazerStrings.RefreshComplete;
-                notification.State = ProgressNotificationState.Completed;
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            notification.State = ProgressNotificationState.Cancelled;
-        }
-        catch (Exception exception)
-        {
-            Logger.Error(exception, "O2Jam refresh failed before the source directory could be processed.");
-            notification.CompletionText = O2LazerStrings.ImportFailed;
-            notification.State = ProgressNotificationState.Cancelled;
-        }
-        finally
-        {
-            refreshRunning = false;
-            Schedule(() => updateRefreshButtonState(new ValueChangedEvent<string>(path, importPath.Value)));
-        }
+        refreshButton.Enabled.Value = library.Application.CanRefresh;
+        deleteButton.Enabled.Value = !library.Application.IsBusy;
     }
-
-    private static string[] enumerateCharts(string path, CancellationToken cancellationToken)
-    {
-        var options = new EnumerationOptions
-        {
-            RecurseSubdirectories = true,
-            IgnoreInaccessible = true,
-            ReturnSpecialDirectories = false,
-            AttributesToSkip = FileAttributes.ReparsePoint,
-            BufferSize = 64 * 1024,
-        };
-
-        var charts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in Directory.EnumerateFiles(path, "*", options))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (string.Equals(Path.GetExtension(file), ".ojn", StringComparison.OrdinalIgnoreCase))
-                charts.Add(file);
-        }
-
-        return charts.ToArray();
-    }
-
-    private void updateRefreshButtonState(ValueChangedEvent<string> path) =>
-        refreshButton.Enabled.Value = !refreshRunning
-                                      && !string.IsNullOrWhiteSpace(path.NewValue)
-                                      && Directory.Exists(path.NewValue);
 
     private void confirmDeleteAll()
     {
-        var activeWriter = libraryWriter;
-        if (activeWriter == null)
-            return;
-
         var dialog = new MassDeleteConfirmationDialog(
-            () => _ = deleteAllImportedBeatmaps(),
+            () => _ = library.DeleteAllAsync(),
             O2LazerStrings.DeleteAllConfirmation);
 
         if (dialogOverlay != null)
             dialogOverlay.Push(dialog);
         else
-            _ = deleteAllImportedBeatmaps();
+            _ = library.DeleteAllAsync();
     }
 
-    private async Task deleteAllImportedBeatmaps()
+    protected override void Dispose(bool isDisposing)
     {
-        var activeWriter = libraryWriter;
-        if (activeWriter == null)
-            return;
-
-        await Task.Run(activeWriter.DeleteAll);
-        if (syncSourceFolderCollections.Value)
-            await queueCollectionUpdate(true);
-    }
-
-    private Task queueCollectionUpdate(bool enabled)
-    {
-        var service = collectionService;
-        if (service == null)
-            return Task.CompletedTask;
-
-        var libraryRoot = importPath.Value;
-        lock (collectionUpdateLock)
-        {
-            // Settings changes and refresh completion are serialised so rapid toggles always leave
-            // Realm in the state represented by the last switch value without blocking the UI thread.
-            collectionUpdateTask = collectionUpdateTask.ContinueWith(_ =>
-            {
-                try
-                {
-                    if (enabled)
-                        service.Synchronise(libraryRoot);
-                    else
-                        service.DeleteFeatureCollections();
-                }
-                catch (Exception exception)
-                {
-                    Logger.Error(exception, "O2Jam source-folder collection synchronisation failed.");
-                }
-            }, TaskScheduler.Default);
-
-            return collectionUpdateTask;
-        }
+        disposed = true;
+        if (library != null)
+            library.Application.ActivityChanged -= onLibraryActivityChanged;
+        importPath?.UnbindAll();
+        syncSourceFolderCollections?.UnbindAll();
+        base.Dispose(isDisposing);
     }
 
     private sealed partial class ClickableImportPathField : CompositeDrawable
@@ -361,9 +221,17 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
         protected override void LoadComplete()
         {
             base.LoadComplete();
-            Current.BindValueChanged(path => pathText.Text = string.IsNullOrWhiteSpace(path.NewValue)
-                ? O2LazerStrings.ImportPathPlaceholder
-                : path.NewValue, true);
+            Current.BindValueChanged(onPathChanged, true);
+        }
+
+        private void onPathChanged(ValueChangedEvent<string> path) =>
+            pathText.Text = string.IsNullOrWhiteSpace(path.NewValue) ? O2LazerStrings.ImportPathPlaceholder : path.NewValue;
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (Current != null)
+                Current.ValueChanged -= onPathChanged;
+            base.Dispose(isDisposing);
         }
 
         protected override bool OnHover(HoverEvent e)

@@ -43,6 +43,29 @@ Storage/synchronisation is a parallel subsystem consuming completed results, not
 live judgement dependency. Prefer native persistence for native data. Whether
 local/server archives are independent or synchronised remains undecided.
 
+## Compatibility scope
+
+Old scores and replays must retain their associations and supported playback behaviour.
+Old imported metadata layouts do not constrain the new persistence design. Rebuilding
+chart records requires an explicit mapping from historical scores/replays first; this
+does not authorise deletion of user data. The settings extraction keeps native setting
+keys and defaults unchanged.
+
+## Implemented settings boundary
+
+- The native config cache owns one lazily created library settings session.
+  The first settings view supplies dependencies; subsequent views reuse that session.
+- Configuration and native notifications connect through the session. The view owns
+  controls and subscriptions; closing it does not cancel library work.
+- The application serialises refresh, clear and collection mutations, shares duplicate
+  refresh requests and allows retry after failure/cancellation. Collection operations
+  read the latest preference to avoid a stale refresh re-enabling disabled collections.
+- The Realm backend owns the existing import services, scanning and cache invalidation.
+  No schema, metadata version or identity algorithm is changed in this extraction.
+- Config disposal cancels queued/active cancellable work and waits for entered operations
+  before releasing backend subscriptions. Worker continuations do not depend on a view
+  update loop. This does not yet make the complete import facility generic.
+
 ## Implemented first slice: independent formats
 
 ```text

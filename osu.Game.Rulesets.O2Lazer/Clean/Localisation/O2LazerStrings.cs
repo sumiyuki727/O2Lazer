@@ -12,6 +12,7 @@ public static class O2LazerStrings
     private static readonly ResourceManager englishResources = new(resourcePrefix, typeof(O2LazerStrings).Assembly);
     private static readonly ResourceManager chineseResources = new($"{resourcePrefix}.zh", typeof(O2LazerStrings).Assembly);
 
+    public static LocalisableString LibraryOperationFailed => get("library_operation_failed");
     public static LocalisableString RulesetName => get("ruleset_name");
     public static LocalisableString EditorUnavailable => get("editor_unavailable");
     public static LocalisableString O2Ma => get("o2ma");
