@@ -51,7 +51,7 @@ internal static class O2JamManiaScoreModAvailabilityPatch
             }
             catch (Exception exception)
             {
-                harmony.UnpatchAll(harmony_id);
+                O2JamPatchRollback.Unpatch(harmony_id);
                 Logger.Error(exception, "O2Lazer could not restrict mania-only mods to Mania Score.");
                 return false;
             }

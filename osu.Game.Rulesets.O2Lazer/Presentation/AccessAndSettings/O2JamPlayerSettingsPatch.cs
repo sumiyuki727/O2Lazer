@@ -39,6 +39,7 @@ internal static class O2JamPlayerSettingsPatch
             }
             catch (Exception exception)
             {
+                O2JamPatchRollback.Unpatch(harmony_id);
                 Logger.Error(exception, "O2Lazer could not install its player settings visibility adapter.");
                 return false;
             }

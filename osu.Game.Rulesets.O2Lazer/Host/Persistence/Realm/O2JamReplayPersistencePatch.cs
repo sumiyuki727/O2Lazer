@@ -90,6 +90,7 @@ internal static class O2JamReplayPersistencePatch
             }
             catch (Exception exception)
             {
+                O2JamPatchRollback.Unpatch(player_harmony_id, importer_harmony_id);
                 Logger.Error(exception, "O2Lazer could not install replay persistence support.");
                 return false;
             }

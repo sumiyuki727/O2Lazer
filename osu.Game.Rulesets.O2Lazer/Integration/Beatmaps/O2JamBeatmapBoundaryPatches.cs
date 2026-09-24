@@ -64,6 +64,8 @@ internal static class O2JamBeatmapBoundaryPatches
             }
             catch (Exception exception)
             {
+                O2JamPatchRollback.Unpatch(gameplay_harmony_id, statistics_harmony_id);
+                UsesBmsHarmonyForStatistics = false;
                 Logger.Error(exception, "O2Lazer could not install its beatmap conversion boundary.");
                 return false;
             }

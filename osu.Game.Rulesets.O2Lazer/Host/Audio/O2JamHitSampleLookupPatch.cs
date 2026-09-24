@@ -38,7 +38,7 @@ internal static class O2JamHitSampleLookupPatch
             }
             catch (Exception exception)
             {
-                harmony.UnpatchAll(harmony.Id);
+                O2JamPatchRollback.Unpatch(harmony.Id);
                 Logger.Error(exception, "O2Lazer could not install its keysound lookup adapter.");
                 return false;
             }

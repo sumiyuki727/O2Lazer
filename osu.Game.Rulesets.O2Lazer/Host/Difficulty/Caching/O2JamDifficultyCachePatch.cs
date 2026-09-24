@@ -46,7 +46,7 @@ internal static class O2JamDifficultyCachePatch
             }
             catch (Exception exception)
             {
-                harmony.UnpatchAll(harmony_id);
+                O2JamPatchRollback.Unpatch(harmony_id);
                 Logger.Error(exception, "O2Lazer could not install its native difficulty cache adapter.");
                 return false;
             }

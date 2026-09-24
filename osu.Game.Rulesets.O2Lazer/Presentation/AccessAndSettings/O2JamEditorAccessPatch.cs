@@ -60,7 +60,7 @@ internal static class O2JamEditorAccessPatch
             }
             catch (Exception exception)
             {
-                harmony.UnpatchAll(harmony_id);
+                O2JamPatchRollback.Unpatch(harmony_id);
                 Logger.Error(exception, "O2Lazer could not install its editor access adapter.");
                 return false;
             }

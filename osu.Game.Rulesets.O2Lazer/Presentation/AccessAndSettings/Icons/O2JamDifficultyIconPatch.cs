@@ -76,6 +76,14 @@ internal static class O2JamDifficultyIconPatch
             }
             catch (Exception exception)
             {
+                O2JamPatchRollback.Unpatch(harmony_id, song_select_harmony_id);
+                if (subscribedToAssemblyLoad)
+                {
+                    AppDomain.CurrentDomain.AssemblyLoad -= onAssemblyLoad;
+                    subscribedToAssemblyLoad = false;
+                }
+
+                UsesBmsHarmony = false;
                 Logger.Error(exception, "O2Lazer could not install its results-screen icon adapter.");
                 return false;
             }

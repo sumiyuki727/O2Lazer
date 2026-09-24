@@ -50,6 +50,7 @@ internal static partial class O2JamSongSelectRankPatch
             }
             catch (Exception exception)
             {
+                O2JamPatchRollback.Unpatch(harmony_id);
                 Logger.Error(exception, "O2Lazer could not install its exact-difficulty song-select rank adapter.");
                 return false;
             }

@@ -70,6 +70,7 @@ internal static class O2JamComboCompatibilityPatches
             }
             catch (Exception exception)
             {
+                O2JamPatchRollback.Unpatch(effects_harmony_id, counters_harmony_id, maximum_combo_harmony_id);
                 Logger.Error(exception, "O2Lazer could not install its combo presentation adapters.");
                 return false;
             }

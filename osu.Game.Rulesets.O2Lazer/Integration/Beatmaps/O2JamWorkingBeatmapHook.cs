@@ -42,6 +42,7 @@ public static class O2JamWorkingBeatmapHook
             }
             catch (Exception exception)
             {
+                O2JamPatchRollback.Unpatch(harmony_id);
                 Logger.Error(exception, "O2Lazer could not install its external OJN WorkingBeatmap adapter.");
                 return false;
             }

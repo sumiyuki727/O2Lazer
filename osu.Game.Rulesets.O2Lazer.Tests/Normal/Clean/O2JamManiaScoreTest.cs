@@ -36,6 +36,7 @@ public class O2JamManiaScoreTest
     [Test]
     public void EntryIsImplementedAndDefaultsToRankedSeven()
     {
+        _ = new O2LazerRuleset();
         var mod = new O2JamModManiaScore();
 
         Assert.Multiple(() =>
@@ -60,6 +61,8 @@ public class O2JamManiaScoreTest
             Assert.That(new O2JamModClassic().Description.ToString(), Is.EqualTo(new ManiaModClassic().Description.ToString()));
             Assert.That(O2JamCompatibilityPatches.IsInstalled, Is.True,
                 string.Join(", ", O2JamCompatibilityPatches.FailedPatches));
+            Assert.That(O2JamCompatibilityPatches.CanPlay, Is.True,
+                string.Join(", ", O2JamCompatibilityPatches.FailedGameplayPatches));
         });
     }
 

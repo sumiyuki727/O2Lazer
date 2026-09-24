@@ -43,4 +43,4 @@ BMS 共存诊断使用 `O2JAM_BMS_RULESET_PATH` 指向另行安装/构建的 DLL
 
 当前测试项目为匹配宿主二进制而引用 AutoMapper 13.0.1；NuGet 报 NU1903 已知漏洞，相关代码不打包进 ruleset DLL。网络不可用时漏洞审计另报 NU1900；不要把它解释为“没有漏洞”，也不要未经二进制兼容验证擅自替换主版本。宿主升级时重查这两项与其他依赖。
 
-源码责任见[当前架构](clean-rewrite-architecture.md)，本轮待处理项见[审查清单](architecture-audit.md)，阶段跟踪见[路线图](refactor-roadmap.md)。目前工作树有大量未提交的重构迁移，提交前按功能检查 diff、测试、资源键、持久化身份、私有数据和生成产物。保留旧 HUD/皮肤序列化契约与 v5 replay 格式；源码目录和命名空间的整理不得悄悄改变它们。
+源码责任见[当前架构](clean-rewrite-architecture.md)，本轮待处理项见[审查清单](architecture-audit.md)，阶段跟踪见[路线图](refactor-roadmap.md)，补丁必要性与失败策略见[补丁清单](compatibility-patches.md)。分层重构基线已提交为 `2ae294c`；之后按问题项分别检查 diff、测试、资源键、持久化身份、私有数据和生成产物。保留旧 HUD/皮肤序列化契约与 v5 replay 格式；源码目录和命名空间的整理不得悄悄改变它们。

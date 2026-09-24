@@ -61,8 +61,11 @@ public sealed class O2LazerRuleset : Ruleset
     public override IEnumerable<KeyBinding> GetDefaultKeyBindings(int variant = 0) =>
         variant is 0 or O2LazerIdentity.O2Jam7KVariant ? O2LazerKeyBindings.Defaults : [];
 
-    public override DrawableRuleset CreateDrawableRulesetWith(IBeatmap beatmap, IReadOnlyList<Mod>? mods = null) =>
-        new O2JamDrawableRuleset(this, beatmap, mods);
+    public override DrawableRuleset CreateDrawableRulesetWith(IBeatmap beatmap, IReadOnlyList<Mod>? mods = null)
+    {
+        O2JamCompatibilityPatches.RequireGameplay();
+        return new O2JamDrawableRuleset(this, beatmap, mods);
+    }
 
     public override ISkin? CreateSkinTransformer(ISkin skin, IBeatmap beatmap)
     {

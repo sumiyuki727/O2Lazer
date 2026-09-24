@@ -24,7 +24,7 @@ O2Jam.Core    ──> 纯玩法规则/状态
         Presentation ──> 原生控件、等级/颜色、曲库、HUD/皮肤
 ```
 
-箭头表达推荐的数据使用方向，不保证现有 C# 引用严格满足该图。除两个独立项目外，其余区域编译在同一 ruleset 项目；目前有 [A05–A07、A12](architecture-audit.md#待处理问题) 的横向/反向依赖。`O2LazerRuleset` 是 ruleset 入口，`Host/Compatibility/O2JamCompatibilityPatches` 汇总补丁安装；目录移动本身不产生编译隔离。
+箭头表达推荐的数据使用方向，不保证现有 C# 引用严格满足该图。除两个独立项目外，其余区域编译在同一 ruleset 项目；目前有 [A05–A07、A12](architecture-audit.md#初始审查问题) 的横向/反向依赖。`O2LazerRuleset` 是 ruleset 入口，`Host/Compatibility/O2JamCompatibilityPatches` 汇总补丁安装；目录移动本身不产生编译隔离。
 
 | 目录 | 应有责任 | 当前代表入口 |
 |---|---|---|
@@ -67,4 +67,4 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 | 补丁 | 服务功能的模块；登记在总安装器 | 证明原生缺口、限定 ruleset、验证目标签名及失败回滚、多 ruleset 载入 |
 | 未来 BMS 等新 ruleset | 在第二消费者中验证可复用的宿主设施 | O2Jam 专用 Core/格式不强行公共化；共用补丁协调须处理版本和所有权 |
 
-当前问题按 [A01–A16](architecture-audit.md#待处理问题) 逐项解决；每项结束时更新路线图和必要测试。已有行为不能只因“旧代码”而删除：旧皮肤布局类型、规则集短名与键值、谱面/成绩身份及 v5 回放均涉及持久化契约。
+当前问题按 [A01–A16](architecture-audit.md#初始审查问题) 逐项解决；每项结束时更新路线图和必要测试。已有行为不能只因“旧代码”而删除：旧皮肤布局类型、规则集短名与键值、谱面/成绩身份及 v5 回放均涉及持久化契约。
