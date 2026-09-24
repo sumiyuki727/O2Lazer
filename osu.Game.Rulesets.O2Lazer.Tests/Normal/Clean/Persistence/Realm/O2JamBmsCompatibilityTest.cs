@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using NUnit.Framework;
@@ -13,9 +14,15 @@ using osu.Game.Beatmaps.Drawables;
 using osu.Game.Database;
 using osu.Game.Graphics;
 using osu.Game.Models;
+using osu.Game.Replays;
+using osu.Game.Rulesets;
+using osu.Game.Rulesets.Mania;
+using osu.Game.Rulesets.O2Lazer.Beatmaps;
+using osu.Game.Rulesets.O2Lazer.Replays;
+using osu.Game.Rulesets.O2Lazer.UI.Icons;
+using osu.Game.Scoring;
 using osu.Game.Screens.Select;
 using osu.Game.Skinning;
-using osuTK.Graphics;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
@@ -42,6 +49,7 @@ public partial class O2JamBmsCompatibilityTest
             _ = new O2LazerRuleset();
         var assembly = Assembly.LoadFrom(path!);
         var bms = (Ruleset)Activator.CreateInstance(assembly.GetType("osu.Game.Rulesets.BmsRuleset.BmsRuleset", true)!)!;
+        TestContext.Progress.WriteLine($"BMS assembly: {assembly.GetName().Version}");
 
         using var host = new TestRunHeadlessGameHost($"O2JamBmsCompatibility-{Guid.NewGuid():N}");
         Exception? failure = null;
@@ -53,26 +61,41 @@ public partial class O2JamBmsCompatibilityTest
                 using var realm = new RealmAccess(storage, "client.realm");
                 var manager = new BeatmapManager(storage, realm, null, game.AudioManager, game.Resources, host, new EmptyWorkingBeatmap());
                 var beatmap = createChart(storage, bms);
+                var beforeIcon = getIconType(beatmap);
                 var before = checkChart(manager, bms, beatmap);
                 var o2Lazer = new O2LazerRuleset();
                 var after = checkChart(manager, bms, beatmap);
-                Assert.That(after, Is.EqualTo(before), "Installing the mod badge must not change BMS difficulty.");
+                Assert.That(after, Is.EqualTo(before), "Initialising O2Lazer must not change BMS difficulty.");
+                Assert.That(getIconType(beatmap), Is.EqualTo(beforeIcon), "Initialising O2Lazer must not change the installed BMS icon behaviour.");
                 assertIcon(new BeatmapInfo(o2Lazer.RulesetInfo), "osu.Game.Rulesets.O2Lazer.UI.Icons.O2JamRulesetIcon");
-
-                var lampCalculator = assembly.GetType("osu.Game.Rulesets.BmsRuleset.SongSelect.BmsLampCalculator", true)!;
-                var noPlay = lampCalculator.GetMethod("Calculate")!.Invoke(null, [null]);
-                var lampType = assembly.GetType("osu.Game.Rulesets.BmsRuleset.SongSelect.BmsLampDisplay", true)!;
-                using var display = (Drawable)Activator.CreateInstance(lampType, noPlay)!;
-                var baseFill = (Drawable)lampType.GetField("baseFill", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(display)!;
-                TestContext.Progress.WriteLine($"BMS lamp without score: {noPlay}, colour: {(Color4)baseFill.Colour}");
+                Assert.That(O2JamBeatmapBoundaryPatches.UsesBmsHarmonyForStatistics, Is.True);
+                Assert.That(O2JamDifficultyIconPatch.UsesBmsHarmony, Is.True);
+                assertO2JamReplaySurvivesBms(storage, realm, bms, o2Lazer);
             }
             catch (Exception exception)
             {
+                TestContext.Progress.WriteLine(exception);
                 failure = exception;
             }
         }));
         if (failure != null)
             throw failure;
+    }
+
+    private static void assertO2JamReplaySurvivesBms(Storage storage, RealmAccess realm, Ruleset bms, Ruleset o2Lazer)
+    {
+        using var rulesets = new TestRulesetStore(bms.RulesetInfo, o2Lazer.RulesetInfo);
+        var importer = new TestScoreImporter(rulesets, storage, realm);
+        var scoreInfo = new ScoreInfo { Ruleset = o2Lazer.RulesetInfo };
+        var original = new Score
+        {
+            ScoreInfo = scoreInfo,
+            Replay = new Replay { Frames = [new O2JamReplayFrame(100, ManiaAction.Key1)] },
+        };
+        importer.AttachReplay(scoreInfo, O2JamReplayArchive.Create(original));
+        var restored = importer.GetScore(scoreInfo);
+        Assert.That(restored.Replay.Frames, Has.Count.EqualTo(1));
+        Assert.That(restored.Replay.Frames[0], Is.TypeOf<O2JamReplayFrame>());
     }
 
     private static BeatmapInfo createChart(Storage storage, Ruleset bms)
@@ -113,7 +136,7 @@ public partial class O2JamBmsCompatibilityTest
             RulesetCriteria = bms.CreateRulesetFilterCriteria(),
         };
         Assert.That(BeatmapCarouselFilterMatching.CheckCriteriaMatch(beatmap, criteria), Is.True);
-        assertIcon(beatmap, "osu.Game.Rulesets.BmsRuleset.UI.Icons.BmsRulesetIcon");
+        TestContext.Progress.WriteLine($"BMS difficulty icon: {getIconType(beatmap)}");
 
         var working = manager.GetWorkingBeatmap(beatmap);
         TestContext.Progress.WriteLine($"Working beatmap: {working.GetType().FullName}");
@@ -134,12 +157,15 @@ public partial class O2JamBmsCompatibilityTest
         return stars.Value.Stars;
     }
 
-    private static void assertIcon(BeatmapInfo beatmap, string expectedType)
+    private static void assertIcon(BeatmapInfo beatmap, string expectedType) =>
+        Assert.That(getIconType(beatmap), Is.EqualTo(expectedType));
+
+    private static string getIconType(BeatmapInfo beatmap)
     {
         using var icon = new DifficultyIcon(beatmap);
         using var rulesetIcon = (Drawable)typeof(DifficultyIcon).GetMethod("getRulesetIcon", BindingFlags.NonPublic | BindingFlags.Instance)!
                                                               .Invoke(icon, null)!;
-        Assert.That(rulesetIcon.GetType().FullName, Is.EqualTo(expectedType));
+        return rulesetIcon.GetType().FullName!;
     }
 
     private partial class ProbeGame(Action<ProbeGame> probe) : Framework.Game
@@ -154,6 +180,22 @@ public partial class O2JamBmsCompatibilityTest
                 probe(this);
                 Exit();
             });
+        }
+    }
+
+    private sealed class TestRulesetStore(params RulesetInfo[] rulesets) : RulesetStore
+    {
+        public override IEnumerable<RulesetInfo> AvailableRulesets => rulesets;
+    }
+
+    private sealed class TestScoreImporter(RulesetStore rulesets, Storage storage, RealmAccess realm)
+        : ScoreImporter(rulesets, () => null!, storage, realm, null!)
+    {
+        public void AttachReplay(ScoreInfo score, byte[] bytes)
+        {
+            using var stream = new MemoryStream(bytes);
+            var file = Realm.Run(database => Files.Add(stream, database, addToRealm: false));
+            score.Files.Add(new RealmNamedFileUsage(file, "replay.osr"));
         }
     }
 

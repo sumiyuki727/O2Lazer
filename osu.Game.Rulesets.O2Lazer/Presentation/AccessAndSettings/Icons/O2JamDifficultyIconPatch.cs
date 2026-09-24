@@ -20,13 +20,11 @@ internal static class O2JamDifficultyIconPatch
 {
     private const string harmony_id = "osu.Game.Rulesets.O2Lazer.DifficultyIcon";
     private const string song_select_harmony_id = "osu.Game.Rulesets.O2Lazer.SongSelectRulesetIcon";
-    private const string bms_assembly_name = "osu.Game.Rulesets.BmsRuleset";
     private static readonly object installLock = new();
     private static MethodInfo? targetMethod;
     private static MethodInfo? prefixMethod;
     private static MethodInfo? songSelectTargetMethod;
     private static MethodInfo? songSelectPostfixMethod;
-    private static bool subscribedToAssemblyLoad;
 
     internal static bool IsInstalled { get; private set; }
     internal static bool UsesBmsHarmony { get; private set; }
@@ -47,7 +45,7 @@ internal static class O2JamDifficultyIconPatch
                 if (targetMethod == null || prefixMethod == null || songSelectTargetMethod == null || songSelectPostfixMethod == null)
                     return false;
 
-                UsesBmsHarmony = O2JamBeatmapBoundaryPatches.TryPatchWithBmsHarmony(
+                UsesBmsHarmony = O2JamBmsHarmonyCompatibility.TryPatch(
                     targetMethod,
                     prefixMethod,
                     harmony_id,
@@ -65,46 +63,22 @@ internal static class O2JamDifficultyIconPatch
                     songSelectTargetMethod,
                     postfix: new HarmonyMethod(songSelectPostfixMethod));
 
-                if (!subscribedToAssemblyLoad)
-                {
-                    AppDomain.CurrentDomain.AssemblyLoad += onAssemblyLoad;
-                    subscribedToAssemblyLoad = true;
-                }
-
                 IsInstalled = true;
+                if (!UsesBmsHarmony)
+                {
+                    O2JamBmsHarmonyCompatibility.RegisterForLateLoad(
+                        targetMethod, prefixMethod, null, harmony_id, Priority.First,
+                        () => UsesBmsHarmony = true);
+                }
                 return true;
             }
             catch (Exception exception)
             {
                 O2JamPatchRollback.Unpatch(harmony_id, song_select_harmony_id);
-                if (subscribedToAssemblyLoad)
-                {
-                    AppDomain.CurrentDomain.AssemblyLoad -= onAssemblyLoad;
-                    subscribedToAssemblyLoad = false;
-                }
-
                 UsesBmsHarmony = false;
                 Logger.Error(exception, "O2Lazer could not install its results-screen icon adapter.");
                 return false;
             }
-        }
-    }
-
-    private static void onAssemblyLoad(object? sender, AssemblyLoadEventArgs args)
-    {
-        if (!string.Equals(args.LoadedAssembly.GetName().Name, bms_assembly_name, StringComparison.Ordinal))
-            return;
-
-        lock (installLock)
-        {
-            if (targetMethod == null || prefixMethod == null)
-                return;
-
-            UsesBmsHarmony = O2JamBeatmapBoundaryPatches.TryPatchWithBmsHarmony(
-                targetMethod,
-                prefixMethod,
-                harmony_id,
-                Priority.First);
         }
     }
 

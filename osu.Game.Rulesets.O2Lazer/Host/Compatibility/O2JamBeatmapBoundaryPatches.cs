@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
 using HarmonyLib;
@@ -18,7 +17,6 @@ internal static class O2JamBeatmapBoundaryPatches
 {
     private const string gameplay_harmony_id = "osu.Game.Rulesets.O2Lazer.BeatmapBoundary";
     private const string statistics_harmony_id = "osu.Game.Rulesets.O2Lazer.DifficultyStatistics";
-    private const string bms_assembly_name = "osu.Game.Rulesets.BmsRuleset";
 
     private static readonly object installLock = new();
     private static PropertyInfo? beatmapProperty;
@@ -55,11 +53,17 @@ internal static class O2JamBeatmapBoundaryPatches
 
                 // BMSRuleset also guards this private lazer method. Register through its already-loaded
                 // Harmony runtime when present so two portable Harmony copies do not replace each other's detour.
-                UsesBmsHarmonyForStatistics = TryPatchWithBmsHarmony(statisticsTarget, statisticsPrefix, statistics_harmony_id);
+                UsesBmsHarmonyForStatistics = O2JamBmsHarmonyCompatibility.TryPatch(statisticsTarget, statisticsPrefix, statistics_harmony_id);
                 if (!UsesBmsHarmonyForStatistics)
                     new Harmony(statistics_harmony_id).Patch(statisticsTarget, prefix: new HarmonyMethod(statisticsPrefix));
 
                 IsInstalled = true;
+                if (!UsesBmsHarmonyForStatistics)
+                {
+                    O2JamBmsHarmonyCompatibility.RegisterForLateLoad(
+                        statisticsTarget, statisticsPrefix, null, statistics_harmony_id,
+                        onPatched: () => UsesBmsHarmonyForStatistics = true);
+                }
                 return true;
             }
             catch (Exception exception)
@@ -85,54 +89,5 @@ internal static class O2JamBeatmapBoundaryPatches
 
         return beatmap.IsDefault || ruleset.Value == null
                || !O2JamBeatmapBoundary.Crosses(beatmap.Value.BeatmapInfo, ruleset.Value);
-    }
-
-    internal static bool TryPatchWithBmsHarmony(MethodInfo target, MethodInfo prefix, string harmonyId, int? priority = null)
-        => TryPatchWithBmsHarmony(target, prefix, null, harmonyId, priority);
-
-    internal static bool TryPatchWithBmsHarmony(
-        MethodInfo target,
-        MethodInfo? prefix,
-        MethodInfo? postfix,
-        string harmonyId,
-        int? priority = null)
-    {
-        try
-        {
-            var assembly = AppDomain.CurrentDomain.GetAssemblies()
-                                    .FirstOrDefault(candidate => candidate.GetName().Name == bms_assembly_name);
-            var harmonyType = assembly?.GetType("HarmonyLib.Harmony");
-            var harmonyMethodType = assembly?.GetType("HarmonyLib.HarmonyMethod");
-            if (harmonyType == null || harmonyMethodType == null)
-                return false;
-
-            var harmony = Activator.CreateInstance(harmonyType, harmonyId);
-            var harmonyPrefix = prefix == null ? null : Activator.CreateInstance(harmonyMethodType, prefix);
-            var harmonyPostfix = postfix == null ? null : Activator.CreateInstance(harmonyMethodType, postfix);
-            if (priority != null)
-            {
-                var priorityField = harmonyMethodType.GetField("priority", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (harmonyPrefix != null)
-                    priorityField?.SetValue(harmonyPrefix, priority.Value);
-                if (harmonyPostfix != null)
-                    priorityField?.SetValue(harmonyPostfix, priority.Value);
-            }
-
-            var patch = harmonyType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
-                                   .SingleOrDefault(method => method.Name == "Patch"
-                                                              && method.GetParameters() is { Length: 5 } parameters
-                                                              && parameters[0].ParameterType == typeof(MethodBase));
-            if (harmony == null || prefix != null && harmonyPrefix == null || postfix != null && harmonyPostfix == null || patch == null)
-                return false;
-
-            patch.Invoke(harmony, [target, harmonyPrefix, harmonyPostfix, null, null]);
-            return true;
-        }
-        catch (Exception exception)
-        {
-            Logger.Log($"Could not share BMSRuleset's Harmony runtime; using O2Lazer's runtime instead: {exception.Message}",
-                level: LogLevel.Verbose);
-            return false;
-        }
     }
 }

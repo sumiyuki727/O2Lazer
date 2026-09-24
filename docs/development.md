@@ -21,7 +21,7 @@ dotnet build osu.Game.Rulesets.O2Lazer.slnx -c Release "-p:OsuBinaryDirectory=$l
 ./scripts/verify.ps1 -OsuBinaryDirectory $lazerBinaries
 ```
 
-脚本先运行 `scripts/check-storage-boundary.ps1`，随后对格式、核心、宿主常规测试使用明确 `--filter`，并将旧库迁移与 replay 导入放在独立测试进程。Realm 生命周期在同一 test host 中混跑曾产生原生事务断言，所以不要把这些过滤器合为一次无筛选运行。报告写入忽略的 `.artifacts/test-results`。2026-09-24 本次审查结果：Formats 39、Core 54、宿主常规 714、旧库迁移 4、replay 导入 8，合计 819 项通过；这是自动化基线，不等于实机端到端验收。
+脚本先运行 `scripts/check-storage-boundary.ps1`，随后对格式、核心、宿主常规测试使用明确 `--filter`，并将旧库迁移与 replay 导入放在独立测试进程。Realm 生命周期在同一 test host 中混跑曾产生原生事务断言，所以不要把这些过滤器合为一次无筛选运行。报告写入忽略的 `.artifacts/test-results`。2026-09-24 本次审查结果：Formats 39、Core 54、宿主常规 718、旧库迁移 4、replay 导入 8，合计 823 项通过；这是自动化基线，不等于实机端到端验收。
 
 单项验证示例：
 
@@ -37,7 +37,7 @@ dotnet test osu.Game.Rulesets.O2Lazer.Tests/osu.Game.Rulesets.O2Lazer.Tests.cspr
 
 生产音频追踪默认关闭；仅为诊断构建时设置 `-p:O2JamSyncDiagnostics=true`，参见[音频诊断指南](audio-sync-diagnostics.md)。对应测试属于 `LocalDiagnostics`/`[Explicit]`，只用精确方法名与本机输入运行。相关环境变量：`O2JAM_CORPUS_PATH`（外部曲库）、`O2JAM_REPLAY_DIAGNOSTIC_PATH`（已有 v5 replay）、`O2JAM_DIAGNOSTIC_REALM`（只读诊断库）、`O2JAM_DIAGNOSTIC_SKIN`（皮肤 GUID）、`O2JAM_ENCODING_AUDIT_PATH`（可选审计输出）。不上传私人数据库、回放或受版权保护的谱面。
 
-BMS 共存诊断使用 `O2JAM_BMS_RULESET_PATH` 指向另行安装/构建的 DLL。两个载入顺序分别用 `O2JamBmsCompatibilityTest.BmsFilteringAndStarsSurviveO2LazerInitialisation` 与 `BmsFilteringAndStarsWorkWhenLoadedLast` 精确过滤、分进程运行；另有 `O2JamRulesetCoexistenceTest.SharesOverlappingDifficultyStatisticsPatchWithBmsHarmony`。这些测试验证指定 BMS 版本的局部补丁共存，不保证未来第三个 ruleset 或全部客户端流程。
+BMS 共存诊断使用 `O2JAM_BMS_RULESET_PATH` 指向另行安装/构建的 DLL。两个载入顺序分别用 `O2JamBmsCompatibilityTest.BmsFilteringAndStarsSurviveO2LazerInitialisation` 与 `BmsFilteringAndStarsWorkWhenLoadedLast` 精确过滤、分进程运行；另有 `O2JamRulesetCoexistenceTest.SharesOverlappingDifficultyStatisticsPatchWithBmsHarmony`。这些测试在 2026.921.0 宿主与已安装 BMS 2026.920.0.0 上还覆盖 O2Jam replay 读取；版本、结果和限制见[共存矩阵](bms-coexistence.md)。它们不保证未来第三个 ruleset 或全部客户端流程。
 
 ## 依赖与提交边界
 

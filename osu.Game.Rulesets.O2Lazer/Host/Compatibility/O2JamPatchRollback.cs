@@ -18,6 +18,7 @@ internal static class O2JamPatchRollback
     {
         foreach (var harmonyId in harmonyIds)
         {
+            O2JamBmsHarmonyCompatibility.Unregister(harmonyId);
             try
             {
                 new Harmony(harmonyId).UnpatchAll(harmonyId);

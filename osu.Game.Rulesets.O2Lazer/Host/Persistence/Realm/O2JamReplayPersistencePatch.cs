@@ -66,11 +66,12 @@ internal static class O2JamReplayPersistencePatch
                     || scoreImporterBeatmapsField == null || scoreImporterRulesetsField == null || drawableScheduleMethod == null)
                     return false;
 
-                if (!O2JamBeatmapBoundaryPatches.TryPatchWithBmsHarmony(
+                var playerUsesBmsHarmony = O2JamBmsHarmonyCompatibility.TryPatch(
                         importScoreTarget,
                         importScorePrefix,
                         importScorePostfix,
-                        player_harmony_id))
+                        player_harmony_id);
+                if (!playerUsesBmsHarmony)
                 {
                     new Harmony(player_harmony_id).Patch(
                         importScoreTarget,
@@ -79,13 +80,21 @@ internal static class O2JamReplayPersistencePatch
                 }
 
                 var importerHarmony = new Harmony(importer_harmony_id);
-                if (!O2JamBeatmapBoundaryPatches.TryPatchWithBmsHarmony(getScoreTarget, getScorePrefix, importer_harmony_id))
+                var getScoreUsesBmsHarmony = O2JamBmsHarmonyCompatibility.TryPatch(getScoreTarget, getScorePrefix, importer_harmony_id);
+                if (!getScoreUsesBmsHarmony)
                     importerHarmony.Patch(getScoreTarget, prefix: new HarmonyMethod(getScorePrefix));
 
-                if (!O2JamBeatmapBoundaryPatches.TryPatchWithBmsHarmony(createModelTarget, createModelPrefix, importer_harmony_id))
+                var createModelUsesBmsHarmony = O2JamBmsHarmonyCompatibility.TryPatch(createModelTarget, createModelPrefix, importer_harmony_id);
+                if (!createModelUsesBmsHarmony)
                     importerHarmony.Patch(createModelTarget, prefix: new HarmonyMethod(createModelPrefix));
 
                 IsInstalled = true;
+                if (!playerUsesBmsHarmony)
+                    O2JamBmsHarmonyCompatibility.RegisterForLateLoad(importScoreTarget, importScorePrefix, importScorePostfix, player_harmony_id);
+                if (!getScoreUsesBmsHarmony)
+                    O2JamBmsHarmonyCompatibility.RegisterForLateLoad(getScoreTarget, getScorePrefix, null, importer_harmony_id);
+                if (!createModelUsesBmsHarmony)
+                    O2JamBmsHarmonyCompatibility.RegisterForLateLoad(createModelTarget, createModelPrefix, null, importer_harmony_id);
                 return true;
             }
             catch (Exception exception)
