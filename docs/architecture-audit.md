@@ -6,7 +6,7 @@
 
 - A14：分层重构基线已提交为 `2ae294c`，工作树可以按问题项追踪增量修改。
 - A01：补丁注册已区分玩法必需和可选；缺少必需补丁时阻止创建玩法界面，可选失败仅记录诊断；安装异常按独立 Harmony ID 回滚。清单与原生缺口见[补丁清单](compatibility-patches.md)。失败策略及回滚的定向测试通过，当前宿主版本的过滤回归共 823 项通过。真实客户端故障注入仍待验收。
-- A02：已用实际安装的 BMSRuleset 2026.920.0.0 完成两种载入顺序的定向测试，并修复 BMS 后加载时 O2Jam replay 钩子被覆盖的问题。BMS 专用 Harmony 协调已收拢到 Host/Compatibility；[矩阵与未覆盖范围](bms-coexistence.md)另记。真实客户端的双 ruleset 游玩/结算/回放验收仍待完成。
+- A02：已用实际安装的 BMSRuleset 2026.920.0.0 完成两种载入顺序的定向测试，并修复 BMS 后加载时 O2Jam replay 钩子被覆盖的问题；用户实测还发现 BMS 单曲结算图标显示 `?`，已定位并修复与编辑器入口保护共用的 `ScreenStack.Push` 补丁冲突。BMS 专用 Harmony 协调已收拢到 Host/Compatibility；[矩阵与未覆盖范围](bms-coexistence.md)另记。真实客户端的双 ruleset 游玩/结算/回放验收仍待完成。
 
 ## 结论与边界
 

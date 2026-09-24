@@ -27,6 +27,7 @@ internal static class O2JamEditorAccessPatch
     private static MethodInfo? setSongSelectGetter;
 
     internal static bool IsInstalled { get; private set; }
+    internal static bool UsesBmsHarmonyForScreenPush { get; private set; }
 
     internal static bool InstallOnce()
     {
@@ -52,15 +53,31 @@ internal static class O2JamEditorAccessPatch
                 if (patches.Any(patch => patch.Target == null) || setSongSelectGetter == null)
                     throw new MissingMethodException("The native editor entry points have changed.");
 
-                foreach (var patch in patches)
+                var screenPushTarget = patches[0].Target!;
+                var screenPushPrefix = AccessTools.Method(typeof(O2JamEditorAccessPatch), nameof(allowScreenPush))!;
+
+                // BMS replaces the native single-song results at this seam. Both prefixes must survive
+                // regardless of which ruleset first installs its portable Harmony runtime.
+                UsesBmsHarmonyForScreenPush = O2JamBmsHarmonyCompatibility.TryPatch(screenPushTarget, screenPushPrefix, harmony_id);
+                if (!UsesBmsHarmonyForScreenPush)
+                    harmony.Patch(screenPushTarget, prefix: new HarmonyMethod(screenPushPrefix));
+
+                foreach (var patch in patches.Skip(1))
                     harmony.Patch(patch.Target!, prefix: hook(patch.Prefix), postfix: hook(patch.Postfix));
 
                 IsInstalled = true;
+                if (!UsesBmsHarmonyForScreenPush)
+                {
+                    O2JamBmsHarmonyCompatibility.RegisterForLateLoad(
+                        screenPushTarget, screenPushPrefix, null, harmony_id,
+                        onPatched: () => UsesBmsHarmonyForScreenPush = true);
+                }
                 return true;
             }
             catch (Exception exception)
             {
                 O2JamPatchRollback.Unpatch(harmony_id);
+                UsesBmsHarmonyForScreenPush = false;
                 Logger.Error(exception, "O2Lazer could not install its editor access adapter.");
                 return false;
             }

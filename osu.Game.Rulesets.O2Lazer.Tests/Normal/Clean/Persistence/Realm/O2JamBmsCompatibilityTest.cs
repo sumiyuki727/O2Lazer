@@ -8,6 +8,7 @@ using osu.Framework.Audio.Track;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Textures;
 using osu.Framework.Platform;
+using osu.Framework.Screens;
 using osu.Framework.Testing;
 using osu.Game.Beatmaps;
 using osu.Game.Beatmaps.Drawables;
@@ -19,8 +20,10 @@ using osu.Game.Rulesets;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Replays;
+using osu.Game.Rulesets.O2Lazer.UI;
 using osu.Game.Rulesets.O2Lazer.UI.Icons;
 using osu.Game.Scoring;
+using osu.Game.Screens.Ranking;
 using osu.Game.Screens.Select;
 using osu.Game.Skinning;
 
@@ -70,6 +73,10 @@ public partial class O2JamBmsCompatibilityTest
                 assertIcon(new BeatmapInfo(o2Lazer.RulesetInfo), "osu.Game.Rulesets.O2Lazer.UI.Icons.O2JamRulesetIcon");
                 Assert.That(O2JamBeatmapBoundaryPatches.UsesBmsHarmonyForStatistics, Is.True);
                 Assert.That(O2JamDifficultyIconPatch.UsesBmsHarmony, Is.True);
+                Assert.That(O2JamEditorAccessPatch.UsesBmsHarmonyForScreenPush, Is.True);
+                var resultsEntryPatcher = assembly.GetType("osu.Game.Rulesets.BmsRuleset.UI.Result.BmsResultsScreenEntryPatcher", true)!;
+                Assert.That(resultsEntryPatcher.GetProperty("IsInstalled", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null), Is.True);
+                assertBmsResultsScreenSurvivesO2Lazer(bms, beatmap);
                 assertO2JamReplaySurvivesBms(storage, realm, bms, o2Lazer);
             }
             catch (Exception exception)
@@ -80,6 +87,17 @@ public partial class O2JamBmsCompatibilityTest
         }));
         if (failure != null)
             throw failure;
+    }
+
+    private static void assertBmsResultsScreenSurvivesO2Lazer(Ruleset bms, BeatmapInfo beatmap)
+    {
+        using var stack = new ScreenStack();
+        using var source = new ProbeScreen();
+        stack.Push(source);
+        using var nativeResults = new SoloResultsScreen(new ScoreInfo(beatmap, bms.RulesetInfo));
+        stack.Push(nativeResults);
+        Assert.That(stack.CurrentScreen.GetType().FullName,
+            Is.EqualTo("osu.Game.Rulesets.BmsRuleset.UI.Result.BmsResultsScreen"));
     }
 
     private static void assertO2JamReplaySurvivesBms(Storage storage, RealmAccess realm, Ruleset bms, Ruleset o2Lazer)
@@ -182,6 +200,8 @@ public partial class O2JamBmsCompatibilityTest
             });
         }
     }
+
+    private partial class ProbeScreen : Screen;
 
     private sealed class TestRulesetStore(params RulesetInfo[] rulesets) : RulesetStore
     {
