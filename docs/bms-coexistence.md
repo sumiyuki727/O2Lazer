@@ -17,7 +17,7 @@
 | BMS → O2Lazer | 18 个物件；星级前后均 `0.23321105733995243` | 原生 `SoloResultsScreen` 被替换为 BMS 自定义结算页 | 通过 | 统计、图标及 `ScreenStack.Push` 均使用 BMS Harmony |
 | O2Lazer → BMS | 同上 | 同上 | 通过 | BMS 载入后补注册，验证通过 |
 
-安装版 BMS 没有旧源码中的 `BmsDifficultyIconPatcher`；因此原测试要求它在原生 `DifficultyIcon` 内返回 `BmsRulesetIcon` 是过时断言。新测试以安装版在 O2Lazer 初始化前的实际图标类型为基线，并要求之后不改变。此结论只针对原生 `DifficultyIcon` 入口。安装版 BMS 的单曲结算页使用自己的 `BmsResultDifficultyIcon`，其中直接创建 `BmsRulesetIcon`；如果结算时显示 `?`，说明可能落回了原生结算页，不能据原生图标基线认定为 BMS 设计。实际发现 O2Lazer 的编辑器入口保护和 BMS 的结算页替换都补丁到 `ScreenStack.Push`；现在两者共享 BMS Harmony，并在双顺序测试中断言推入原生单曲结算页会被替换。客户端视觉复测仍待完成。
+安装版 BMS 没有旧源码中的 `BmsDifficultyIconPatcher`；因此原测试要求它在原生 `DifficultyIcon` 内返回 `BmsRulesetIcon` 是过时断言。新测试以安装版在 O2Lazer 初始化前的实际图标类型为基线，并要求之后不改变。此结论只针对原生 `DifficultyIcon` 入口。安装版 BMS 的单曲结算页使用自己的 `BmsResultDifficultyIcon`，其中直接创建 `BmsRulesetIcon`；如果结算时显示 `?`，说明可能落回了原生结算页，不能据原生图标基线认定为 BMS 设计。实际发现 O2Lazer 的编辑器入口保护和 BMS 的结算页替换都补丁到 `ScreenStack.Push`；现在两者共享 BMS Harmony，并在双顺序测试中断言推入原生单曲结算页会被替换。安装修复版后，用户已在客户端确认 BMS 单曲结算图标显示正常。
 
 可复现命令（`$lazerBinaries` 指向匹配的 2026.921.0 安装）：
 
@@ -29,4 +29,4 @@ dotnet test $project -c Release "-p:OsuBinaryDirectory=$lazerBinaries" --filter 
 dotnet test $project -c Release "-p:OsuBinaryDirectory=$lazerBinaries" --filter 'FullyQualifiedName~O2JamBmsCompatibilityTest.BmsFilteringAndStarsWorkWhenLoadedLast'
 ```
 
-首次诊断暴露了 O2Lazer → BMS 顺序下 O2Jam 回放落回原生 `LegacyScoreDecoder.Parse` 的问题。补注册后两种顺序的回放读取均通过。旧 BMS 成绩/replay 的完整导入、真实客户端里 BMS 与 O2Jam 的游玩→结算→回放，以及未来 BMS/宿主版本仍需单独验收；这张矩阵不声称覆盖这些流程。
+首次诊断暴露了 O2Lazer → BMS 顺序下 O2Jam 回放落回原生 `LegacyScoreDecoder.Parse` 的问题。补注册后两种顺序的回放读取均通过，BMS 单曲结算图标也已完成客户端验收。旧 BMS 成绩/replay 的完整导入、真实客户端里 BMS 与 O2Jam 的完整游玩→结算→回放链路，以及未来 BMS/宿主版本仍需单独验收；这张矩阵不声称覆盖这些流程。
