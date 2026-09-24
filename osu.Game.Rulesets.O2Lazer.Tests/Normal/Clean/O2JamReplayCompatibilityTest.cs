@@ -8,6 +8,7 @@ using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Replays;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mania.Replays;
+using osu.Game.Rulesets.Mania.Mods;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Core;
@@ -87,6 +88,59 @@ public class O2JamReplayCompatibilityTest
             Assert.That(frames[2].Actions, Is.EqualTo(new[] { ManiaAction.Key2 }));
             Assert.That(frames[3].Actions, Is.Empty);
         });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AutoplayPreservesNativeTimingAndMetadata(bool empty)
+    {
+        var timingMap = new O2JamTimingMap(120);
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, timingMap);
+        if (!empty)
+        {
+            for (var column = 0; column < 7; column++)
+                beatmap.HitObjects.Add(new O2JamNote { StartTime = 100, Column = column, TimingMap = timingMap });
+
+            beatmap.HitObjects.Add(new O2JamNote { StartTime = 110, Column = 0, TimingMap = timingMap });
+            beatmap.HitObjects.Add(new O2JamHoldNote { StartTime = 200, Duration = 0, Column = 1, TimingMap = timingMap });
+            beatmap.HitObjects.Add(new O2JamHoldNote { StartTime = 300, Duration = 150, Column = 6, TimingMap = timingMap });
+            beatmap.HitObjects.Add(new O2JamNote { StartTime = 450, Column = 6, TimingMap = timingMap });
+        }
+
+        Mod[] mods = [new ManiaModDoubleTime()];
+        var native = new ManiaModAutoplay().CreateReplayData(beatmap, mods);
+        var adapted = new O2JamModAutoplay().CreateReplayData(beatmap, mods);
+        var frames = adapted.Replay.Frames.Cast<O2JamReplayFrame>().ToArray();
+        var nativeFrames = native.Replay.Frames.Cast<ManiaReplayFrame>().ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(frames.Select(frame => frame.Time), Is.EqualTo(nativeFrames.Select(frame => frame.Time)));
+            Assert.That(frames.Select(frame => frame.Actions), Is.EqualTo(nativeFrames.Select(frame => frame.Actions)));
+            Assert.That(adapted.Replay.HasReceivedAllFrames, Is.EqualTo(native.Replay.HasReceivedAllFrames));
+            Assert.That(adapted.User.Username, Is.EqualTo(native.User.Username));
+        });
+
+        if (!empty)
+        {
+            Assert.That(frames.Single(frame => frame.Time == 109).Actions, Does.Not.Contain(ManiaAction.Key1));
+            Assert.That(frames.Single(frame => frame.Time == 201).Actions, Is.Empty);
+            Assert.That(frames.Single(frame => frame.Time == 450).Actions, Is.EqualTo(new[] { ManiaAction.Key7 }));
+        }
+    }
+
+    [Test]
+    public void RepeatedAutoplayGenerationDoesNotShareMutableFrames()
+    {
+        var timingMap = new O2JamTimingMap(120);
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, timingMap);
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 100, Column = 0, TimingMap = timingMap });
+        var generator = new O2JamAutoGenerator(beatmap);
+        var first = generator.Generate();
+        var second = generator.Generate();
+        ((O2JamReplayFrame)first.Frames[0]).Actions.Clear();
+        Assert.That(((O2JamReplayFrame)second.Frames[0]).Actions, Is.EqualTo(new[] { ManiaAction.Key1 }));
+        Assert.That(((O2JamReplayFrame)second.Frames[1]).Actions, Is.Empty);
+        Assert.That(beatmap.HitObjects, Has.Count.EqualTo(1));
     }
 
     [Test]

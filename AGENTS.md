@@ -11,6 +11,8 @@
 
 ## Ruleset Rules
 
+- Prefer native osu!lazer / osu!framework implementations whenever they satisfy the required behaviour and presentation. Add custom implementations, adapters, or patches only when native behaviour cannot meet the requirement; document the specific gap and keep the adaptation scoped to it.
+
 - Background Sample and KeySound volumes should NOT be affected by the effect volume of global volume settings.
 
 ## Code Style

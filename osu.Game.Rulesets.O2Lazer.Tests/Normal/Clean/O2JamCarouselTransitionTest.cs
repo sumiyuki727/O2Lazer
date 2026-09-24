@@ -10,6 +10,7 @@ using osu.Framework.Threading;
 using osu.Game.Beatmaps;
 using osu.Game.Graphics.Carousel;
 using osu.Game.Graphics.UserInterface;
+using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.SongSelect;
 using osu.Game.Screens.Select;
 using osu.Game.Screens.Select.Filter;
@@ -76,6 +77,38 @@ public class O2JamCarouselTransitionTest
         return false;
     }
 
+    [Test]
+    public void NativeSwitchSupersedesPendingO2Transition()
+    {
+        Assert.That(O2JamModeSwitchDirectionPatch.InstallOnce(), Is.True);
+        Assert.That(O2JamCarouselTransitionPatch.InstallOnce(), Is.True);
+        using var carousel = new BeatmapCarousel { RequestRecommendedSelection = _ => { }, RequestSelection = _ => { } };
+        var criteria = AccessTools.Property(typeof(BeatmapCarousel), nameof(BeatmapCarousel.Criteria));
+        var beginFilter = AccessTools.Method(typeof(O2JamCarouselTransitionPatch), "beginFilter");
+        var directionUntil = AccessTools.Field(typeof(O2JamModeSwitchDirectionPatch), "transitionUntil");
+
+        criteria.SetValue(carousel, new FilterCriteria { Ruleset = new RulesetInfo { ShortName = "o2lazer" } });
+        object[] leavingO2 = [carousel, new FilterCriteria { Ruleset = new RulesetInfo { ShortName = "mania" } }, false];
+        beginFilter.Invoke(null, leavingO2);
+        Assert.That(carousel.DebounceDelay, Is.EqualTo(16));
+        Assert.That((long)directionUntil.GetValue(null)!, Is.GreaterThan(0));
+
+        criteria.SetValue(carousel, new FilterCriteria { Ruleset = new RulesetInfo { ShortName = "mania" } });
+        object[] nativeSwitch = [carousel, new FilterCriteria { Ruleset = new RulesetInfo { ShortName = "fruits" } }, false];
+        beginFilter.Invoke(null, nativeSwitch);
+        Assert.Multiple(() =>
+        {
+            Assert.That(nativeSwitch[2], Is.False, "The native filter keeps its own loading policy.");
+            Assert.That(carousel.DebounceDelay, Is.EqualTo(100));
+            Assert.That((long)directionUntil.GetValue(null)!, Is.Zero);
+        });
+
+        using var panel = new PanelBeatmapStandalone();
+        var nativeAlpha = panel.Alpha;
+        AccessTools.Method(typeof(O2JamCarouselTransitionPatch), "prepareEntrance").Invoke(null, [carousel, panel]);
+        Assert.That(panel.Alpha, Is.EqualTo(nativeAlpha), "The native panel entrance must not inherit O2Lazer state.");
+    }
+
     [TestCase("mania", "o2lazer")]
     [TestCase("o2lazer", "mania")]
     public void SupersededCompletionKeepsNativeSpinnerUntilCurrentFilterCompletes(string previous, string current)
@@ -87,6 +120,7 @@ public class O2JamCarouselTransitionTest
         object[] arguments = [carousel, new FilterCriteria { Ruleset = new RulesetInfo { ShortName = current } }, false];
         AccessTools.Method(typeof(O2JamCarouselTransitionPatch), "beginFilter").Invoke(null, arguments);
         Assert.That(arguments[2], Is.True);
+        Assert.That(carousel.DebounceDelay, Is.EqualTo(16));
 
         var pending = new TaskCompletionSource<IEnumerable<CarouselItem>>();
         AccessTools.Field(typeof(Carousel<BeatmapInfo>), "filterTask").SetValue(carousel, pending.Task);
@@ -94,6 +128,7 @@ public class O2JamCarouselTransitionTest
         loading.Show();
         var completion = O2JamCarouselTransitionPatch.FindCompletion()!;
         completion.Invoke(carousel, null);
+        Assert.That(carousel.DebounceDelay, Is.EqualTo(16));
         Assert.That(loading.State.Value, Is.EqualTo(Visibility.Visible), "A cancelled request must not hide the current request's spinner.");
 
         using var newPanel = new PanelBeatmapStandalone();
@@ -102,6 +137,7 @@ public class O2JamCarouselTransitionTest
 
         pending.SetResult([]);
         completion.Invoke(carousel, null);
+        Assert.That(carousel.DebounceDelay, Is.EqualTo(100));
         Assert.That(loading.State.Value, Is.EqualTo(Visibility.Hidden));
     }
 }

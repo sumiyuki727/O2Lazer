@@ -1,4 +1,6 @@
-# O2Jam audio sync diagnostic build
+# O2Jam 音频同步可选诊断构建
+
+更新：2026-09-24。该开关和对应源码仍存在于 `Host/Audio/O2JamPreviewTrack.Diagnostics.cs`、`Host/Gameplay/O2JamDrawableRuleset.Diagnostics.cs` 与 `Host/Diagnostics`；本次审查只运行默认关闭诊断的常规构建，未重新安装诊断 DLL 或进行音频设备实测。此页用于需要复现同步问题时的操作，不是当前发布说明。
 
 This build observes timing without changing hit windows, chart timestamps, clock sources,
 audio offsets, preloading, volume routing, or playback control. It is not a sync fix.
@@ -84,15 +86,4 @@ Tests cover wall-clock throttling, bounded pending work, transition/event bursts
 rate-independent BGM timeline mapping, hit-statistic reset, invariant-culture trace fields,
 and unchanged audio position/start/stop behaviour during observation.
 
-During development a combined test run twice aborted in Realm's native synchronization-context
-callback. The Realm groups passed in isolation and the ordinary build passed all 310 normal tests.
-After isolating the diagnostic test's log sink from global host logging, the diagnostic build
-passed all 311 normal tests. This is a test-run observation, not a claimed fix to Realm internals
-or evidence that an in-game Realm issue has been resolved.
-
-At the time of that investigation, the final diagnostic Release build passed 311 filtered normal tests, and its
-exported DLL was inspected to confirm the diagnostic hooks are present. Neither the installed
-DLL nor the existing ordinary export was overwritten. Runtime audio-device behaviour still
-requires the user's gameplay test above. These historical counts are not a claim about the current
-commit. Normal source builds keep diagnostics disabled; current verification instructions are in
-[development.md](development.md).
+历史上的 Realm 测试宿主事务断言不应被解释为音频故障；当前常规验证已将相关测试分进程，参见 [development.md](development.md)。2026-09-24 默认构建的 819 项过滤测试通过，但这不验证诊断开关构建或实际音频设备。启用追踪前应单独构建、选精确测试过滤器并在客户端按本页流程采集日志；普通版本继续保持开关关闭。

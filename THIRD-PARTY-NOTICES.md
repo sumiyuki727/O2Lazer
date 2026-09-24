@@ -7,7 +7,7 @@ included in `LICENSE` and has not changed with the rewrite.
 
 Pre-rewrite versions were derived from [QingQiz/BmsRuleset](https://github.com/QingQiz/BmsRuleset).
 That historical attribution remains applicable to the archived sources in Git history. The active
-`Core/` and `Clean/` trees do not compile or include that former gameplay/skin implementation.
+`O2Jam.Core/`, `O2Jam.Formats/` and `osu.Game.Rulesets.O2Lazer/` source trees do not compile or include that former gameplay/skin implementation.
 Format-decoding provenance is retained separately below; rewriting integration code does not erase
 third-party notices for that work.
 

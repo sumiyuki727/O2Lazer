@@ -4,7 +4,7 @@ An osu!lazer ruleset for playing native O2Jam libraries directly from `.ojn` and
 
 [简体中文](./README.zh-CN.md)
 
-See the [refactor roadmap (Chinese)](docs/refactor-roadmap.md) for stages, progress and acceptance criteria.
+See the [current architecture](docs/clean-rewrite-architecture.md), [architecture audit and issue list](docs/architecture-audit.md), and [refactor roadmap (Chinese)](docs/refactor-roadmap.md).
 
 ## Design
 
@@ -42,13 +42,13 @@ The default key bindings are `S D F Space J K L`.
 
 ## Install
 
-The current clean-rewrite prerelease tag is **1.0.0-test**; its persisted assembly version remains
-**1.0.0** for ruleset identity compatibility. It targets osu!lazer **2026.804.2**. Build or obtain a compatible
-`osu.Game.Rulesets.O2Lazer.dll`, close lazer, replace the DLL in its data directory's `rulesets`
-folder, and restart. Keep DLL backups outside `rulesets`; do not install two O2Lazer versions there.
-The persisted ruleset identity is unchanged, so existing imports and score associations are retained.
-Pre-rewrite replays came from test builds with an immature schema and are not supported; existing
-score records are not deleted. Clean replay schema v5 is the frozen release contract.
+The current `master` development build targets osu!lazer **2026.921.0**; the ruleset assembly
+version remains **1.0.0** to preserve its identity. This branch is not a new release tag. Build
+against matching Game and Mania binaries, close lazer, replace the DLL in its data directory's
+`rulesets` folder, and restart. Keep DLL backups outside `rulesets`; do not install two O2Lazer
+versions there. Existing import and score associations are intended to be retained, but storage
+migration still needs explicit validation. The current replay reader accepts marked schema v5;
+pre-rewrite unmarked replays are unsupported and remain an open compatibility item.
 
 ## Importing a library
 
@@ -94,7 +94,7 @@ Combine these filters in the O2Lazer song-select search box:
 
 For example, `o2ma100 ln>50` selects that song's difficulties with more than 50% LNs. Search uses existing imported metadata without reimporting or decoding charts.
 
-After upgrading an existing library, use **Refresh beatmaps** once to populate both ratings and their version metadata without replacing beatmap IDs or score links. Future refreshes skip unchanged, current entries. Native background reprocessing also computes mania stars; switching MS only reads stored ratings. An unavailable mania rating is marked as uncalculated (`-1`) until processing completes.
+After upgrading an existing library, use **Refresh beatmaps** once to populate both ratings and their version metadata without replacing beatmap IDs or score links. Future refreshes skip unchanged, current entries. Native background reprocessing also computes mania stars; switching MS only reads stored ratings. An unavailable mania rating uses an internal `-1` sentinel; the song-select SR row retains its previous valid value or stays blank until calculation completes.
 
 ## Build
 

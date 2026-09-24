@@ -370,3 +370,4 @@ desktop.ini
 *.ojm
 *.omc
 *.m30
+!/osu.Game.Rulesets.O2Lazer/Host/Persistence/Realm/O2JamSettingsSubsection.Realm.cs

@@ -169,11 +169,28 @@ public class O2JamLibraryApplicationTest
             File.WriteAllText(Path.Combine(directory, "first.OJN"), "");
             File.WriteAllText(Path.Combine(directory, "nested", "second.ojn"), "");
             File.WriteAllText(Path.Combine(directory, "sound.ojm"), "");
-            Assert.That(O2JamRealmLibraryBackend.enumerateCharts(directory, CancellationToken.None), Has.Length.EqualTo(2));
+            Assert.That(O2JamChartSourceScanner.Enumerate(directory, CancellationToken.None), Has.Length.EqualTo(2));
             Assert.Throws<OperationCanceledException>(() =>
-                O2JamRealmLibraryBackend.enumerateCharts(directory, new CancellationToken(true)));
+                O2JamChartSourceScanner.Enumerate(directory, new CancellationToken(true)));
         }
         finally { Directory.Delete(directory, true); }
+    }
+
+    [Test]
+    public void ReopeningSettingsReusesBackendWithoutRealmDependencies()
+    {
+        using var config = new O2JamRulesetConfigManager(null, new O2LazerRuleset().RulesetInfo);
+        var creations = 0;
+        IO2JamLibraryBackend createBackend()
+        {
+            creations++;
+            return new FakeBackend();
+        }
+
+        var first = O2JamLibrarySettingsSession.Get(config, createBackend, null);
+        var second = O2JamLibrarySettingsSession.Get(config, createBackend, null);
+        Assert.That(second, Is.SameAs(first));
+        Assert.That(creations, Is.EqualTo(1));
     }
 
     private sealed class FakeBackend : IO2JamLibraryBackend

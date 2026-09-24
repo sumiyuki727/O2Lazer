@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <IsTestProject>true</IsTestProject>
         <RootNamespace>osu.Game.Rulesets.O2Lazer.Tests</RootNamespace>
         <Nullable>enable</Nullable>
@@ -8,9 +8,13 @@
         <NoWarn>$(NoWarn);MSB3277</NoWarn>
         <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     </PropertyGroup>
+    <ItemGroup>
+        <EmbeddedResource Update="Fixtures\Localisation\Messages*.resx" WithCulture="false"
+                          LogicalName="Tests.Localisation.%(Filename).resources" />
+    </ItemGroup>
     <ItemGroup Label="Package References">
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0"/>
-        <PackageReference Include="NUnit" Version="4.5.1"/>
+        <PackageReference Include="NUnit" Version="4.6.1"/>
         <PackageReference Include="NUnit3TestAdapter" Version="6.1.0"/>
     </ItemGroup>
     <ItemGroup>
@@ -26,7 +30,7 @@
              Keep the NuGet audit visible; see docs/development.md for the current advisory. -->
         <PackageReference Include="AutoMapper" Version="13.0.1" PrivateAssets="all" />
         <!-- Native APIMod annotations are reflected when ScoreInfo serialises replay settings. -->
-        <PackageReference Include="MessagePack.Annotations" Version="3.1.7" PrivateAssets="all" />
+        <PackageReference Include="MessagePack.Annotations" Version="3.1.8" PrivateAssets="all" />
         <Reference Include="osu.Game">
             <HintPath>$(OsuGameProjectPath)</HintPath>
             <Private>true</Private>
@@ -43,8 +47,8 @@
     <!-- The ruleset embeds these types; reference that identity in host integration tests. -->
     <Target Name="UseEmbeddedFormatTypes" BeforeTargets="CoreCompile">
         <ItemGroup>
-            <ReferencePath Remove="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'O2Jam.Formats'" />
-            <ReferencePathWithRefAssemblies Remove="@(ReferencePathWithRefAssemblies)" Condition="'%(ReferencePathWithRefAssemblies.Filename)' == 'O2Jam.Formats'" />
+            <ReferencePath Remove="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'O2Jam.Formats' or '%(ReferencePath.Filename)' == 'O2Jam.Core'" />
+            <ReferencePathWithRefAssemblies Remove="@(ReferencePathWithRefAssemblies)" Condition="'%(ReferencePathWithRefAssemblies.Filename)' == 'O2Jam.Formats' or '%(ReferencePathWithRefAssemblies.Filename)' == 'O2Jam.Core'" />
         </ItemGroup>
     </Target>
 </Project>

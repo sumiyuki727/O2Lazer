@@ -1,6 +1,7 @@
 # O2Jam gameplay behaviour specification
 
-This specification is the behavioural authority for the clean rewrite. It separates confirmed
+Updated 2026-09-24. This specification is the behavioural authority for O2Jam gameplay; the
+[architecture audit](architecture-audit.md) tracks implementation risks and acceptance gaps. It separates confirmed
 reverse-engineered behaviour from compatibility choices. The reference implementations are not
 compiled into or copied by O2Lazer.
 
@@ -22,7 +23,7 @@ compiled into or copied by O2Lazer.
   200, GOOD 100, a 5000-point Jam fill and the 15-COOL pill rule. Later
   [Chinese](https://moegirl.uk/O2Jam) and [English](https://o2jam.fandom.com/wiki/Jam_combo)
   O2Jam references independently give the per-current-Jam bonuses of +10 for COOL and +5 for GOOD.
-- The existing O2Lazer and BmsRuleset implementations are functional references only.
+- Older O2Lazer and BmsRuleset implementations are historical context only; current rules are justified by the evidence and tests recorded here.
 - Player observation confirms that the first COOL/GOOD displays `0` combo and the second displays
   `1` combo.
 
@@ -246,7 +247,7 @@ settings, incompatibilities, score multipliers and intrinsic ranking state.
 
 ### Performance eligibility
 
-O2Jam scoring has no planned PP calculator. Mod selection and score displays use the following
+O2Jam scoring has no independent PP formula. The current performance entry delegates to native Mania only with MS; Mod selection and score displays use the following
 eligibility policy independently of the gameplay score calculation:
 
 | Selected mods | PP eligibility |

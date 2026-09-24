@@ -82,6 +82,19 @@ public partial class O2JamHoldVisualProbeTest
         Assert.That(game.Completed, Is.True);
     }
 
+    [TestCase(50)]
+    [TestCase(200)]
+    [TestCase(407.617)]
+    public void RewindBeforeHeadRestoresGameplayAndAllowsReplay(double earlyRelease)
+    {
+        using var host = new TestRunHeadlessGameHost($"O2JamHoldRewind-{Guid.NewGuid():N}");
+        var game = new ProbeGame(earlyRelease, true, rewind: true);
+        host.Run(game);
+        if (game.Failure != null)
+            throw game.Failure;
+        Assert.That(game.Completed, Is.True);
+    }
+
     private static void runVisualProbe(double earlyRelease, bool o2Visual, ScrollingDirection direction, O2JamAccuracy? rejectedHead = null)
     {
         var previousVisual = O2JamRuntimeOptions.UseO2JamLongNoteMissVisual;
@@ -113,6 +126,13 @@ public partial class O2JamHoldVisualProbeTest
         private readonly O2JamAccuracy expectedAccuracy;
         private readonly O2JamAccuracy? rejectedHead;
         private readonly bool noRelease;
+        private readonly bool rewind;
+        private readonly O2JamScoreProcessor processor = new(new O2LazerRuleset());
+        private O2JamGameplaySnapshot initialState;
+        private O2JamGameplaySnapshot completedState;
+        private int revertedResults;
+        private long completedNativeScore;
+        private int completedNativeCombo;
         private float releasedHeight;
         private float releasedY;
         private ProbePlayfield playfield = null!;
@@ -124,12 +144,13 @@ public partial class O2JamHoldVisualProbeTest
         public List<string> Observations { get; } = [];
 
         public ProbeGame(double earlyRelease, bool? verifyO2Visual = null, ScrollingDirection direction = ScrollingDirection.Down,
-                         O2JamAccuracy? rejectedHead = null, bool noRelease = false)
+                         O2JamAccuracy? rejectedHead = null, bool noRelease = false, bool rewind = false)
         {
             releaseTime = 1821.917808219 - earlyRelease;
             this.verifyO2Visual = verifyO2Visual;
             this.rejectedHead = rejectedHead;
             this.noRelease = noRelease;
+            this.rewind = rewind;
             expectedAccuracy = rejectedHead.HasValue ? O2JamAccuracy.Miss : earlyRelease switch
             {
                 50 => O2JamAccuracy.Cool,
@@ -148,7 +169,7 @@ public partial class O2JamHoldVisualProbeTest
             dependencies.CacheAs<IGameplaySettings>(new ProbeSettings());
             dependencies.CacheAs<IScrollingInfo>(scrolling);
             dependencies.CacheAs<IBindable<ManiaAction>>(new Bindable<ManiaAction>(ManiaAction.Key1));
-            dependencies.CacheAs<ScoreProcessor>(new O2JamScoreProcessor(new O2LazerRuleset()));
+            dependencies.CacheAs<ScoreProcessor>(processor);
             dependencies.Cache(new osu.Game.Graphics.OsuColour());
             dependencies.Cache(new Column(3, true));
             dependencies.Cache(new StageDefinition(7));
@@ -170,6 +191,19 @@ public partial class O2JamHoldVisualProbeTest
             };
             note.ApplyDefaults(new osu.Game.Beatmaps.ControlPoints.ControlPointInfo(), new osu.Game.Beatmaps.BeatmapDifficulty());
             playfield = new ProbePlayfield();
+            if (rewind)
+            {
+                var beatmap = new osu.Game.Rulesets.O2Lazer.Beatmaps.O2JamBeatmap(O2JamDifficulty.EX, timing);
+                beatmap.HitObjects.Add(note);
+                processor.ApplyBeatmap(beatmap);
+                initialState = processor.GameplayState.Current;
+                playfield.NewResult += (_, result) => processor.ApplyResult(result);
+                playfield.RevertResult += result =>
+                {
+                    revertedResults++;
+                    processor.RevertResult(result);
+                };
+            }
             playfield.Add(note);
             ISkin skin = new ProbeSkin();
             var realmPath = Environment.GetEnvironmentVariable("O2JAM_DIAGNOSTIC_REALM");
@@ -204,6 +238,12 @@ public partial class O2JamHoldVisualProbeTest
                     throw new InvalidOperationException($"Probe did not complete within 200 frames: hold={hold?.LoadState}, head={hold?.Head?.LoadState}, tail={hold?.Tail?.LoadState}, time={frameClock.CurrentTime}.");
                 if (phase == 0 && (hold?.IsLoaded != true || hold.Head?.IsLoaded != true || hold.Tail?.IsLoaded != true))
                     return;
+
+                if (rewind)
+                {
+                    updateRewindProbe();
+                    return;
+                }
 
                 if (noRelease)
                 {
@@ -286,6 +326,61 @@ public partial class O2JamHoldVisualProbeTest
             {
                 Failure = exception;
                 Exit();
+            }
+        }
+
+        private void updateRewindProbe()
+        {
+            switch (phase++)
+            {
+                case 0:
+                case 6:
+                    ((IKeyBindingHandler<ManiaAction>)hold).OnPressed(
+                        new KeyBindingPressEvent<ManiaAction>(new InputState(), ManiaAction.Key1, false));
+                    break;
+                case 1:
+                case 7:
+                    Assert.That(hold.GameplayState.IsHolding, Is.True);
+                    seek(releaseTime);
+                    break;
+                case 2:
+                case 8:
+                    ((IKeyBindingHandler<ManiaAction>)hold).OnReleased(
+                        new KeyBindingReleaseEvent<ManiaAction>(new InputState(), ManiaAction.Key1));
+                    break;
+                case 3:
+                    Assert.That(hold.AllJudged, Is.True);
+                    Assert.That(hold.GameplayState.IsHolding, Is.False);
+                    completedState = processor.GameplayState.Current;
+                    completedNativeScore = processor.TotalScore.Value;
+                    completedNativeCombo = processor.Combo.Value;
+                    Assert.That(completedState, Is.Not.EqualTo(initialState));
+                    seek(900);
+                    break;
+                case 4:
+                    Assert.That(revertedResults, Is.GreaterThanOrEqualTo(2));
+                    Assert.That(hold.Head.Judged, Is.False);
+                    Assert.That(hold.Tail.Judged, Is.False);
+                    Assert.That(hold.Judged, Is.False);
+                    Assert.That(hold.GameplayState.IsHolding, Is.False);
+                    Assert.That(processor.GameplayState.Current, Is.EqualTo(initialState));
+                    Assert.That(processor.TotalScore.Value, Is.Zero);
+                    Assert.That(processor.Combo.Value, Is.EqualTo(-1));
+                    Assert.That(((O2JamJudgementResult)hold.Head.Result).ResolutionApplied, Is.False);
+                    Assert.That(((O2JamJudgementResult)hold.Tail.Result).ResolutionApplied, Is.False);
+                    seek(999.051);
+                    break;
+                case 5:
+                    Assert.That(hold.Head.Judged, Is.False);
+                    break;
+                case 9:
+                    Assert.That(hold.AllJudged, Is.True);
+                    Assert.That(processor.GameplayState.Current, Is.EqualTo(completedState));
+                    Assert.That(processor.TotalScore.Value, Is.EqualTo(completedNativeScore));
+                    Assert.That(processor.Combo.Value, Is.EqualTo(completedNativeCombo));
+                    Completed = true;
+                    Exit();
+                    break;
             }
         }
 

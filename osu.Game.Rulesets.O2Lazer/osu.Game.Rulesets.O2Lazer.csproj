@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup Label="Project">
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <AssemblyTitle>osu.Game.Rulesets.O2Lazer</AssemblyTitle>
         <AssemblyName>osu.Game.Rulesets.O2Lazer</AssemblyName>
         <OutputType>Library</OutputType>
@@ -26,17 +26,22 @@
                           LogicalName="$(RootNamespace).Resources.Textures.Icons.Mods.mod-mania-score.png"
                           WithCulture="false" />
         <EmbeddedResource Include="Resources\Samples\UI\ruleset-select-o2lazer.wav" WithCulture="false"/>
-        <EmbeddedResource Update="Resources\Localisation\O2LazerStrings.resx" WithCulture="false" />
-        <EmbeddedResource Update="Resources\Localisation\O2LazerStrings.zh.resx" WithCulture="false" />
+        <!-- All locales live in the ruleset DLL; adding a language must not require a project edit. -->
+        <EmbeddedResource Update="Resources\Localisation\O2LazerStrings*.resx" WithCulture="false"
+                          LogicalName="$(RootNamespace).Resources.Localisation.%(Filename).resources" />
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.45" PrivateAssets="all" />
         <PackageReference Include="Lib.Harmony" Version="2.4.2" />
         <ProjectReference Include="../O2Jam.Formats/O2Jam.Formats.csproj" />
+        <ProjectReference Include="../O2Jam.Core/O2Jam.Core.csproj" />
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="Core\**\*.cs" />
-        <Compile Include="Clean\**\*.cs" />
+        <Compile Include="O2LazerRuleset.cs" />
+        <Compile Include="Integration\**\*.cs" />
+        <Compile Include="Host\**\*.cs" />
+        <Compile Include="Presentation\**\*.cs" />
+        <Compile Include="ManiaScore\**\*.cs" />
     </ItemGroup>
     <ItemGroup Condition="'$(UseLocalOsu)' != 'true'">
         <PackageReference Include="ppy.osu.Game" Version="$(OsuVersion)"/>
@@ -51,9 +56,9 @@
             <HintPath>$(OsuManiaAssemblyPath)</HintPath>
             <Private>false</Private>
         </Reference>
-        <PackageReference Include="ppy.osu.Framework" Version="2026.731.0" />
+        <PackageReference Include="ppy.osu.Framework" Version="2026.921.0" />
         <PackageReference Include="Realm" Version="20.1.0" />
-        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     </ItemGroup>
     <ItemGroup>
         <InternalsVisibleTo Include="osu.Game.Rulesets.O2Lazer.Tests"/>
@@ -67,9 +72,10 @@
             <O2LazerRepackInternalizeExclude Include="^MonoMod\." />
             <O2LazerRepackInputAssemblies Include="$(TargetPath)" />
             <O2LazerRepackInputAssemblies Include="@(O2LazerHarmonyAssembly)" />
-            <!-- Embed the format module to retain the single-DLL ruleset deployment. -->
-            <O2LazerRepackInputAssemblies Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'O2Jam.Formats'" />
+            <!-- Embed standalone modules to retain the single-DLL ruleset deployment. -->
+            <O2LazerRepackInputAssemblies Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'O2Jam.Formats' or '%(ReferencePath.Filename)' == 'O2Jam.Core'" />
             <O2LazerRepackInternalizeExclude Include="^osu\.Game\.Rulesets\.O2Lazer\.Formats\." />
+            <O2LazerRepackInternalizeExclude Include="^osu\.Game\.Rulesets\.O2Lazer\.Core\." />
         </ItemGroup>
         <Error Condition="'@(O2LazerHarmonyAssembly)' == ''" Text="Unable to locate 0Harmony.dll for the O2Lazer ruleset repack." />
         <ILRepack

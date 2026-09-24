@@ -89,6 +89,13 @@ public class O2JamNativeTrackPreparationTest
             });
             using var drawable = new DrawableSample(sample, disposeSampleOnDisposal: false);
             container.Add(drawable);
+            // This audio-only fixture does not load the drawable tree. New framework versions
+            // assign Parent on load, so reproduce that attachment before testing ancestor lookup.
+            var innerContainer = typeof(AudioContainer<DrawableSample>).GetField("container", BindingFlags.Instance | BindingFlags.NonPublic)!
+                                                                      .GetValue(container)!;
+            var parentProperty = typeof(osu.Framework.Graphics.Drawable).GetProperty(nameof(osu.Framework.Graphics.Drawable.Parent))!;
+            parentProperty.SetValue(innerContainer, container);
+            parentProperty.SetValue(drawable, innerContainer);
             var channel = drawable.GetChannel();
             channel.Frequency.Value = 1.5;
             onAudioThread(() =>
@@ -114,13 +121,20 @@ public class O2JamNativeTrackPreparationTest
             });
 
             render();
+            // The output mixer advances asynchronously, including the first buffer.
+            var initialTimeout = Stopwatch.StartNew();
+            while (Bass.ChannelGetPosition(channelHandle) <= 0 && initialTimeout.ElapsedMilliseconds < 500)
+            {
+                Thread.Sleep(10);
+                render();
+            }
             var initialPosition = Bass.ChannelGetPosition(channelHandle);
             Assert.That(initialPosition, Is.GreaterThan(0));
             for (var i = 0; i < 3; i++)
             {
                 paused.Value = true;
                 render();
-                Assert.That(BassMix.ChannelHasFlag(channelHandle, BassFlags.MixerChanPause), Is.True);
+                Assert.That(BassMix.ChannelHasFlag(channelHandle, BassFlags.MixerChanPause), Is.True, $"position={Bass.ChannelGetPosition(channelHandle)}, frequency={channel.AggregateFrequency.Value}, playing={channel.Playing}");
                 var pausedPosition = Bass.ChannelGetPosition(channelHandle);
                 Thread.Sleep(30);
                 render();

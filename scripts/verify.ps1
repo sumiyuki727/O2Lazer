@@ -10,6 +10,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
+& (Join-Path $PSScriptRoot 'check-storage-boundary.ps1')
 $binaryDirectory = (Resolve-Path -LiteralPath $OsuBinaryDirectory).Path
 foreach ($assemblyName in @('osu.Game.dll', 'osu.Game.Rulesets.Mania.dll')) {
     if (-not (Test-Path -LiteralPath (Join-Path $binaryDirectory $assemblyName) -PathType Leaf)) {
@@ -24,7 +25,7 @@ $testArguments = @(
     '-c', $Configuration,
     "-p:OsuBinaryDirectory=$binaryDirectory",
     '-p:O2JamSyncDiagnostics=false',
-    '--filter', 'FullyQualifiedName~.Normal.&TestCategory!=LocalDiagnostics&TestCategory!=Isolated',
+    '--filter', 'FullyQualifiedName~.Normal.&TestCategory!=LocalDiagnostics&TestCategory!=Isolated&FullyQualifiedName!~O2JamLegacyLibraryMigrationTest&FullyQualifiedName!~O2JamReplayImportTest',
     '--logger', 'trx;LogFileName=normal.trx',
     '--results-directory', (Join-Path $repositoryRoot '.artifacts/test-results')
 )
@@ -50,9 +51,28 @@ try {
         throw "Format verification failed (exit code $LASTEXITCODE)."
     }
 
+    $coreArguments = @(
+        'test', (Join-Path $repositoryRoot 'O2Jam.Core.Tests/O2Jam.Core.Tests.csproj'),
+        '-c', $Configuration, '--filter', 'FullyQualifiedName~.Normal.Core.',
+        '--logger', 'trx;LogFileName=core.trx',
+        '--results-directory', (Join-Path $repositoryRoot '.artifacts/test-results')
+    )
+    if ($NoBuild) { $coreArguments += '--no-build' }
+    & $DotNet @coreArguments
+    if ($LASTEXITCODE -ne 0) { throw "Core verification failed (exit code $LASTEXITCODE)." }
+
     & $DotNet @testArguments
     if ($LASTEXITCODE -ne 0) {
         throw "Verification failed (exit code $LASTEXITCODE)."
+    }
+    # Native Realm lifetime tests require separate test-host processes.
+    foreach ($fixture in @('O2JamLegacyLibraryMigrationTest', 'O2JamReplayImportTest')) {
+        & $DotNet test (Join-Path $repositoryRoot 'osu.Game.Rulesets.O2Lazer.Tests/osu.Game.Rulesets.O2Lazer.Tests.csproj') `
+            -c $Configuration --no-build "-p:OsuBinaryDirectory=$binaryDirectory" `
+            --filter "FullyQualifiedName~$fixture&TestCategory!=Isolated&TestCategory!=LocalDiagnostics" `
+            --logger "trx;LogFileName=$fixture.trx" `
+            --results-directory (Join-Path $repositoryRoot '.artifacts/test-results')
+        if ($LASTEXITCODE -ne 0) { throw "$fixture failed (exit code $LASTEXITCODE)." }
     }
 }
 finally {

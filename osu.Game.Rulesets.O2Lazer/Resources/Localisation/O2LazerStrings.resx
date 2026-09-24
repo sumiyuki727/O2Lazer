@@ -45,6 +45,9 @@
   <data name="level_filter_value" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="beatmap_statistic_count" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="star_rating" xml:space="preserve">
     <value>mania stars</value>
   </data>

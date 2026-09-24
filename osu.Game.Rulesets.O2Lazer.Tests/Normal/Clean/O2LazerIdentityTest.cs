@@ -45,7 +45,7 @@ public class O2LazerIdentityTest
             Assert.That(typeof(O2LazerRuleset).Assembly.GetName().Name, Is.EqualTo("osu.Game.Rulesets.O2Lazer"));
             Assert.That(typeof(O2LazerRuleset).FullName, Is.EqualTo("osu.Game.Rulesets.O2Lazer.O2LazerRuleset"));
             Assert.That(ruleset.ShortName, Is.EqualTo("o2lazer"));
-            Assert.That(ruleset.AvailableVariants, Is.EqualTo(new[] { 207 }));
+            Assert.That(ruleset.GameplayVariants, Is.EqualTo(new[] { 207 }));
             Assert.That(ruleset, Is.Not.InstanceOf<ILegacyRuleset>());
             Assert.That(ruleset.RulesetInfo.OnlineID, Is.EqualTo(-1));
             Assert.That(O2JamWorkingBeatmapHook.IsInstalled, Is.True);

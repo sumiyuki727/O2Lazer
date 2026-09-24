@@ -1,99 +1,16 @@
-# Rate-mod audio routing
+# 变速 Mod 与 OJM 音频契约
 
-Inspected against the locally referenced osu!lazer 2026.804.2 and framework 2026.731.0 APIs.
-Half Time, Daycore, Double Time and Nightcore are exposed with mania-compatible presentation,
-grouping, settings, ranking state and score multipliers. Routing tests validate native adjustment
-values and propagation. Manual gameplay testing has not found a rate-related OJM onset, pitch or
-pause/resume defect.
+更新：2026-09-24。当前代码已在目标 osu!lazer 2026.921.0 下通过过滤回归；下述 TrackBass/SampleChannelBass 后端细节最初按 2026.804.2/框架 2026.731.0 源码审阅，不能把它误写成新版后端重新审计或实机听感验收。R06 后续需要复查新框架实现及实际设备。
 
-## Native primitives
+O2Jam 音乐事件以谱面时间安排。HT/DT 默认保留音高，Adjust Pitch 同时影响 BGM 与玩家键音；DC/NC 使用 Mania 的固定变调语义，NC 保留原生节拍音。WU/WD/AS 暴露实时 `SpeedChange`，宿主绑定同一速度到事件轨和视觉流速。判定仍由谱面位置驱动，不能对回放时间或音符时间再乘一次速率。背景音与 KeySound 不受全局效果音量影响。
 
-`IAdjustableAudioComponent` distinguishes two multiplicative adjustments:
+| 路径 | 当前实现 | 应验证的区别 |
+|---|---|---|
+| BGM 与较大自动音 | `O2JamPreviewTrack`、`O2JamBeatmapSkin` 用原生 Track；自动音 ≥512 KiB 走流式轨 | 连续音源须跟随速率、可寻址并在暂停/恢复后对齐事件钟 |
+| 小型自动 KeySound | 原生 Sample/Channel，按事件钟触发 | 其一次性包络不因 Tempo 属性自动拉伸；未来若要求全部键音体拉伸，属于新行为设计 |
+| 玩家触发 KeySound | `O2JamHitSoundRateAdjustments` 限定 O2Jam endpoint 的原生可调音频 | Frequency/Adjust Pitch 与实时速度一致，不改全局 UI/效果音 |
+| 视觉下落 | `O2JamDrawableRuleset` 读取原生 Mod 的速度 bindable | BPM 与 rate 的视觉补偿不反向改变判定 |
 
-- `Frequency` changes pitch and playback speed together.
-- `Tempo` changes speed while preserving pitch, where the backend implements it.
+当前模式为预览自动播放可演奏键音，游玩则由玩家输入触发；同曲不同难度只在背景编排兼容时转移原生轨道。`O2JamWorkingBeatmap` 懒加载外部 OJN/OJM，缓存与预加载负责避免快速切曲阻塞，但文件变化、取消和释放仍是[问题 A09](architecture-audit.md#待处理问题)的系统审查项。
 
-Track rate is `AggregateFrequency * AggregateTempo`. There is no separate public pitch-only
-property. A native track can combine the two adjustments to obtain an independent pitch/rate pair.
-
-| O2Lazer path | Native primitive | Frequency | Tempo | Current playback contract |
-|---|---|---|---|---|
-| BGM and automatic samples at least 512 KiB | `Track` / `TrackBass` | Supported | Supported via BASS FX | Each active track binds adjustments from `O2JamPreviewTrack`; seek restoration binds newly created tracks too. |
-| Smaller automatic keysounds; playable keysounds in Song Select | `ISample.GetChannel()` / `SampleChannelBass` | Supported | Accepted by the interface but not applied by this backend | Onsets follow the event clock. Without pitch adjustment, each discrete sample retains its authored pitch and envelope. |
-| Player-triggered tap/LN-head keysounds | `PausableSkinnableSound` -> `DrawableSample` -> `SampleChannelBass` | Supported by the underlying component | Accepted by the interface but not applied by this backend | Judgement triggers the event at the rate-adjusted chart time; Frequency applies when a pitch change is requested. |
-
-`O2JamPreviewTrack.UpdateState()` already drives its virtual clock at the aggregate rate. Its
-`play()` and `playBackground()` methods bind channel/track adjustments rather than capturing a
-one-time numeric value. `SampleChannelBass.OnStateChanged()` applies volume, balance and frequency,
-while `TrackBass.OnStateChanged()` also sets BASS FX Tempo. This difference is intentional at the
-playback-contract level: a continuous track changes its timeline, while a discrete keysound changes
-tempo through its scheduled onset and keeps its authored envelope unless Frequency is requested.
-Binding the Tempo value to a sample channel keeps the routing policy explicit, but does not claim
-that the backend time-stretches the sample body.
-
-The gameplay adapter binds only O2Jam endpoint `SkinnableSound` instances, rather than the complete
-`DrawableRuleset.Audio` tree. This keeps global UI/effect sounds and Nightcore's native percussion
-independent while allowing live HT/DT and WU/WD/AS Adjust Pitch changes and custom rates to reach
-future event onsets. Frequency changes also reach voices which are already active.
-Visual scroll compensation binds directly to `SpeedChange` and does not claim a second native audio
-helper target.
-
-## Implemented native mod semantics
-
-| Mod | Default song speed | Default song Frequency | Default song Tempo |
-|---|---:|---:|---:|
-| Half Time | 0.75 | 1 | 0.75 |
-| Daycore | 0.75 | 0.75 | 1 |
-| Double Time | 1.5 | 1 | 1.5 |
-| Nightcore | 1.5 | 1.5 | 1 |
-
-Half Time and Double Time use `RateAdjustModHelper`; their native Adjust Pitch setting switches
-between Tempo and Frequency. Daycore and Nightcore hold Frequency at their default 0.75/1.5 and
-set Tempo to `selected speed / default speed`, retaining their pitch when custom speed changes.
-Native mania Nightcore also adds a beat-synchronised percussion overlay.
-
-Wind Up, Wind Down and Adaptive Speed expose the same live `SpeedChange` and Adjust Pitch model.
-Their native `IApplicableToTrack` path drives the O2Jam event clock and all background/automatic
-audio. The scoped endpoint adapter binds Frequency to `SpeedChange` when Adjust Pitch is enabled,
-or records Tempo when it is disabled. In the latter case, the changed event clock schedules future
-keysound onsets while existing sample envelopes remain authored. Visual scroll compensation observes
-the same speed bindable, so it does not introduce a second rate calculation.
-
-`ModRateAdjust.ApplyToSample()` applies Frequency equal to the selected speed, including for Half
-Time and Double Time. This differs from pitch-preserving song playback and from Daycore/Nightcore
-at custom speeds. Native ordinary `DrawableHitObject` sample playback does not call this method;
-the inspected native caller is storyboard-sample playback. Inheriting the mod or setting
-`SamplesMatchPlaybackRate` alone does not connect O2Jam gameplay keysounds.
-
-## Discrete-event sample semantics
-
-`SampleChannelBass` does not implement Tempo time-stretching. This does not establish a current
-desynchronisation: OJM keysounds are one-shot events whose musical time is defined by their onset on
-the O2Jam chart clock. Under default HT/DT they retain their authored pitch and envelope while those
-onsets move with the selected rate. Enabling Adjust Pitch applies Frequency as requested. DC/NC apply
-their native fixed pitch ratio, while a custom-speed remainder changes event spacing.
-
-This differs from a long continuous BGM layer, whose internal timeline must be rate-adjusted and
-seekable. Automatic samples of at least 512 KiB therefore use `TrackBass` and its Tempo DSP. Treating
-the two primitives differently is part of the current audio model and agrees with manual tests. A
-future requirement to time-stretch the body of every melodic key sample would be a policy change,
-not a repair implied by the existing Tempo bindable; it would also have to preserve overlap, latency,
-preloading, seek and disposal behaviour.
-
-## Evidence and regression coverage
-
-Relevant O2Lazer files:
-
-- `Clean/Audio/O2JamPreviewTrack.cs`: event clock, sample/track bindings and seek restoration.
-- `Clean/Audio/O2JamBeatmapSkin.cs`: stream classification, native resource factories and volume routing.
-- `Clean/UI/O2JamDrawableRuleset.cs` and `Clean/Audio/O2JamHitSoundRateAdjustments.cs`: visual rate and scoped gameplay keysound policy.
-- `Normal/Clean/O2JamPreviewTrackLifecycleTest.cs`: the four local rate mods reach the clock,
-  background and automatic-sample aggregate adjustments; active changes and recreated tracks
-  retain adjustments. Fake channels validate routing, while manual tests cover audible behaviour.
-- `Normal/Clean/O2JamRateModTest.cs`: gameplay keysound defaults, live Adjust Pitch, custom DC/NC speed,
-  playable beatmap conversion, standard and dynamic gameplay keysound routing, and rate values.
-
-Read-only upstream references: `osu.Game/Rulesets/Mods/ModRateAdjust.cs`, `RateAdjustModHelper.cs`,
-`ModDaycore.cs`, `ModNightcore.cs`, `osu.Game/Skinning/SkinnableSound.cs`,
-`osu.Game/Rulesets/Objects/Drawables/DrawableHitObject.cs`, and framework
-`Audio/Track/TrackBass.cs`, `Audio/Sample/SampleChannelBass.cs`.
+相关实现：`Host/Audio/O2JamPreviewTrack.cs`、`O2JamBeatmapSkin.cs`、`O2JamHitSoundRateAdjustments.cs`、`Integration/Beatmaps/O2JamWorkingBeatmap.cs`。自动测试覆盖速率与通道绑定、播放/寻址状态；实际设备的音量、起音、暂停恢复和长曲资源行为仍需客户端验证。[可选音频追踪](audio-sync-diagnostics.md)只记录观测，不自动调整偏移。

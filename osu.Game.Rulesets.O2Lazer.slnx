@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="O2Jam.Core/O2Jam.Core.csproj" />
+  <Project Path="O2Jam.Core.Tests/O2Jam.Core.Tests.csproj" />
   <Project Path="O2Jam.Formats/O2Jam.Formats.csproj" />
   <Project Path="O2Jam.Formats.Tests/O2Jam.Formats.Tests.csproj" />
   <Project Path="osu.Game.Rulesets.O2Lazer/osu.Game.Rulesets.O2Lazer.csproj" />
