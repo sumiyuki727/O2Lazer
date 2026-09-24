@@ -32,8 +32,8 @@
 |---|---|---|---|
 | A01 | 高 | `O2LazerRuleset` 构造调用补丁总安装器却不检查返回值；部分安装器失败后仅记录日志，少数多目标安装没有统一回滚。可能以部分功能生效的状态进入客户端。 | 建立补丁目录：必要性、原生替代、目标签名、作用规则集、失败等级、回滚。基础玩法必要补丁失败应明确阻止不安全游玩；可选显示补丁可降级。测试逐项失败注入与多补丁载入。 |
 | A02 | 高 | 原实现仅在安装时寻找 BMS Harmony；O2Lazer 先加载后 BMS 可覆盖 replay 读取钩子。私有字段/IL 与宿主版本仍有关。 | 已将 BMS 专用适配器收拢到 Host/Compatibility，增加后加载补注册与回滚登记；2026.921.0 宿主 + BMS 2026.920.0.0 双顺序矩阵通过，BMS 单曲结算图标已由客户端复测。完整联测及未来版本仍需验收。 |
-| A03 | 高 | `O2JamReplayArchive` 仅接受标记为 `o2lazer` 的 schema v5；旧无标记回放会被拒绝。当前保留旧成绩关联，但“兼容旧 replay”目标尚未满足。 | 先清点旧格式和实际样本，决定可验证的兼容范围，再做只读识别/回放测试；无法正确重现的版本须明确显示不可用，不可静默当作 v5。 |
-| A04 | 高 | Realm 写入器仍以标签 marker、宿主 `BeatmapInfo`、原生文件库与事务组织数据；当前后端契约只覆盖现有调用。旧成绩/replay 的谱面 ID 关联使重建写入结构存在迁移风险。 | R02 先完成字段/版本/身份表及迁移映射，使用临时数据库验证更新、移动、缺失、重复、回滚；在此之前不清理真实旧库。存储替换时应将 Realm 具体模型限制在适配器。 |
+| A03 | 已关闭 | 重构前无标记 replay 属于测试实现，用户确认不需要兼容；它缺少可供独立导入的 ruleset 标记和谱面哈希。 | 保持明确拒绝旧格式的测试，只将带 `o2lazer` 标记的 schema v5 作为正式回放契约；旧成绩的关联与保留由 A04 处理。 |
+| A04 | 高 | Realm 写入器仍以标签 marker、宿主 `BeatmapInfo`、原生文件库与事务组织数据；当前后端契约只覆盖现有调用。旧成绩与正式 v5 replay 的谱面 ID 关联使重建写入结构存在迁移风险。 | R02 先完成字段/版本/身份表及迁移映射，使用临时数据库验证更新、移动、缺失、重复、回滚；在此之前不清理真实旧库。存储替换时应将 Realm 具体模型限制在适配器。 |
 | A05 | 中 | `Integration/Formats/Ojn/OjnBeatmapFactory` 直接构造 `Host/Audio` 事件和采样；`Integration/Beatmaps/O2JamWorkingBeatmap` 同时管理解码、谱面包装、音轨和皮肤资源。桥接与资源生命周期不能单独替换。 | 区分格式→中性谱面映射、谱面→原生对象、资源绑定三个职责。先明确输入/输出和所有权，再决定是否拆类；保留原生 WorkingBeatmap 生命周期。 |
 | A06 | 中 | `Integration/Scoring/O2JamScoreProcessor` 同时选择 O2Jam 核心历史与 ManiaScore 处理器；`Host/Mods/O2JamModNoRelease` 和 `O2JamModPerfect` 引用游玩/UI 类型。横切能力有真实契约需求，但边界未用编译或测试约束。 | 为玩法选择和 Mod 应用阶段写出明确接口/依赖图；只把纯判定规则放 Core，宿主/UI 适配留在对应端。增加跨层依赖检查，注明原生泛型/设置特性要求的例外。 |
 | A07 | 中 | `Presentation/DifficultyLevels/Policy/O2JamDifficultyRating` 与 `Host/Library/O2JamBeatmapIdentity` 仍声明 `.Core` namespace，但不在独立 Core 项目；同一命名空间散在多个层；独立 Core/Formats 项目本身也沿用 `osu.Game.Rulesets.O2Lazer.*` 命名空间。目录移动没有改变 API，容易误判玩法边界，也降低原样移植到新游戏时的命名清晰度。 | 按身份兼容和公开 API 影响逐类修正命名或建立明确命名空间约定；增加项目级边界测试，避免 UI/持久化语义回流独立 Core。 |

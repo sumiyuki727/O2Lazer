@@ -1,6 +1,6 @@
 # 当前 Realm 存储边界
 
-更新：2026-09-24。这里记录现状，不预设 osu! 未来存储技术，也不授权删除或重写用户数据。新写入设计和旧成绩/replay 映射是 [A04](architecture-audit.md#待处理问题) 的后续工作。
+更新：2026-09-24。这里记录现状，不预设 osu! 未来存储技术，也不授权删除或重写用户数据。新写入设计、旧成绩和正式 v5 replay 的身份映射是 [A04](architecture-audit.md#待处理问题) 的后续工作；重构前的测试 replay 不在兼容范围。
 
 生产代码中直接使用 Realm/RealmAccess/RealmFileStore/RealmUser 的文件集中在 `osu.Game.Rulesets.O2Lazer/Host/Persistence/Realm`：
 

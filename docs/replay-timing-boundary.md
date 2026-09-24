@@ -4,7 +4,7 @@
 
 `O2JamFramedReplayInputHandler` 继承原生 `FramedReplayInputHandler`，只提供 O2Jam 帧的 `ManiaAction` 状态和重要帧判定。原生框架继续处理向前/向后推进、同时间顺序和不完整流等待。录制沿用原生 `ReplayRecorder` 生命周期；速率 Mod 改变原生时钟和音频速率，不能再缩放谱面时间或帧时间。长条回退还必须撤销 Drawable 结果、计分历史和对象池状态，单纯恢复按键状态不足够。
 
-当前回放归档 `O2JamReplayArchive` 只接受带 ruleset 标记的 schema v5（并校验帧时间顺序、动作范围和内容）；旧无标记测试格式明确不支持。支持旧成绩关联不等于已经支持所有旧 replay，相关决策见[问题 A03](architecture-audit.md#待处理问题)。不能把未知格式交给原生 legacy 解码器冒充有效回放。
+当前回放归档 `O2JamReplayArchive` 只接受带 ruleset 标记的 schema v5（并校验帧时间顺序、动作范围和内容）；用户确认重构前无标记 replay 是测试实现，不需要兼容；关联的旧成绩仍需保留。不能把未知格式交给原生 legacy 解码器冒充有效回放。
 
 现有合成测试覆盖帧准确/非帧准确推进、同时间帧、倒退、保持状态、不完整流，以及 O2Jam 长条判定历史与对象池回收后重放。已扩展到提前 GOOD/BAD/MISS 释放、BAD/MISS 头和同列后续音符；这些测试使用合成谱面、测试时钟与原生对象池，不代表完整 Player 会话或所有 Mod/音频听感。2026-09-24 的常规过滤验证包含这批测试，整体 823 项通过。
 

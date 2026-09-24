@@ -50,7 +50,7 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 
 普通 O2Jam 分数从 Core 历史构造；Mania Score 在转换谱面后交给原生 Mania 规则与计分适配。Mod 属性、玩法选择和预览/游玩音频均由宿主处理，不能让 Core 了解 MS。PP 资格策略为“选中 MS 且所有展开的 Mod 均原生 Ranked”；计算入口、资格判定、标签展示分属不同模块。
 
-回放输入沿用原生 `FramedReplayInputHandler` 调度及 ManiaAction，宿主只定义 O2Jam 帧格式。当前归档仅写/读带 `o2lazer` 标记的 v5，旧无标记格式未兼容。旧成绩关联必须保留；任何重建谱面或存储设计都需先验证 ID 映射。Realm 直接类型集中在 `Host/Persistence/Realm`，但原生模型和两个 partial 组装点仍产生编译耦合；详见 [存储边界](realm-isolation.md) 和 [回放时序](replay-timing-boundary.md)。
+回放输入沿用原生 `FramedReplayInputHandler` 调度及 ManiaAction，宿主只定义 O2Jam 帧格式。当前归档仅写/读带 `o2lazer` 标记的 v5；重构前无标记 replay 属于测试实现，明确不兼容。旧成绩关联必须保留；任何重建谱面或存储设计都需先验证 ID 映射。Realm 直接类型集中在 `Host/Persistence/Realm`，但原生模型和两个 partial 组装点仍产生编译耦合；详见 [存储边界](realm-isolation.md) 和 [回放时序](replay-timing-boundary.md)。
 
 音频使用 OJM 资源与原生 Track/Sample 后端，预览自动事件和游玩键音共享谱面事件时间；BGM/KeySound 不受全局效果音量影响。Native Mania 皮肤、对象池、UI 控件和动画在契约兼容时继续复用。[音频诊断](audio-sync-diagnostics.md)是可选观测工具，不是判定或音频修复。
 

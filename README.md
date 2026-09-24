@@ -48,7 +48,7 @@ against matching Game and Mania binaries, close lazer, replace the DLL in its da
 `rulesets` folder, and restart. Keep DLL backups outside `rulesets`; do not install two O2Lazer
 versions there. Existing import and score associations are intended to be retained, but storage
 migration still needs explicit validation. The current replay reader accepts marked schema v5;
-pre-rewrite unmarked replays are unsupported and remain an open compatibility item.
+pre-rewrite unmarked test replays are intentionally unsupported.
 
 ## Importing a library
 
