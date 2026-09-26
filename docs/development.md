@@ -1,6 +1,6 @@
 # 构建、验证与维护
 
-更新：2026-09-24。当前 `master` 以 osu!lazer **2026.921.0** 的 Game 与 Mania 二进制为目标，宿主项目 `net10.0`，独立 Core/Formats 项目 `net8.0`；需要 .NET 10 SDK，以及运行独立测试所需的 .NET 8 runtime。`D:/osu`、`D:/osu-framework`、`D:/rulesets` 与 `D:/o2lazer-clean-rewrite` 仅作只读参考。不要混用不同发行版本的 Game/Mania DLL。
+更新：2026-09-26。当前 `master` 以 osu!lazer **2026.921.0** 的 Game 与 Mania 二进制为目标，宿主项目 `net10.0`，独立 Core/Formats 项目 `net8.0`；需要 .NET 10 SDK，以及运行独立测试所需的 .NET 8 runtime。`D:/osu`、`D:/osu-framework`、`D:/rulesets` 与 `D:/o2lazer-clean-rewrite` 仅作只读参考。不要混用不同发行版本的 Game/Mania DLL。
 
 ## 构建
 
@@ -21,7 +21,7 @@ dotnet build osu.Game.Rulesets.O2Lazer.slnx -c Release "-p:OsuBinaryDirectory=$l
 ./scripts/verify.ps1 -OsuBinaryDirectory $lazerBinaries
 ```
 
-脚本先运行 `scripts/check-storage-boundary.ps1`，随后对格式、核心、宿主常规测试使用明确 `--filter`，并将旧库迁移与 replay 导入放在独立测试进程。Realm 生命周期在同一 test host 中混跑曾产生原生事务断言，所以不要把这些过滤器合为一次无筛选运行。报告写入忽略的 `.artifacts/test-results`。2026-09-24 本次审查结果：Formats 39、Core 54、宿主常规 718、旧库迁移 4、replay 导入 8，合计 823 项通过；这是自动化基线，不等于实机端到端验收。
+脚本先运行 `scripts/check-storage-boundary.ps1`，随后对格式、核心、宿主常规测试使用明确 `--filter`，并将旧库迁移与 replay 导入放在独立测试进程。Realm 生命周期在同一 test host 中混跑曾产生原生事务断言，所以不要把这些过滤器合为一次无筛选运行。报告写入忽略的 `.artifacts/test-results`。2026-09-26 最近验证结果：Formats 39、Core 54、宿主常规 718、旧库迁移 5、replay 导入 8，合计 824 项通过；这是自动化基线，不等于实机端到端验收。
 
 单项验证示例：
 

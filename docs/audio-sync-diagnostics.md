@@ -86,4 +86,4 @@ Tests cover wall-clock throttling, bounded pending work, transition/event bursts
 rate-independent BGM timeline mapping, hit-statistic reset, invariant-culture trace fields,
 and unchanged audio position/start/stop behaviour during observation.
 
-历史上的 Realm 测试宿主事务断言不应被解释为音频故障；当前常规验证已将相关测试分进程，参见 [development.md](development.md)。2026-09-24 默认构建的 823 项过滤测试通过，但这不验证诊断开关构建或实际音频设备。启用追踪前应单独构建、选精确测试过滤器并在客户端按本页流程采集日志；普通版本继续保持开关关闭。
+历史上的 Realm 测试宿主事务断言不应被解释为音频故障；当前常规验证已将相关测试分进程，参见 [development.md](development.md)。2026-09-26 默认构建的 824 项过滤测试通过，但这不验证诊断开关构建或实际音频设备。启用追踪前应单独构建、选精确测试过滤器并在客户端按本页流程采集日志；普通版本继续保持开关关闭。

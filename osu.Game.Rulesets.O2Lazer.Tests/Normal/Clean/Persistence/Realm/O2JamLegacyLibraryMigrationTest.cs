@@ -349,6 +349,121 @@ public partial class O2JamLegacyLibraryMigrationTest
     }
 
     [Test]
+    public void ChangedSourceRetainsHistoricalScoreWithoutAttachingItToNewChart()
+    {
+        using var host = new TestRunHeadlessGameHost($"{nameof(O2JamLegacyLibraryMigrationTest)}-{Guid.NewGuid():N}");
+        Exception? failure = null;
+
+        host.Run(new MigrationTestGame(async () =>
+        {
+            try
+            {
+                using var storage = new TemporaryNativeStorage($"{nameof(O2JamLegacyLibraryMigrationTest)}-{Guid.NewGuid():N}", host);
+                using var realm = new RealmAccess(storage, "client.realm");
+                var sourceDirectory = storage.GetFullPath("changed-library");
+                Directory.CreateDirectory(sourceDirectory);
+                var sourcePath = Path.Combine(sourceDirectory, "chart.ojn");
+                var originalBytes = OjnTestData.CreateChart();
+                File.WriteAllBytes(sourcePath, originalBytes);
+
+                realm.Write(database =>
+                {
+                    var ruleset = new O2LazerRuleset().RulesetInfo;
+                    database.Add(new RulesetInfo(ruleset.ShortName, ruleset.Name, ruleset.InstantiationInfo, ruleset.OnlineID)
+                    {
+                        Available = true,
+                    });
+                });
+
+                var writer = new O2JamLibraryWriter(realm, storage);
+                var planner = new O2JamImportPlanner();
+                Assert.That(writer.Write(planner.Create(sourcePath)), Is.EqualTo(O2JamLibraryWriteResult.Imported));
+
+                var scoreId = Guid.NewGuid();
+                var original = realm.Write(database =>
+                {
+                    var set = database.All<BeatmapSetInfo>().Single();
+                    var beatmap = set.Beatmaps.Single();
+                    database.Add(new ScoreInfo(beatmap, beatmap.Ruleset, new RealmUser { Username = "Historical score" })
+                    {
+                        ID = scoreId,
+                        MaxCombo = 123,
+                    });
+                    return (SetId: set.ID, BeatmapId: beatmap.ID, BeatmapHash: beatmap.Hash);
+                });
+
+                Assert.That(originalBytes[320], Is.EqualTo(1));
+                var changedBytes = originalBytes.ToArray();
+                changedBytes[320] = 2;
+                File.WriteAllBytes(sourcePath, changedBytes);
+                Assert.That(writer.Write(planner.Create(sourcePath)), Is.EqualTo(O2JamLibraryWriteResult.Imported));
+
+                var after = realm.Run(database =>
+                {
+                    var oldSet = database.Find<BeatmapSetInfo>(original.SetId)!;
+                    var currentSet = database.All<BeatmapSetInfo>().Single(set => !set.DeletePending);
+                    var currentBeatmap = currentSet.Beatmaps.Single();
+                    var score = database.Find<ScoreInfo>(scoreId)!;
+                    return new
+                    {
+                        oldSet.DeletePending,
+                        CurrentSetId = currentSet.ID,
+                        CurrentBeatmapId = currentBeatmap.ID,
+                        CurrentBeatmapHash = currentBeatmap.Hash,
+                        HistoricalBeatmapId = score.BeatmapInfo?.ID,
+                        score.BeatmapHash,
+                        score.MaxCombo,
+                        CurrentScoreCount = currentBeatmap.Scores.Count(),
+                    };
+                });
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(after.DeletePending, Is.True);
+                    Assert.That(after.CurrentSetId, Is.Not.EqualTo(original.SetId));
+                    Assert.That(after.CurrentBeatmapId, Is.Not.EqualTo(original.BeatmapId));
+                    Assert.That(after.CurrentBeatmapHash, Is.Not.EqualTo(original.BeatmapHash));
+                    Assert.That(after.HistoricalBeatmapId, Is.EqualTo(original.BeatmapId));
+                    Assert.That(after.BeatmapHash, Is.EqualTo(original.BeatmapHash));
+                    Assert.That(after.MaxCombo, Is.EqualTo(123));
+                    Assert.That(after.CurrentScoreCount, Is.Zero);
+                });
+
+                using var restartedRealm = new RealmAccess(storage, "client.realm");
+                var afterCleanup = restartedRealm.Run(database =>
+                {
+                    var score = database.Find<ScoreInfo>(scoreId)!;
+                    return new
+                    {
+                        OldSetRemoved = database.Find<BeatmapSetInfo>(original.SetId) == null,
+                        CurrentSetCount = database.All<BeatmapSetInfo>().Count(),
+                        score.BeatmapHash,
+                        BeatmapId = score.BeatmapInfo?.ID,
+                        score.MaxCombo,
+                    };
+                });
+                Assert.Multiple(() =>
+                {
+                    Assert.That(afterCleanup.OldSetRemoved, Is.True);
+                    Assert.That(afterCleanup.CurrentSetCount, Is.EqualTo(1));
+                    Assert.That(afterCleanup.BeatmapHash, Is.EqualTo(original.BeatmapHash));
+                    Assert.That(afterCleanup.BeatmapId, Is.Null);
+                    Assert.That(afterCleanup.MaxCombo, Is.EqualTo(123));
+                });
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+
+            await Task.CompletedTask;
+        }));
+
+        if (failure != null)
+            throw failure;
+    }
+
+    [Test]
     public void SourceFolderCollectionsSynchroniseAndDeleteWithoutTouchingUserCollections()
     {
         using var host = new TestRunHeadlessGameHost($"{nameof(O2JamLegacyLibraryMigrationTest)}-{Guid.NewGuid():N}");
