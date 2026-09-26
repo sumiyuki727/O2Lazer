@@ -392,11 +392,22 @@ public partial class O2JamLegacyLibraryMigrationTest
                     return (SetId: set.ID, BeatmapId: beatmap.ID, BeatmapHash: beatmap.Hash);
                 });
 
+                var importedSources = writer.GetImportedSources();
+                var originalTimestamp = O2JamSourceTimestamp.Read(sourcePath);
                 Assert.That(originalBytes[320], Is.EqualTo(1));
                 var changedBytes = originalBytes.ToArray();
                 changedBytes[320] = 2;
                 File.WriteAllBytes(sourcePath, changedBytes);
-                Assert.That(writer.Write(planner.Create(sourcePath)), Is.EqualTo(O2JamLibraryWriteResult.Imported));
+                File.SetLastWriteTimeUtc(sourcePath, originalTimestamp.UtcDateTime);
+                Assert.That(O2JamSourceTimestamp.Read(sourcePath), Is.EqualTo(originalTimestamp));
+                Assert.That(changedBytes.Length, Is.EqualTo(originalBytes.Length));
+
+                var refresh = new O2JamImportService(planner, writer).Refresh([sourcePath], importedSources);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(refresh.Imported, Is.EqualTo(1));
+                    Assert.That(refresh.Failed, Is.Zero);
+                });
 
                 var after = realm.Run(database =>
                 {

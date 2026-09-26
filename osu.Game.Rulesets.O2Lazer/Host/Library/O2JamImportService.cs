@@ -255,13 +255,18 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
 
     internal static bool isUnchanged(string path, O2JamImportedSource source)
     {
-        if (!source.HasCurrentMetadata || source.LastLocalUpdate == null || source.SourceLength == null)
+        if (!source.HasCurrentMetadata || source.LastLocalUpdate == null || source.SourceLength == null
+            || string.IsNullOrWhiteSpace(source.SourceHash))
             return false;
 
         var info = new FileInfo(path);
         if (!info.Exists
             || info.Length != source.SourceLength
             || O2JamSourceTimestamp.Read(path) != source.LastLocalUpdate)
+            return false;
+
+        using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        if (!string.Equals(Convert.ToHexString(SHA256.HashData(stream)), source.SourceHash, StringComparison.OrdinalIgnoreCase))
             return false;
 
         return source.HasCurrentEncoding || !OjnReader.RequiresLegacyEncodingMigration(path);

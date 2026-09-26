@@ -177,25 +177,37 @@ public class O2JamLibraryWriterTest
     }
 
     [Test]
-    public void FastRefreshFingerprintUsesMarkerTimestampAndLength()
+    public void RefreshFingerprintAlsoChecksContentWhenTimestampAndLengthMatch()
     {
         var path = Path.GetTempFileName();
 
         try
         {
-            File.WriteAllBytes(path, [1, 2, 3]);
+            byte[] original = [1, 2, 3];
+            File.WriteAllBytes(path, original);
             var matching = new O2JamImportedSource(
                 Guid.NewGuid(),
                 O2JamSourceTimestamp.Read(path),
                 3,
                 true,
-                true);
+                true,
+                Convert.ToHexString(SHA256.HashData(original)));
 
             Assert.Multiple(() =>
             {
                 Assert.That(O2JamImportService.isUnchanged(path, matching), Is.True);
                 Assert.That(O2JamImportService.isUnchanged(path, matching with { HasCurrentMetadata = false }), Is.False);
                 Assert.That(O2JamImportService.isUnchanged(path, matching with { SourceLength = 2 }), Is.False);
+                Assert.That(O2JamImportService.isUnchanged(path, matching with { SourceHash = null }), Is.False);
+            });
+
+            File.WriteAllBytes(path, [1, 4, 3]);
+            File.SetLastWriteTimeUtc(path, matching.LastLocalUpdate!.Value.UtcDateTime);
+            Assert.Multiple(() =>
+            {
+                Assert.That(O2JamSourceTimestamp.Read(path), Is.EqualTo(matching.LastLocalUpdate));
+                Assert.That(new FileInfo(path).Length, Is.EqualTo(matching.SourceLength));
+                Assert.That(O2JamImportService.isUnchanged(path, matching), Is.False);
             });
         }
         finally
@@ -223,7 +235,8 @@ public class O2JamLibraryWriterTest
                 O2JamSourceTimestamp.Read(path),
                 bytes.LongLength,
                 true,
-                false);
+                false,
+                Convert.ToHexString(SHA256.HashData(bytes)));
 
             Assert.Multiple(() =>
             {
@@ -264,7 +277,8 @@ public class O2JamLibraryWriterTest
         {
             var bytes = OjnTestData.CreateChart();
             File.WriteAllBytes(path, bytes);
-            var source = new O2JamImportedSource(Guid.NewGuid(), O2JamSourceTimestamp.Read(path), bytes.LongLength, true, false);
+            var source = new O2JamImportedSource(Guid.NewGuid(), O2JamSourceTimestamp.Read(path), bytes.LongLength, true, false,
+                Convert.ToHexString(SHA256.HashData(bytes)));
             Assert.That(O2JamImportService.isUnchanged(path, source), Is.True);
         }
         finally
