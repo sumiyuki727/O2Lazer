@@ -25,6 +25,7 @@
 | `O2JamLevelSortPatch` | 可选 | 原生曲库排序没有 LV 顺序。 |
 | `O2JamLevelGroupPatch` | 可选 | 原生分组没有 LV 分组。 |
 | `O2JamHitSampleLookupPatch` | 必需 | 原生采样门控会拒绝 OJM 音色，且播放声道需要独立音量规则。 |
+| `O2JamHeldKeySoundPatch` | 必需 | Mania 的列级补音会在已判定 LN 松手后回退到父对象，反复播放头部 KS；只在 O2Lazer 列中跳过这个已触发的 LN。 |
 | `O2JamEditorAccessPatch` | 可选 | 原生入口仍可尝试打开 O2Jam 谱面编辑器；原生 `Editor` 只允许 `ILegacyRuleset` 保存，因此该补丁用于提前拦截并给出明确提示。 |
 
 安装只尝试一次。必要补丁失败时，ruleset 仍可被宿主枚举，但 `CreateDrawableRulesetWith` 会抛出包含失败补丁名称的 `RulesetLoadException`，阻止进入可能损坏成绩或缺少音色的玩法；可选补丁失败只记录日志。安装器在异常时按独立 Harmony ID 撤销本项已经安装的钩子，包含可能由 BMSRuleset 携带的另一份 Harmony 运行时。BMSRuleset 携带独立 Harmony 时，`Host/Compatibility/O2JamBmsHarmonyCompatibility` 为重叠方法按载入顺序登记 O2Lazer 钩子；只以 O2Lazer 的 Harmony ID 回滚。它仅服务已知 BMS 组合，不作为通用设施。指定版本的测试矩阵、原生缺口与仍待客户端验收的范围见[共存验证](bms-coexistence.md)。

@@ -56,10 +56,18 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
     [Cached]
     private readonly O2JamHitSoundRateAdjustments hitSoundRateAdjustments = new();
 
+    [Resolved(CanBeNull = true)]
+    private GameplayClockContainer? gameplayClock { get; set; }
+
     private ISkinSource currentSkin = null!;
+    private O2JamBeatmapSkin? gameplaySampleSkin;
     private O2JamPreviewTrack? gameplayTrack;
     private ScheduledDelegate? pendingSkinChange;
     private float hitPosition;
+
+    // A future Mod can select chart-timed playable keysounds before this drawable is loaded.
+    // No user-facing Mod is registered until its scoring policy is specified.
+    internal bool AutomaticallyPlayKeySounds { get; set; }
 
     public double TargetTimeRange { get; private set; }
 
@@ -102,9 +110,17 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
     [BackgroundDependencyLoader]
     private void load(ISkinSource source)
     {
-        gameplayTrack = O2JamPreviewCoordinator.EnterGameplay();
-
         currentSkin = source;
+        gameplaySampleSkin = source.AllSources.OfType<O2JamBeatmapSkin>().FirstOrDefault();
+        gameplayTrack = O2JamPreviewCoordinator.EnterGameplay(AutomaticallyPlayKeySounds && gameplaySampleSkin != null);
+        if (gameplaySampleSkin != null)
+        {
+            // Track transfer can retain a previous difficulty's skin. Native judgement lookup
+            // must instead be gated on the skin used by this gameplay's ruleset provider.
+            gameplaySampleSkin.AllowJudgementKeySounds = gameplayTrack == null || !AutomaticallyPlayKeySounds;
+        }
+        hitSoundRateAdjustments.BindSeek(gameplayClock);
+
         currentSkin.SourceChanged += onSkinChange;
         updateSkinPosition();
 
@@ -184,6 +200,8 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
     protected override void Dispose(bool isDisposing)
     {
         disposeSyncDiagnostics();
+        if (gameplaySampleSkin != null)
+            gameplaySampleSkin.AllowJudgementKeySounds = true;
         O2JamPreviewCoordinator.ExitGameplay(gameplayTrack);
         base.Dispose(isDisposing);
         hitSoundRateAdjustments.UnbindAll();

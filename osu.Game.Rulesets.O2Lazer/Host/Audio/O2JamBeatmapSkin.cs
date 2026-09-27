@@ -73,6 +73,13 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
     private bool disposeRequested;
     private bool resourcesDisposed;
     private bool archiveCompletionObserved;
+    private volatile bool allowJudgementKeySounds = true;
+
+    internal bool AllowJudgementKeySounds
+    {
+        get => allowJudgementKeySounds;
+        set => allowJudgementKeySounds = value;
+    }
 
     public O2JamBeatmapSkin(OjmArchive archive, AudioManager audioManager)
         : this(Task.FromResult(archive), audioManager)

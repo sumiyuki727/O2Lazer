@@ -233,6 +233,176 @@ public class O2JamPreviewTrackLifecycleTest
     }
 
     [Test]
+    public void LateBackgroundPreparationDoesNotBlockReadyAutomaticKeysound()
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(50, 1000, 100, 0));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(75, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        var resources = new DeferredBackgroundOnlyResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(beatmap, resources, clock)
+        {
+            PlaybackMode = O2JamPreviewPlaybackMode.Gameplay,
+        };
+
+        start(preview);
+        preview.Update();
+        clock.Seek(100);
+        preview.Update();
+        Assert.That(resources.PlaybackRequests, Is.EqualTo(new[] { 7 }));
+
+        resources.BackgroundReady = true;
+        preview.Update();
+        Assert.Multiple(() =>
+        {
+            Assert.That(resources.PlaybackRequests, Is.EqualTo(new[] { 7, 1000 }));
+            Assert.That(resources.Tracks[0].LastSeek, Is.EqualTo(50));
+        });
+    }
+
+    [Test]
+    public void MissingZeroKeysoundDoesNotDropFollowingAudio()
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 0, 100, 0, O2JamAudioEventKind.KeySound));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        var resources = new MissingZeroPlaybackResource();
+        using var preview = new O2JamPreviewTrack(beatmap, resources, new FakeTrack(10_000));
+
+        start(preview);
+        preview.Update();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resources.PlaybackRequests, Is.EqualTo(new[] { 0, 7 }));
+            Assert.That(resources.Sample.Channels, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void PreviewDispatchesBackgroundAndKeysoundsInChartOrder()
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 1000, 100, 0));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(50, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(100, 1001, 100, 0));
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 75, Samples = [new O2JamHitSampleInfo(8, 100, 0)] });
+        var resources = new FakePlaybackResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(beatmap, resources, clock);
+
+        start(preview);
+        clock.Seek(100);
+        preview.Update();
+
+        Assert.That(resources.PlaybackRequests, Is.EqualTo(new[] { 1000, 7, 8, 1001 }));
+    }
+
+    [Test]
+    public void PauseSuspendsBackgroundAndAutomaticKeysoundTogether()
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 1000, 100, 0));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        var resources = new SamplePlaybackResource();
+        using var preview = new O2JamPreviewTrack(beatmap, resources, new FakeTrack(10_000));
+
+        start(preview);
+        preview.Update();
+        var background = resources.Tracks[0];
+        var channel = resources.Sample.Channel!;
+        channel.Update();
+
+        stop(preview);
+        preview.Update();
+        channel.Update();
+        Assert.Multiple(() =>
+        {
+            Assert.That(background.StopCount, Is.EqualTo(1));
+            Assert.That(channel.StopCount, Is.Zero);
+            Assert.That(channel.AggregateFrequency.Value, Is.Zero);
+        });
+
+        start(preview);
+        preview.Update();
+        channel.Update();
+        Assert.Multiple(() =>
+        {
+            Assert.That(resources.Tracks[0], Is.SameAs(background));
+            Assert.That(background.StartCount, Is.EqualTo(2));
+            Assert.That(channel.AggregateFrequency.Value, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void SeekStopsOldAutomaticKeysoundAndReplaysItOnlyAfterRewind()
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        var resources = new SamplePlaybackResource();
+        using var preview = new O2JamPreviewTrack(beatmap, resources, new FakeTrack(10_000));
+
+        start(preview);
+        preview.Update();
+        var oldChannel = resources.Sample.Channel!;
+
+        preview.Seek(2000);
+        preview.Update();
+        Assert.Multiple(() =>
+        {
+            Assert.That(oldChannel.StopCount, Is.EqualTo(1));
+            Assert.That(resources.Sample.Channel, Is.SameAs(oldChannel));
+        });
+
+        preview.Seek(0);
+        preview.Update();
+        Assert.That(resources.Sample.Channel, Is.Not.SameAs(oldChannel));
+    }
+
+    [Test]
+    public void GameplayAutomaticPolicyPlaysChartedKeysoundsWithoutAVisibleMod()
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 0, Samples = [new O2JamHitSampleInfo(8, 100, 0)] });
+        var resources = new FakePlaybackResource();
+        using var preview = new O2JamPreviewTrack(beatmap, resources, new FakeTrack(10_000))
+        {
+            PlaybackMode = O2JamPreviewPlaybackMode.GameplayAutomatic,
+        };
+
+        start(preview);
+        preview.Update();
+
+        Assert.That(resources.PlaybackRequests, Is.EqualTo(new[] { 7, 8 }));
+    }
+
+    [Test]
+    public void EnteringJudgementGameplayKeepsAutomaticTailButStopsPreviewOnlyVoice()
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(0, 7, 100, 0, O2JamAudioEventKind.KeySound));
+        beatmap.HitObjects.Add(new O2JamNote { StartTime = 0, Samples = [new O2JamHitSampleInfo(8, 100, 0)] });
+        var resources = new SamplePlaybackResource();
+        using var preview = new O2JamPreviewTrack(beatmap, resources, new FakeTrack(10_000));
+
+        start(preview);
+        preview.Update();
+        Assert.That(resources.Sample.Channels, Has.Count.EqualTo(2));
+        var automatic = resources.Sample.Channels[0];
+        var playable = resources.Sample.Channels[1];
+
+        preview.PlaybackMode = O2JamPreviewPlaybackMode.Gameplay;
+        preview.Update();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(automatic.StopCount, Is.Zero);
+            Assert.That(playable.StopCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void TransferUsesBackgroundAudioIdentityRatherThanDifficultyTiming()
     {
         var source = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
@@ -676,6 +846,8 @@ public class O2JamPreviewTrackLifecycleTest
 
         public List<int> SampleReadinessRequests { get; } = [];
 
+        public List<int> PlaybackRequests { get; } = [];
+
         public virtual bool ContainsSample(int sampleId) => true;
 
         public virtual bool TryGetAutomaticSampleStreaming(int sampleId, out bool streamed)
@@ -695,11 +867,13 @@ public class O2JamPreviewTrackLifecycleTest
         public virtual ISample? GetSample(ISampleInfo sampleInfo)
         {
             SampleRequests++;
+            PlaybackRequests.Add(((O2JamHitSampleInfo)sampleInfo).SampleId);
             return null;
         }
 
         public Track GetBackgroundTrack(int sampleId)
         {
+            PlaybackRequests.Add(sampleId);
             var track = new FakeTrack(5000);
             Tracks.Add(track);
             return track;
@@ -717,6 +891,8 @@ public class O2JamPreviewTrackLifecycleTest
     {
         public FakeSampleChannel? Channel { get; private set; }
 
+        public List<FakeSampleChannel> Channels { get; } = [];
+
         public override double Length => 5000;
 
         public CapturingSample()
@@ -724,7 +900,12 @@ public class O2JamPreviewTrackLifecycleTest
         {
         }
 
-        protected override SampleChannel CreateChannel() => Channel = new FakeSampleChannel();
+        protected override SampleChannel CreateChannel()
+        {
+            var channel = new FakeSampleChannel();
+            Channels.Add(channel);
+            return Channel = channel;
+        }
     }
 
     private sealed class FakeSampleChannel() : SampleChannel("test")
@@ -767,6 +948,27 @@ public class O2JamPreviewTrackLifecycleTest
             streamed = true;
             return true;
         }
+    }
+
+    private sealed class MissingZeroPlaybackResource : FakePlaybackResource
+    {
+        public CapturingSample Sample { get; } = new();
+
+        public override bool ContainsSample(int sampleId) => sampleId != 0;
+
+        public override ISample? GetSample(ISampleInfo sampleInfo)
+        {
+            var sampleId = ((O2JamHitSampleInfo)sampleInfo).SampleId;
+            PlaybackRequests.Add(sampleId);
+            return sampleId == 0 ? null : Sample;
+        }
+    }
+
+    private sealed class DeferredBackgroundOnlyResource : FakePlaybackResource
+    {
+        public bool BackgroundReady { get; set; }
+
+        public override bool IsBackgroundTrackReady(int sampleId) => BackgroundReady;
     }
 
     private sealed class DeferredPlaybackResource : FakePlaybackResource

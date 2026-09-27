@@ -11,11 +11,13 @@ public static class O2JamPreviewCoordinator
         activeTrack = new WeakReference<O2JamPreviewTrack>(track);
     }
 
-    public static O2JamPreviewTrack? EnterGameplay()
+    public static O2JamPreviewTrack? EnterGameplay(bool automaticKeySounds = false)
     {
         if (tryGetTrack(out var track))
         {
-            track.PlaybackMode = O2JamPreviewPlaybackMode.Gameplay;
+            track.PlaybackMode = automaticKeySounds
+                ? O2JamPreviewPlaybackMode.GameplayAutomatic
+                : O2JamPreviewPlaybackMode.Gameplay;
             return track;
         }
 

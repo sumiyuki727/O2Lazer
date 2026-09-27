@@ -9,6 +9,7 @@ using osu.Framework.Graphics.Audio;
 using osu.Framework.Lists;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Mods;
+using osu.Game.Screens.Play;
 
 namespace osu.Game.Rulesets.O2Lazer.Audio;
 
@@ -24,6 +25,7 @@ internal sealed class O2JamHitSoundRateAdjustments
     private IBindable<bool>? playbackDisabled;
     private Bindable<double>? boundSpeed;
     private Bindable<bool>? boundAdjustPitch;
+    private GameplayClockContainer? gameplayClock;
     private double fixedFrequency = 1;
     private bool optionalPitchAdjustment;
 
@@ -130,8 +132,35 @@ internal sealed class O2JamHitSoundRateAdjustments
         playbackDisabled.BindValueChanged(_ => update(), true);
     }
 
+    internal void BindSeek(GameplayClockContainer? clock)
+    {
+        if (ReferenceEquals(gameplayClock, clock))
+            return;
+
+        if (gameplayClock != null)
+            gameplayClock.OnSeek -= StopActiveChannels;
+
+        gameplayClock = clock;
+        if (gameplayClock != null)
+            gameplayClock.OnSeek += StopActiveChannels;
+    }
+
+    internal void StopActiveChannels()
+    {
+        // Replay seek invalidates long OJM tails even when their native drawable has left the
+        // object pool. A normal pause instead preserves the original voice and playback offset.
+        foreach (var channel in channels)
+        {
+            if (!channel.IsDisposed)
+                channel.Stop();
+        }
+
+        channels.Clear();
+    }
+
     internal void UnbindAll()
     {
+        BindSeek(null);
         foreach (var container in soundContainers)
         {
             if (owners.TryGetValue(container, out var owner) && ReferenceEquals(owner, this))
@@ -141,12 +170,7 @@ internal sealed class O2JamHitSoundRateAdjustments
 
         // Leaving gameplay is terminal, unlike pausing. Do not leave suspended tails
         // behind to resume in another play or after their owner has been disposed.
-        foreach (var channel in channels)
-        {
-            if (!channel.IsDisposed)
-                channel.Stop();
-        }
-        channels.Clear();
+        StopActiveChannels();
         speed.UnbindAll();
         adjustPitch.UnbindAll();
         playbackDisabled?.UnbindAll();

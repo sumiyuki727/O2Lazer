@@ -1,6 +1,6 @@
 # O2Lazer 当前架构
 
-更新：2026-09-24。本文件描述当前 `master` 的责任边界和新增功能指引，不用历史目录名或某次测试数表示架构已全部完成。[全项目审查和待处理问题](architecture-audit.md)、[路线图](refactor-roadmap.md)、[玩法行为规格](o2jam-behaviour-spec.md)分别负责风险、进度和游戏规则。
+更新：2026-09-27。本文件描述当前 `master` 的责任边界和新增功能指引，不用历史目录名或某次测试数表示架构已全部完成。[全项目审查和待处理问题](architecture-audit.md)、[路线图](refactor-roadmap.md)、[玩法行为规格](o2jam-behaviour-spec.md)分别负责风险、进度和游戏规则。
 
 ## Design intent and decision precedence
 
@@ -52,7 +52,7 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 
 回放输入沿用原生 `FramedReplayInputHandler` 调度及 ManiaAction，宿主只定义 O2Jam 帧格式。当前归档仅写/读带 `o2lazer` 标记的 v5；重构前无标记 replay 属于测试实现，明确不兼容。旧成绩关联必须保留；任何重建谱面或存储设计都需先验证 ID 映射。Realm 直接类型集中在 `Host/Persistence/Realm`，但原生模型和两个 partial 组装点仍产生编译耦合；详见 [存储边界](realm-isolation.md) 和 [回放时序](replay-timing-boundary.md)。
 
-音频使用 OJM 资源与原生 Track/Sample 后端，预览自动事件和游玩键音共享谱面事件时间；BGM/KeySound 不受全局效果音量影响。Native Mania 皮肤、对象池、UI 控件和动画在契约兼容时继续复用。[音频诊断](audio-sync-diagnostics.md)是可选观测工具，不是判定或音频修复。
+音频使用 OJM 资源与原生 Track/Sample 后端。桥接层负责 OJN 到谱面音频事件的映射；`Host/Audio` 从这些事件构造调度，并负责统一事件钟、预览/游玩播放策略、声道生命周期和限定 OJM 的原生采样适配。普通游玩与回放仍由原生命中触发 KS，BGM/KeySound 不受全局效果音量影响。暂停与跳转的边界见[音频契约](rate-mod-audio-readiness.md)；[音频诊断](audio-sync-diagnostics.md)仅用于观测。Native Mania 皮肤、对象池、UI 控件和动画在契约兼容时继续复用。
 
 ## 扩展时如何放置实现
 

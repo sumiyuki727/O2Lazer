@@ -39,6 +39,7 @@ internal static class O2JamCompatibilityPatches
         new(nameof(O2JamLevelSortPatch), O2JamLevelSortPatch.InstallOnce, Optional),
         new(nameof(O2JamLevelGroupPatch), O2JamLevelGroupPatch.InstallOnce, Optional),
         new(nameof(O2JamHitSampleLookupPatch), O2JamHitSampleLookupPatch.InstallOnce, RequiredForGameplay),
+        new(nameof(O2JamHeldKeySoundPatch), O2JamHeldKeySoundPatch.InstallOnce, RequiredForGameplay),
         new(nameof(O2JamEditorAccessPatch), O2JamEditorAccessPatch.InstallOnce, Optional),
     ];
 

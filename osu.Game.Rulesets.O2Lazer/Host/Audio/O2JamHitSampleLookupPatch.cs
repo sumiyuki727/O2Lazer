@@ -52,7 +52,7 @@ internal static class O2JamHitSampleLookupPatch
     {
         // OJM keysounds are musical voices, not optional beatmap hit effects. Keep the
         // native gate for every other sample and skin without changing the global setting.
-        if (sampleInfo is O2JamHitSampleInfo && ___skin is O2JamBeatmapSkin)
-            __result = true;
+        if (sampleInfo is O2JamHitSampleInfo && ___skin is O2JamBeatmapSkin skin)
+            __result = skin.AllowJudgementKeySounds;
     }
 }

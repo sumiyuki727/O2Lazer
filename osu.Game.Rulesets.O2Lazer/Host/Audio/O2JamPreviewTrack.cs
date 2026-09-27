@@ -16,6 +16,7 @@ public enum O2JamPreviewPlaybackMode
 {
     Preview,
     Gameplay,
+    GameplayAutomatic,
 }
 
 internal interface IO2JamPlaybackLeaseSource
@@ -24,7 +25,7 @@ internal interface IO2JamPlaybackLeaseSource
 }
 
 /// <summary>
-/// Uses the same clock for song-select preview and gameplay while making playable keysounds automatic only in preview.
+/// Uses the same clock for song-select preview and gameplay, with an explicit policy for playable keysounds.
 /// </summary>
 public sealed partial class O2JamPreviewTrack : Track
 {
@@ -38,7 +39,7 @@ public sealed partial class O2JamPreviewTrack : Track
     private IReadOnlyList<O2JamPreviewEvent> automaticKeySoundEvents;
     private IReadOnlyList<O2JamPreviewEvent> playableKeySoundEvents;
     private readonly List<ActiveBackgroundTrack> activeBackgroundTracks = [];
-    private readonly List<SampleChannel> activeKeyChannels = [];
+    private readonly List<(SampleChannel Channel, bool IsAutomatic)> activeKeyChannels = [];
     private readonly Dictionary<int, double> backgroundTrackLengths = [];
     private readonly List<O2JamPreviewEvent> pendingBackgroundRestores = [];
     private readonly long createdAt = Stopwatch.GetTimestamp();
@@ -67,10 +68,12 @@ public sealed partial class O2JamPreviewTrack : Track
             playbackMode = value;
             nextPlayableKeySoundEventIndex = lowerBound(playableKeySoundEvents, CurrentTime);
             if (value == O2JamPreviewPlaybackMode.Gameplay)
-                stopKeySounds();
+                stopKeySounds(playableOnly: true);
             traceSyncControl("mode", null);
         });
     }
+
+    private bool playsPlayableKeySounds => playbackMode != O2JamPreviewPlaybackMode.Gameplay;
 
     public override double CurrentTime => clock.CurrentTime;
 
@@ -251,11 +254,7 @@ public sealed partial class O2JamPreviewTrack : Track
                 return;
             }
 
-            playDue(backgroundEvents, ref nextBackgroundEventIndex, currentTime);
-            playDue(automaticKeySoundEvents, ref nextAutomaticKeySoundEventIndex, currentTime);
-
-            if (PlaybackMode == O2JamPreviewPlaybackMode.Preview)
-                playDue(playableKeySoundEvents, ref nextPlayableKeySoundEventIndex, currentTime);
+            playDue(currentTime);
 
             startRequested = false;
             synchroniseBackgroundTracks(currentTime);
@@ -273,11 +272,7 @@ public sealed partial class O2JamPreviewTrack : Track
             return;
         }
 
-        playDue(backgroundEvents, ref nextBackgroundEventIndex, currentTime);
-        playDue(automaticKeySoundEvents, ref nextAutomaticKeySoundEventIndex, currentTime);
-
-        if (PlaybackMode == O2JamPreviewPlaybackMode.Preview)
-            playDue(playableKeySoundEvents, ref nextPlayableKeySoundEventIndex, currentTime);
+        playDue(currentTime);
 
         lastTime = currentTime;
     }
@@ -319,7 +314,7 @@ public sealed partial class O2JamPreviewTrack : Track
         channel.Balance.Value = evt.Pan;
         channel.BindAdjustments(this);
         channel.Play();
-        activeKeyChannels.Add(channel);
+        activeKeyChannels.Add((channel, evt.IsAutomatic));
     }
 
     private bool tryClassifyCurrentSchedule()
@@ -401,24 +396,95 @@ public sealed partial class O2JamPreviewTrack : Track
         traceSyncControl("rebuild", time);
     }
 
-    private void playDue(IReadOnlyList<O2JamPreviewEvent> events, ref int nextIndex, double currentTime)
+    private void playDue(double currentTime)
     {
-        while (nextIndex < events.Count && events[nextIndex].Time <= currentTime)
+        var backgroundWaiting = false;
+        var automaticWaiting = false;
+        var playableWaiting = false;
+
+        while (true)
         {
-            var evt = events[nextIndex];
+            O2JamPreviewEvent? next = null;
+            var stream = DueStream.None;
+
+            if (!backgroundWaiting && nextBackgroundEventIndex < backgroundEvents.Count && backgroundEvents[nextBackgroundEventIndex].Time <= currentTime)
+            {
+                next = backgroundEvents[nextBackgroundEventIndex];
+                stream = DueStream.Background;
+            }
+
+            if (!automaticWaiting && nextAutomaticKeySoundEventIndex < automaticKeySoundEvents.Count)
+            {
+                var candidate = automaticKeySoundEvents[nextAutomaticKeySoundEventIndex];
+                if (candidate.Time <= currentTime && (next == null || candidate.Time < next.Value.Time))
+                {
+                    next = candidate;
+                    stream = DueStream.AutomaticKeySound;
+                }
+            }
+
+            if (!playableWaiting && playsPlayableKeySounds && nextPlayableKeySoundEventIndex < playableKeySoundEvents.Count)
+            {
+                var candidate = playableKeySoundEvents[nextPlayableKeySoundEventIndex];
+                if (candidate.Time <= currentTime && (next == null || candidate.Time < next.Value.Time))
+                {
+                    next = candidate;
+                    stream = DueStream.PlayableKeySound;
+                }
+            }
+
+            if (next == null)
+                break;
+
+            var evt = next.Value;
             if (evt.IsKeySound && currentTime - evt.Time > allowable_late_start)
             {
-                nextIndex++;
+                advance();
                 continue;
             }
 
-            // A seek or repeated BGM reference can request a decoder outside the lookahead.
-            // Leave the event pending rather than blocking the audio thread or losing the event.
+            // A late decoder should not silence ready events from other streams. Keep ordering
+            // within its own stream, and retry this event on the next audio-thread update.
             if (!isEventReady(evt))
-                break;
+            {
+                switch (stream)
+                {
+                    case DueStream.Background:
+                        backgroundWaiting = true;
+                        break;
 
-            nextIndex++;
+                    case DueStream.AutomaticKeySound:
+                        automaticWaiting = true;
+                        break;
+
+                    case DueStream.PlayableKeySound:
+                        playableWaiting = true;
+                        break;
+                }
+
+                continue;
+            }
+
+            advance();
             play(evt, evt.IsKeySound ? 0 : currentTime - evt.Time);
+
+            void advance()
+            {
+                switch (stream)
+                {
+                    case DueStream.Background:
+                        nextBackgroundEventIndex++;
+                        break;
+
+                    case DueStream.AutomaticKeySound:
+                        nextAutomaticKeySoundEventIndex++;
+                        break;
+
+                    case DueStream.PlayableKeySound:
+                        nextPlayableKeySoundEventIndex++;
+                        break;
+                }
+            }
         }
     }
 
@@ -457,7 +523,7 @@ public sealed partial class O2JamPreviewTrack : Track
                 return false;
         }
 
-        if (PlaybackMode != O2JamPreviewPlaybackMode.Preview)
+        if (!playsPlayableKeySounds)
             return true;
 
         for (var index = nextPlayableKeySoundEventIndex;
@@ -501,20 +567,25 @@ public sealed partial class O2JamPreviewTrack : Track
         ? resources.IsSampleReady(evt.SampleId)
         : resources.IsBackgroundTrackReady(evt.SampleId);
 
-    private void stopKeySounds()
+    private void stopKeySounds(bool playableOnly = false)
     {
-        foreach (var channel in activeKeyChannels)
-            channel.Stop();
+        for (var index = activeKeyChannels.Count - 1; index >= 0; index--)
+        {
+            var active = activeKeyChannels[index];
+            if (playableOnly && active.IsAutomatic)
+                continue;
 
-        activeKeyChannels.Clear();
+            active.Channel.Stop();
+            activeKeyChannels.RemoveAt(index);
+        }
     }
 
     private void pauseAudio()
     {
         // Automatic OJM events may contain multi-second stems despite having a small encoded size.
         // Zero frequency preserves their playback position; Stop() cannot resume a SampleChannel.
-        foreach (var channel in activeKeyChannels)
-            channel.Frequency.Value = 0;
+        foreach (var active in activeKeyChannels)
+            active.Channel.Frequency.Value = 0;
 
         foreach (var active in activeBackgroundTracks)
             active.Track.Stop();
@@ -524,7 +595,7 @@ public sealed partial class O2JamPreviewTrack : Track
     {
         for (var index = activeKeyChannels.Count - 1; index >= 0; index--)
         {
-            if (!activeKeyChannels[index].Playing)
+            if (!activeKeyChannels[index].Channel.Playing)
                 activeKeyChannels.RemoveAt(index);
         }
 
@@ -627,8 +698,8 @@ public sealed partial class O2JamPreviewTrack : Track
 
     private void resumeKeySounds()
     {
-        foreach (var channel in activeKeyChannels)
-            channel.Frequency.Value = 1;
+        foreach (var active in activeKeyChannels)
+            active.Channel.Frequency.Value = 1;
     }
 
     private void disposeAllAudio(bool stopBeforeDisposal = true)
@@ -711,6 +782,14 @@ public sealed partial class O2JamPreviewTrack : Track
         events.Count == 0 ? "[]" : $"[{string.Join(',', events.Select(evt => evt.SampleId).Distinct())}]";
 
     partial void traceSyncControl(string action, double? requestedTime);
+
+    private enum DueStream
+    {
+        None,
+        Background,
+        AutomaticKeySound,
+        PlayableKeySound,
+    }
 
     private readonly record struct ActiveBackgroundTrack(Track Track, int SampleId, double EventTime);
 }

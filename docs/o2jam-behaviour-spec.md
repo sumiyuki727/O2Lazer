@@ -321,6 +321,8 @@ released heads must not stay pinned after the body ends; dropped heads scroll ou
 The retained object is recycled after the charted tail passes; visual retention never extends the
 logical hold, sound playback, or judgement window. With the option disabled, successful tails
 retain mania's immediate hiding and missed holds retain the existing grey dropped-note visual.
+The head KeySound is eligible for its first judgement only. A later press while the resolved LN
+remains visible must not replay it; replay rewind before the head restores that eligibility.
 
 This policy was requested on 2026-08-31 based on CXO2's `EventState.IsRenderable()` (LN visibility
 depends on chart position, not endpoint accuracy) and Open2Jam's `TO_KILL` handling (judged LNs

@@ -67,7 +67,7 @@ public class O2JamNativeTrackPreparationTest
     }
 
     [Test]
-    public void DetachedGameplayKeySoundPausesAndResumesTheSameNativeChannel()
+    public void DetachedGameplayKeySoundPausesAndResumesButStopsOnSeek()
     {
         Assert.That(O2JamHitSampleLookupPatch.InstallOnce(), Is.True);
         var samples = (ISampleStore)Activator.CreateInstance(typeof(Sample).Assembly.GetType("osu.Framework.Audio.Sample.SampleStore")!,
@@ -157,6 +157,21 @@ public class O2JamNativeTrackPreparationTest
                 Assert.That((int)channel.GetType().GetField("channel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(channel)!,
                     Is.EqualTo(channelHandle), "Resume must keep the original voice rather than restart or replace it.");
             }
+            adjustments.StopActiveChannels();
+            onAudioThread(() =>
+            {
+                sampleManager.Update();
+                mixer.Update();
+            });
+            Assert.That(channel.Playing, Is.False, "A replay seek must discard the previous position's musical tail.");
+            paused.Value = true;
+            paused.Value = false;
+            onAudioThread(() =>
+            {
+                sampleManager.Update();
+                mixer.Update();
+            });
+            Assert.That(channel.Playing, Is.False, "Pause and resume must not revive a voice discarded by seek.");
         }
         finally
         {

@@ -45,6 +45,23 @@ public class O2JamBeatmapSkinSampleLifetimeTest
         }
     }
 
+    [Test]
+    public void AutomaticGameplayPolicySuppressesNativeJudgementLookupOnly()
+    {
+        _ = new O2LazerRuleset();
+        using var fixture = new SampleFixture();
+        using var provider = new BeatmapSkinProvidingContainer(fixture.Skin);
+        provider.BeatmapHitsounds.Value = true;
+        fixture.Skin.AllowJudgementKeySounds = false;
+
+        Assert.That(provider.GetSample(new O2JamHitSampleInfo(7, 100, 0)), Is.Null);
+        Assert.That(fixture.GetSample(), Is.Not.Null,
+            "The scheduled audio path must still be able to resolve the same OJM sample.");
+
+        fixture.Skin.AllowJudgementKeySounds = true;
+        Assert.That(fixture.GetSample(provider), Is.Not.Null);
+    }
+
     private sealed class OrdinaryHitSampleInfo() : HitSampleInfo("ordinary")
     {
         public override IEnumerable<string> LookupNames => ["o2jam/7"];
