@@ -11,8 +11,8 @@ namespace osu.Game.Rulesets.O2Lazer.Audio;
 internal sealed class O2JamPreloadScheduler(int concurrency)
 {
     private readonly object sync = new();
-    private readonly Queue<Job> urgent = new();
-    private readonly Queue<Job> normal = new();
+    private readonly LinkedList<Job> urgent = new();
+    private readonly LinkedList<Job> normal = new();
     private int running;
 
     internal Preparation<T> Schedule<T>(Func<CancellationToken, Task<T>> load, CancellationToken token, bool prioritise)
@@ -23,7 +23,13 @@ internal sealed class O2JamPreloadScheduler(int concurrency)
             try
             {
                 token.ThrowIfCancellationRequested();
-                completion.TrySetResult(await load(token).ConfigureAwait(false));
+                var result = await load(token).ConfigureAwait(false);
+                if (!completion.TrySetResult(result) && result is IDisposable disposable)
+                {
+                    // A selection can be cancelled after native decoding starts; its result
+                    // no longer has a consumer to own and release it.
+                    disposable.Dispose();
+                }
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -37,10 +43,25 @@ internal sealed class O2JamPreloadScheduler(int concurrency)
 
         lock (sync)
         {
-            job.Urgent = prioritise;
-            (prioritise ? urgent : normal).Enqueue(job);
+            job.Node = (prioritise ? urgent : normal).AddLast(job);
             dispatch();
         }
+
+        var cancellation = token.Register(() =>
+        {
+            lock (sync)
+            {
+                job.Node?.List?.Remove(job.Node);
+                job.Node = null;
+            }
+
+            completion.TrySetCanceled(token);
+        });
+        _ = completion.Task.ContinueWith(
+            _ => cancellation.Dispose(),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
 
         return new Preparation<T>(completion.Task, () => promote(job));
     }
@@ -49,11 +70,11 @@ internal sealed class O2JamPreloadScheduler(int concurrency)
     {
         lock (sync)
         {
-            if (job.Started || job.Urgent)
+            if (job.Started || job.Node?.List != normal)
                 return;
 
-            job.Urgent = true;
-            urgent.Enqueue(job);
+            normal.Remove(job.Node);
+            job.Node = urgent.AddLast(job);
             dispatch();
         }
     }
@@ -62,9 +83,10 @@ internal sealed class O2JamPreloadScheduler(int concurrency)
     {
         while (running < concurrency && (urgent.Count > 0 || normal.Count > 0))
         {
-            var job = (urgent.Count > 0 ? urgent : normal).Dequeue();
-            if (job.Started)
-                continue;
+            var queue = urgent.Count > 0 ? urgent : normal;
+            var job = queue.First!.Value;
+            queue.RemoveFirst();
+            job.Node = null;
 
             job.Started = true;
             running++;
@@ -91,7 +113,7 @@ internal sealed class O2JamPreloadScheduler(int concurrency)
     {
         public Func<Task> Load { get; } = load;
         public bool Started { get; set; }
-        public bool Urgent { get; set; }
+        public LinkedListNode<Job>? Node { get; set; }
     }
 
     internal sealed class Preparation<T>(Task<T> task, Action prioritise)
