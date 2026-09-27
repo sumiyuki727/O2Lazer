@@ -19,4 +19,6 @@ O2Jam 音乐事件以谱面时间安排。HT/DT 默认保留音高，Adjust Pitc
 
 同曲不同难度只在背景编排兼容时转移原生轨道。`O2JamWorkingBeatmap` 懒加载外部 OJN/OJM，缓存与预加载负责避免快速切曲阻塞，但文件变化、取消和释放仍是[问题 A09](architecture-audit.md#待处理问题)的系统审查项。
 
+资源所有权：`O2JamWorkingBeatmapCache` 最多强引用六个包装谱面，逐出时请求释放其 OJM 皮肤；仍在播放的 `O2JamPreviewTrack` 持有皮肤租约，先释放子轨再归还租约。皮肤取消自己的预加载任务并释放原生 Sample/Track 存储。OJM 归档读取失败或 OJM 文件戳已变化的包装谱面，在下一次选中时不再复用；旧轨不能转移给新包装谱面。`OjnDocumentCache` 和 `OjmArchiveCache` 是按文件戳复用的进程级缓存；成功导入或显式刷新写入后，导入服务按源路径清除这两类缓存，以覆盖同长度、同时间戳的 OJN 内容变化。仅 OJM 内容变化、文件长度与时间戳均未变时，仍无法自动识别；正在播放的曲目也不会热切换音源，属于 A09 剩余场景。
+
 相关实现：`Host/Audio/O2JamPreviewTrack.cs`、`O2JamBeatmapSkin.cs`、`O2JamHitSoundRateAdjustments.cs`、`Integration/Beatmaps/O2JamWorkingBeatmap.cs`。自动测试覆盖速率与通道绑定、事件顺序、暂停与跳转；实际设备的音量、起音、暂停恢复、快速切曲和长曲资源行为仍需客户端验证。[可选音频追踪](audio-sync-diagnostics.md)只记录观测，不自动调整偏移。

@@ -143,6 +143,37 @@ public class OjmArchiveCacheTest
         }
     }
 
+    [Test]
+    public void ExplicitSourceInvalidationReplacesAnEntryWithTheSameFileStamp()
+    {
+        var directory = createDirectory();
+
+        try
+        {
+            var source = createFile(directory, "chart.ojn", [1]);
+            var archivePath = createFile(directory, "song.ojm", [1]);
+            var loadCount = 0;
+            var cache = new OjmArchiveCache(3, 1024, (_, _) =>
+            {
+                loadCount++;
+                return createArchive([1]);
+            });
+            var first = cache.GetAll(source, archivePath);
+
+            cache.InvalidateSource(source);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(cache.GetAll(source, archivePath), Is.Not.SameAs(first));
+                Assert.That(loadCount, Is.EqualTo(2));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
     private static OjmArchive createArchive(IEnumerable<int> ids)
     {
         var samples = new Dictionary<int, OjmSample>();

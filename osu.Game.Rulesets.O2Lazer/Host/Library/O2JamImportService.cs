@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
 using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
@@ -31,7 +32,12 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
         {
             try
             {
-                switch (writer.Write(planner.Create(path)))
+                var plan = planner.Create(path);
+                var result = writer.Write(plan);
+                if (result is O2JamLibraryWriteResult.Imported or O2JamLibraryWriteResult.Updated)
+                    invalidateSourceCaches(plan.SourcePath);
+
+                switch (result)
                 {
                     case O2JamLibraryWriteResult.Imported:
                         imported++;
@@ -204,6 +210,11 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
                                    .ToArray();
             cancellationToken.ThrowIfCancellationRequested();
             var writeResults = writer.WriteBatch(requests);
+            for (var index = 0; index < requests.Length; index++)
+            {
+                if (writeResults[index] is O2JamLibraryWriteResult.Imported or O2JamLibraryWriteResult.Updated)
+                    invalidateSourceCaches(requests[index].Plan.SourcePath);
+            }
             var writeIndex = 0;
 
             foreach (var item in prepared)
@@ -270,6 +281,14 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
             return false;
 
         return source.HasCurrentEncoding || !OjnReader.RequiresLegacyEncodingMigration(path);
+    }
+
+    private static void invalidateSourceCaches(string sourcePath)
+    {
+        // The importer checks content hashes, while these playback caches use cheap file stamps.
+        // A successful write is the explicit signal that unchanged stamps may hide new bytes.
+        OjnDocumentCache.Shared.Invalidate(sourcePath);
+        OjmArchiveCache.Shared.InvalidateSource(sourcePath);
     }
 
     private static bool tryFindImportedContent(

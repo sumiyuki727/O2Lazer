@@ -45,6 +45,19 @@ internal sealed class OjmArchiveCache
     internal OjmArchive GetAll(string sourcePath, string archivePath)
         => get(sourcePath, archivePath, null);
 
+    internal void InvalidateSource(string sourcePath)
+    {
+        var canonicalSource = Path.GetFullPath(sourcePath);
+        lock (cacheLock)
+        {
+            var staleKeys = entries.Keys
+                                   .Where(key => string.Equals(key.SourcePath, canonicalSource, StringComparison.OrdinalIgnoreCase))
+                                   .ToArray();
+            foreach (var key in staleKeys)
+                entries.Remove(key);
+        }
+    }
+
     private OjmArchive get(string sourcePath, string archivePath, IReadOnlySet<int>? sampleIds)
     {
         var canonicalSource = Path.GetFullPath(sourcePath);

@@ -33,7 +33,8 @@ internal sealed class O2JamWorkingBeatmapCache
         lock (entries)
         {
             if (entries.TryGetValue(working.BeatmapInfo.ID, out var cached)
-                && string.Equals(cached.ChartPath, chartPath, StringComparison.OrdinalIgnoreCase))
+                && string.Equals(cached.ChartPath, chartPath, StringComparison.OrdinalIgnoreCase)
+                && cached.Wrapper.CanReuse)
             {
                 accessOrder.Remove(cached.AccessNode);
                 accessOrder.AddLast(cached.AccessNode);

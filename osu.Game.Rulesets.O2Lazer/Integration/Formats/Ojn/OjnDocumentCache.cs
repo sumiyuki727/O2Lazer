@@ -31,16 +31,7 @@ internal sealed class OjnDocumentCache
             if (!entries.TryGetValue(key, out entry!))
             {
                 // A changed source must not leave stale versions occupying the bounded cache.
-                var staleKeys = new List<CacheKey>();
-                foreach (var stale in entries.Keys)
-                {
-                    if (stale.Difficulty == difficulty
-                        && string.Equals(stale.Path, canonicalPath, StringComparison.OrdinalIgnoreCase))
-                        staleKeys.Add(stale);
-                }
-
-                foreach (var stale in staleKeys)
-                    entries.Remove(stale);
+                removePathEntries(canonicalPath, difficulty);
 
                 entry = new CacheEntry(
                     new Lazy<OjnDocument>(() => read(canonicalPath, difficulty), LazyThreadSafetyMode.ExecutionAndPublication));
@@ -84,6 +75,27 @@ internal sealed class OjnDocumentCache
 
             throw;
         }
+    }
+
+    internal void Invalidate(string path)
+    {
+        var canonicalPath = Path.GetFullPath(path);
+        lock (cacheLock)
+            removePathEntries(canonicalPath, null);
+    }
+
+    private void removePathEntries(string canonicalPath, O2JamDifficulty? difficulty)
+    {
+        var staleKeys = new List<CacheKey>();
+        foreach (var key in entries.Keys)
+        {
+            if ((difficulty == null || key.Difficulty == difficulty)
+                && string.Equals(key.Path, canonicalPath, StringComparison.OrdinalIgnoreCase))
+                staleKeys.Add(key);
+        }
+
+        foreach (var key in staleKeys)
+            entries.Remove(key);
     }
 
     private static OjnDocument read(string path, O2JamDifficulty difficulty)

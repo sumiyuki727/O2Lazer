@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Track;
@@ -28,6 +29,7 @@ public sealed class O2JamWorkingBeatmap : WorkingBeatmap
     private readonly string chartPath;
     private readonly Lazy<OjnDocument> document;
     private readonly Lazy<Task<OjmArchive>> archive;
+    private ArchiveSourceStamp? loadedArchiveStamp;
     private O2JamBeatmapSkin? sampleSkin;
 
     public O2JamWorkingBeatmap(WorkingBeatmap inner, AudioManager audioManager, string chartPath)
@@ -44,6 +46,35 @@ public sealed class O2JamWorkingBeatmap : WorkingBeatmap
         // GetBeatmap starts the selected archive read when it is actually needed.
     }
 
+    internal bool CanReuse
+    {
+        get
+        {
+            if (!archive.IsValueCreated)
+                return true;
+
+            var task = archive.Value;
+            if (task.IsFaulted || task.IsCanceled)
+                return false;
+
+            if (!task.IsCompletedSuccessfully)
+                return true;
+
+            var loaded = Volatile.Read(ref loadedArchiveStamp);
+            if (loaded == null)
+                return false;
+
+            try
+            {
+                return loaded == captureArchiveStamp();
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+    }
+
     public override bool TryTransferTrack(WorkingBeatmap target)
     {
         var transferLabel = $"{Path.GetFileName(chartPath)}: {BeatmapInfo.DifficultyName} -> {target.BeatmapInfo.DifficultyName}";
@@ -57,6 +88,13 @@ public sealed class O2JamWorkingBeatmap : WorkingBeatmap
         if (!string.Equals(chartPath, o2Target.chartPath, StringComparison.OrdinalIgnoreCase))
         {
             Logger.Log($"O2Lazer preview transfer rejected ({transferLabel}): source chart paths differ.", level: LogLevel.Verbose);
+            return false;
+        }
+
+        // A changed OJM must start a fresh track even if its authored BGM sample IDs match.
+        if (!CanReuse || !o2Target.CanReuse)
+        {
+            Logger.Log($"O2Lazer preview transfer rejected ({transferLabel}): OJM resource changed or failed to load.", level: LogLevel.Verbose);
             return false;
         }
 
@@ -165,6 +203,25 @@ public sealed class O2JamWorkingBeatmap : WorkingBeatmap
     private OjmArchive readArchive()
     {
         var started = Stopwatch.GetTimestamp();
+        var stamp = captureArchiveStamp();
+        Volatile.Write(ref loadedArchiveStamp, stamp);
+        if (stamp.Path == null)
+        {
+            Logger.Log($"O2Lazer found no OJM archive for {Path.GetFileName(chartPath)}.", level: LogLevel.Verbose);
+            return new OjmArchive(new Dictionary<int, OjmSample>());
+        }
+
+        // Indexing the full archive is cheap because payloads remain lazy. Keeping every sample
+        // available lets matching BGM schedules transfer the live track between difficulties.
+        var result = OjmArchiveCache.Shared.GetAll(chartPath, stamp.Path);
+        Logger.Log(
+            $"O2Lazer indexed OJM {Path.GetFileName(stamp.Path)} for {Path.GetFileName(chartPath)} in {Stopwatch.GetElapsedTime(started).TotalMilliseconds:N1} ms ({result.Samples.Count} samples).",
+            level: LogLevel.Verbose);
+        return result;
+    }
+
+    private ArchiveSourceStamp captureArchiveStamp()
+    {
         var resourceName = document.Value.Metadata.OjmFileName;
         if (string.IsNullOrWhiteSpace(resourceName))
             resourceName = Path.ChangeExtension(Path.GetFileName(chartPath), ".ojm");
@@ -173,20 +230,14 @@ public sealed class O2JamWorkingBeatmap : WorkingBeatmap
         {
             var fallback = Path.ChangeExtension(Path.GetFileName(chartPath), ".ojm");
             if (!O2JamExternalChart.TryResolveResource(chartPath, fallback, out ojmPath))
-            {
-                Logger.Log($"O2Lazer found no OJM archive for {Path.GetFileName(chartPath)}.", level: LogLevel.Verbose);
-                return new OjmArchive(new Dictionary<int, OjmSample>());
-            }
+                return new ArchiveSourceStamp(null, 0, 0);
         }
 
-        // Indexing the full archive is cheap because payloads remain lazy. Keeping every sample
-        // available lets matching BGM schedules transfer the live track between difficulties.
-        var result = OjmArchiveCache.Shared.GetAll(chartPath, ojmPath);
-        Logger.Log(
-            $"O2Lazer indexed OJM {Path.GetFileName(ojmPath)} for {Path.GetFileName(chartPath)} in {Stopwatch.GetElapsedTime(started).TotalMilliseconds:N1} ms ({result.Samples.Count} samples).",
-            level: LogLevel.Verbose);
-        return result;
+        var file = new FileInfo(ojmPath);
+        return new ArchiveSourceStamp(ojmPath, file.Length, file.LastWriteTimeUtc.Ticks);
     }
+
+    private sealed record ArchiveSourceStamp(string? Path, long Length, long LastWriteTicks);
 
     private static O2JamDifficulty resolveDifficulty(string name)
     {

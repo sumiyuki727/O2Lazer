@@ -13,6 +13,7 @@ using osu.Game.Models;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
+using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Import;
 using osu.Game.Rulesets.O2Lazer.Localisation;
 using osu.Game.Scoring;
@@ -378,6 +379,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                 var writer = new O2JamLibraryWriter(realm, storage);
                 var planner = new O2JamImportPlanner();
                 Assert.That(writer.Write(planner.Create(sourcePath)), Is.EqualTo(O2JamLibraryWriteResult.Imported));
+                var cachedDocument = OjnDocumentCache.Shared.Get(sourcePath, O2JamDifficulty.EX);
 
                 var scoreId = Guid.NewGuid();
                 var original = realm.Write(database =>
@@ -394,15 +396,20 @@ public partial class O2JamLegacyLibraryMigrationTest
 
                 var importedSources = writer.GetImportedSources();
                 var originalTimestamp = O2JamSourceTimestamp.Read(sourcePath);
+                var originalFileTime = File.GetLastWriteTimeUtc(sourcePath);
                 Assert.That(originalBytes[320], Is.EqualTo(1));
                 var changedBytes = originalBytes.ToArray();
                 changedBytes[320] = 2;
                 File.WriteAllBytes(sourcePath, changedBytes);
-                File.SetLastWriteTimeUtc(sourcePath, originalTimestamp.UtcDateTime);
+                File.SetLastWriteTimeUtc(sourcePath, originalFileTime);
                 Assert.That(O2JamSourceTimestamp.Read(sourcePath), Is.EqualTo(originalTimestamp));
                 Assert.That(changedBytes.Length, Is.EqualTo(originalBytes.Length));
+                Assert.That(OjnDocumentCache.Shared.Get(sourcePath, O2JamDifficulty.EX), Is.SameAs(cachedDocument),
+                    "The unchanged file stamp should reproduce the stale-cache condition before refresh.");
 
                 var refresh = new O2JamImportService(planner, writer).Refresh([sourcePath], importedSources);
+                Assert.That(OjnDocumentCache.Shared.Get(sourcePath, O2JamDifficulty.EX), Is.Not.SameAs(cachedDocument),
+                    "A content-aware refresh must remove the old playback document.");
                 Assert.Multiple(() =>
                 {
                     Assert.That(refresh.Imported, Is.EqualTo(1));

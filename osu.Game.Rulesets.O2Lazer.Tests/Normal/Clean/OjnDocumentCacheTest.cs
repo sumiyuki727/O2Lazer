@@ -36,4 +36,25 @@ public class OjnDocumentCacheTest
             File.Delete(path);
         }
     }
+
+    [Test]
+    public void ExplicitInvalidationReplacesAnEntryWithTheSameFileStamp()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"o2lazer-ojn-cache-{Guid.NewGuid():N}.ojn");
+
+        try
+        {
+            File.WriteAllBytes(path, OjnTestData.CreateChart());
+            var cache = new OjnDocumentCache();
+            var first = cache.Get(path, O2JamDifficulty.EX);
+
+            cache.Invalidate(path);
+
+            Assert.That(cache.Get(path, O2JamDifficulty.EX), Is.Not.SameAs(first));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
