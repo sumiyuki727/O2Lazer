@@ -33,8 +33,7 @@ public sealed class O2JamArchiveResourceStore : IResourceStore<byte[]>
 
     public Stream GetStream(string name)
     {
-        var data = Get(name);
-        return data == null ? null! : new MemoryStream(data, writable: false);
+        return tryResolve(name, out var sample) ? sample.OpenRead() : null!;
     }
 
     public IEnumerable<string> GetAvailableResources() =>

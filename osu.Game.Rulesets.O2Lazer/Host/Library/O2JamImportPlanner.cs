@@ -49,7 +49,8 @@ public sealed class O2JamImportPlanner
         var title = string.IsNullOrWhiteSpace(document.Metadata.Title)
             ? Path.GetFileNameWithoutExtension(fullPath)
             : document.Metadata.Title;
-        var background = document.Metadata.Cover.Length > 0 ? document.Metadata.Cover : document.Metadata.Thumbnail;
+        var cover = document.Metadata.Cover;
+        var background = cover.Length > 0 ? cover : document.Metadata.Thumbnail;
         var genericSetIdentity = string.Concat(charts.Select(chart => chart.Md5Hash).OrderBy(hash => hash, StringComparer.Ordinal));
         var setHash = Convert.ToHexString(SHA256.HashData(
             Encoding.UTF8.GetBytes($"{O2LazerIdentity.ShortName}:{genericSetIdentity}"))).ToLowerInvariant();

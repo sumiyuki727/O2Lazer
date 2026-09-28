@@ -18,10 +18,13 @@ public class O2JamArchiveResourceStoreTest
             [42] = new OjmSample(42, "sample", ".wav", data),
         }));
 
+        var first = store.Get("o2jam/42.wav");
+        first[0] = 9;
+
         Assert.Multiple(() =>
         {
-            Assert.That(store.Get("o2jam/42.wav"), Is.SameAs(data));
-            Assert.That(store.Get("42"), Is.SameAs(data));
+            Assert.That(store.Get("42"), Is.EqualTo(data));
+            Assert.That(store.Get("42"), Is.Not.SameAs(first));
             Assert.That(store.Get("o2jam/42.ogg"), Is.Null);
             Assert.That(store.Get("o2jam/43.wav"), Is.Null);
             Assert.That(store.GetAvailableResources().Single(), Is.EqualTo("o2jam/42.wav"));
