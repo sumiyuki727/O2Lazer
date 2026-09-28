@@ -15,7 +15,7 @@ O2Jam 音乐事件以谱面时间安排。HT/DT 默认保留音高，Adjust Pitc
 
 选曲预览自动播放可演奏键音；普通游玩与回放由原生命中路径触发，回放漏掉的音符不会补播。预留的 `GameplayAutomatic` 策略改为按谱面时间自动播放可演奏键音，并只对当前 OJM 皮肤关闭判定音查找，避免重复播放。`O2JamDrawableRuleset.AutomaticallyPlayKeySounds` 是未来 Mod 可接入的宿主入口，目前没有可选的 Mod 或用户界面，也不改变计分规则。全局“谱面打击音效”开关无法静音普通 OJM 键音；其他皮肤和音效仍服从原生开关。
 
-选曲与游玩暂停会停止共同事件钟和 BGM，并在原声道上冻结正在播放的小型 KS；恢复时不从头触发。跳转会重建 BGM 所处的谱面位置、丢弃跳转前的小型自动音尾音，并让后续事件按目标时间重新派发。游玩内原生命中 KS 的旧尾音也在 `GameplayClockContainer.OnSeek` 停止，回放向后跳转后重新经过的命中仍由原生回放输入触发。原生 `SampleChannel` 没有按音频内部偏移寻址的接口，因此跳到既有小型 KS 的中途时不会重建那段尾音；此限制须在客户端听感验收时检查。
+选曲与游玩暂停会停止共同事件钟和 BGM，并在原声道上冻结正在播放的小型 KS；恢复时不从头触发。跳转会重建 BGM 所处的谱面位置、丢弃跳转前的小型自动音尾音，并让后续事件按目标时间重新派发。游玩内原生命中 KS 的旧尾音也在 `GameplayClockContainer.OnSeek` 停止，回放向后跳转后重新经过的命中仍由原生回放输入触发。原生 `SampleChannel` 没有按音频内部偏移寻址的接口，因此跳到既有小型 KS 的中途时不会重建那段尾音；用户已在客户端观察到此限制并决定暂时搁置。
 
 同曲不同难度只在背景编排兼容时转移原生轨道。`O2JamExternalChartResources` 懒加载外部 OJN/OJM 并核对 OJM 文件戳，`O2JamWorkingBeatmap` 负责原生轨道及皮肤接入；缓存与预加载负责避免快速切曲阻塞，但文件变化、取消和释放仍是[问题 A09](architecture-audit.md#初始审查问题)的系统审查项。
 
@@ -28,6 +28,6 @@ O2Jam 音乐事件以谱面时间安排。HT/DT 默认保留音高，Adjust Pitc
 | 预加载工作 | 进程级 `O2JamPreloadScheduler` 限制同时工作的解码数；每个皮肤持有自己的取消令牌 | 皮肤释放时，排队工作立即取消并退出队列；正在执行的工作收到取消，若仍返回无人接收的原生对象则直接释放 |
 | 正在播放的事件轨 | `O2JamPreviewTrack` 持有皮肤租约和自己的原生子轨、声道；协调器只保留弱引用 | 事件轨先释放子轨，再归还租约；皮肤等最后一个播放租约归还后才释放原生 Sample/Track 存储 |
 
-仅 OJM 内容变化而文件长度与时间戳均未变时，仍无法自动识别；正在播放的曲目也不会热切换音源。宿主退出时的资源释放顺序及真实客户端快速切曲听感仍需 A09 实机验收。
+仅 OJM 内容变化而文件长度与时间戳均未变时，仍无法自动识别；OJN 未变化时显式刷新也会跳过该谱面，无法依靠现有刷新替换旧归档。正在播放的曲目不会热切换音源。2026-09-28 用户按前述步骤有界复测安装版，除上述小型 KS 尾音限制外未报告异常；这不覆盖同文件戳改写或全曲库听感。
 
-相关实现：`Host/Audio/O2JamPreviewTrack.cs`、`O2JamBeatmapSkin.cs`、`O2JamHitSoundRateAdjustments.cs`、`Integration/Beatmaps/O2JamExternalChartResources.cs`、`O2JamWorkingBeatmap.cs`。自动测试覆盖速率与通道绑定、事件顺序、暂停与跳转；实际设备的音量、起音、暂停恢复、快速切曲和长曲资源行为仍需客户端验证。[可选音频追踪](audio-sync-diagnostics.md)只记录观测，不自动调整偏移。
+相关实现：`Host/Audio/O2JamPreviewTrack.cs`、`O2JamBeatmapSkin.cs`、`O2JamHitSoundRateAdjustments.cs`、`Integration/Beatmaps/O2JamExternalChartResources.cs`、`O2JamWorkingBeatmap.cs`。自动测试覆盖速率与通道绑定、事件顺序、暂停与跳转；有界客户端复测无其他异常，不代表所有实际设备、长曲或谱面均已验收。[可选音频追踪](audio-sync-diagnostics.md)只记录观测，不自动调整偏移。
