@@ -24,13 +24,13 @@ O2Jam.Core    ──> 纯玩法规则/状态
         Presentation ──> 原生控件、等级/颜色、曲库、HUD/皮肤
 ```
 
-箭头表达推荐的数据使用方向，不保证现有 C# 引用严格满足该图。除两个独立项目外，其余区域编译在同一 ruleset 项目；目前有 [A05–A07、A12](architecture-audit.md#初始审查问题) 的横向/反向依赖。`O2LazerRuleset` 是 ruleset 入口，`Host/Compatibility/O2JamCompatibilityPatches` 汇总补丁安装；目录移动本身不产生编译隔离。
+箭头表达推荐的数据使用方向，不保证现有 C# 引用严格满足该图。除两个独立项目外，其余区域编译在同一 ruleset 项目；目前仍有 [A06、A07、A12](architecture-audit.md#初始审查问题) 的横向/反向依赖。`O2LazerRuleset` 是 ruleset 入口，`Host/Compatibility/O2JamCompatibilityPatches` 汇总补丁安装；目录移动本身不产生编译隔离。
 
 | 目录 | 应有责任 | 当前代表入口 |
 |---|---|---|
 | `O2Jam.Core/` | 音乐位置、BPM、判定窗口、长条状态、整局分数/Combo/Jam/药丸/生命；只依赖 .NET | `O2JamTimingMap`、`O2JamJudgementEngine`、`O2JamGameplayState` |
 | `O2Jam.Formats/` | OJN/OJM/OMC/M30 字节到格式数据；不写数据库、不创建 osu 对象 | `OjnReader`、`OjmReader` |
-| `Integration/Formats`、`Integration/Beatmaps` | 格式数据到可游玩谱面、原生 WorkingBeatmap 与转换边界 | `OjnBeatmapFactory`、`O2JamWorkingBeatmap` |
+| `Integration/Formats`、`Integration/Beatmaps` | 格式数据到可游玩谱面、外部资源快照、原生 WorkingBeatmap 与转换边界 | `OjnBeatmapFactory`、`O2JamExternalChartResources`、`O2JamWorkingBeatmap` |
 | `Integration/Objects`、`Integration/Scoring` | 输入和时间转译、核心结果到原生 Judgement/ScoreProcessor；原生 `ApplyResult` 提交 | `O2JamJudgementBridge`、`O2JamScoreProcessor` |
 | `Integration/Library/Filtering`、`Integration/Performance/Eligibility` | 曲库查询语义和 PP 资格策略，不决定绘制 | `O2JamFilterCriteria`、`O2JamPerformanceEligibility` |
 | `Host/Library`、`Host/Configuration` | 导入应用流程、写入契约、操作会话、配置 | `O2JamImportService`、`IO2JamLibraryWriter`、`O2JamLibrarySettingsSession` |
@@ -46,13 +46,13 @@ O2Jam.Core    ──> 纯玩法规则/状态
 
 Core 接收小节位置与普通规则配置，输出原始/药丸修正后的判定、长条状态和整局快照；它不认识 `HitObject`、Drawable、Mod、Realm 或 osu! 时钟。宿主提供谱面毫秒和输入，`O2JamJudgementBridge` 将它们转成核心所需位置并把最终判定映射为原生结果。Drawable 可以承载原生回调与延后父长条提交，但不能重新定义判定或分数；画面只消费已解析状态。内部 Combo 可为 -1，宿主显示和成绩分别投影。
 
-谱面运行链为 `OjnReader` → `OjnDocument` → `OjnBeatmapFactory` → `O2JamBeatmap` → 原生可玩对象。`O2JamWorkingBeatmap` 负责外部 OJN/OJM 的宿主加载、封面、皮肤和音轨接入；缓存位于 Integration。解码结果的集合与索引在构造时冻结，封面及公开音频字节返回独立副本；BGM 通过不暴露底层数组的只读流读取，因此共享缓存可安全供多个只读消费者使用。导入则由 `Host/Library` 计划与批处理，经 `IO2JamLibraryWriter` 进入当前 Realm 后端；UI 设置页只提交操作并显示状态。
+谱面运行链为 `OjnReader` → `OjnDocument` → `OjnBeatmapFactory` → `O2JamBeatmap` → 原生可玩对象。`OjnDocument` 已是独立格式结果，不再复制第二套音符/时间中间模型。`O2JamExternalChartResources` 管理外部 OJN/OJM 的懒读取、归档文件戳和可复用性；`O2JamWorkingBeatmap` 保留原生 Beatmap、Skin、Track 绑定及转移，封面由内部原生工作谱面提供。缓存位于 Integration。解码结果的集合与索引在构造时冻结，封面及公开音频字节返回独立副本；BGM 通过不暴露底层数组的只读流读取，因此共享缓存可安全供多个只读消费者使用。导入则由 `Host/Library` 计划与批处理，经 `IO2JamLibraryWriter` 进入当前 Realm 后端；UI 设置页只提交操作并显示状态。
 
 普通 O2Jam 分数从 Core 历史构造；Mania Score 在转换谱面后交给原生 Mania 规则与计分适配。Mod 属性、玩法选择和预览/游玩音频均由宿主处理，不能让 Core 了解 MS。PP 资格策略为“选中 MS 且所有展开的 Mod 均原生 Ranked”；计算入口、资格判定、标签展示分属不同模块。
 
 回放输入沿用原生 `FramedReplayInputHandler` 调度及 ManiaAction，宿主只定义 O2Jam 帧格式。当前归档仅写/读带 `o2lazer` 标记的 v5；重构前无标记 replay 属于测试实现，明确不兼容。旧成绩关联必须保留；任何重建谱面或存储设计都需先验证 ID 映射。Realm 直接类型集中在 `Host/Persistence/Realm`，但原生模型和两个 partial 组装点仍产生编译耦合；详见 [存储边界](realm-isolation.md) 和 [回放时序](replay-timing-boundary.md)。
 
-音频使用 OJM 资源与原生 Track/Sample 后端。桥接层负责 OJN 到谱面音频事件的映射；`Host/Audio` 从这些事件构造调度，并负责统一事件钟、预览/游玩播放策略、声道生命周期和限定 OJM 的原生采样适配。普通游玩与回放仍由原生命中触发 KS，BGM/KeySound 不受全局效果音量影响。暂停与跳转的边界见[音频契约](rate-mod-audio-readiness.md)；[音频诊断](audio-sync-diagnostics.md)仅用于观测。Native Mania 皮肤、对象池、UI 控件和动画在契约兼容时继续复用。
+音频使用 OJM 资源与原生 Track/Sample 后端。桥接层负责 OJN 到谱面音频事件和采样引用元数据的映射；`Host/Audio` 消费这些数据构造调度，并负责统一事件钟、预览/游玩播放策略、声道生命周期和限定 OJM 的原生采样适配。普通游玩与回放仍由原生命中触发 KS，BGM/KeySound 不受全局效果音量影响。暂停与跳转的边界见[音频契约](rate-mod-audio-readiness.md)；[音频诊断](audio-sync-diagnostics.md)仅用于观测。Native Mania 皮肤、对象池、UI 控件和动画在契约兼容时继续复用。
 
 ## 扩展时如何放置实现
 
@@ -65,6 +65,6 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 | 等级、筛选、标签、设置或 HUD | 对应 `Presentation` 模块；查询/资格纯策略留 Integration | 比较原生扩展点；视觉、异步更新与本地化验收 |
 | 音频/预览 | `Host/Audio` 和资源边界 | 保留原生时钟/轨道；测试暂停、寻址、变速、快速切曲及效果音量 |
 | 补丁 | 服务功能的模块；登记在总安装器 | 证明原生缺口、限定 ruleset、验证目标签名及失败回滚、多 ruleset 载入 |
-| 未来 BMS 等新 ruleset | 在第二消费者中验证可复用的宿主设施 | O2Jam 专用 Core/格式不强行公共化；共用补丁协调须处理版本和所有权 |
+| 未来 BMS 等新 ruleset | 在第二消费者中验证可复用的宿主设施 | 各自格式结果接入原生 `WorkingBeatmap`；O2Jam 专用 Core/格式不强行公共化；共用补丁协调须处理版本和所有权 |
 
 当前问题按 [A01–A16](architecture-audit.md#初始审查问题) 逐项解决；每项结束时更新路线图和必要测试。已有行为不能只因“旧代码”而删除：旧皮肤布局类型、规则集短名与键值、谱面/成绩身份及 v5 回放均涉及持久化契约。

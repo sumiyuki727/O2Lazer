@@ -1,11 +1,10 @@
 using System;
 using System.IO;
-using System.Reflection;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
+using osu.Game.Rulesets.O2Lazer.Core;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
@@ -28,7 +27,7 @@ public class O2JamWorkingBeatmapRecoveryTest
     }
 
     [Test]
-    public async Task ReplacingOnlyOjmRequiresFreshWorkingBeatmap()
+    public async Task ReplacingOnlyOjmRequiresFreshResourceSnapshot()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"o2lazer-ojm-replace-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
@@ -38,11 +37,8 @@ public class O2JamWorkingBeatmapRecoveryTest
             var chartPath = Path.Combine(directory, "chart.ojn");
             var archivePath = Path.Combine(directory, "o2ma100.ojm");
             File.WriteAllBytes(chartPath, OjnTestData.CreateChart());
-            var info = new BeatmapInfo(new O2LazerRuleset().RulesetInfo) { DifficultyName = "EX" };
-            var inner = new FlatWorkingBeatmap(new Beatmap { BeatmapInfo = info });
-            var withoutArchive = new O2JamWorkingBeatmap(inner, null!, chartPath);
-            _ = withoutArchive.Beatmap;
-            await archiveLoad(withoutArchive).WaitAsync(TimeSpan.FromSeconds(5));
+            var withoutArchive = new O2JamExternalChartResources(chartPath, O2JamDifficulty.EX);
+            await withoutArchive.Archive.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(withoutArchive.CanReuse, Is.True);
 
             File.WriteAllBytes(archivePath,
@@ -51,9 +47,8 @@ public class O2JamWorkingBeatmapRecoveryTest
             Assert.That(withoutArchive.CanReuse, Is.False,
                 "An OJM appearing after a missing archive must create a fresh wrapper.");
 
-            var withArchive = new O2JamWorkingBeatmap(inner, null!, chartPath);
-            _ = withArchive.Beatmap;
-            await archiveLoad(withArchive).WaitAsync(TimeSpan.FromSeconds(5));
+            var withArchive = new O2JamExternalChartResources(chartPath, O2JamDifficulty.EX);
+            await withArchive.Archive.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(withArchive.CanReuse, Is.True);
 
             using (var stream = File.Open(archivePath, FileMode.Append, FileAccess.Write, FileShare.Read))
@@ -65,11 +60,5 @@ public class O2JamWorkingBeatmapRecoveryTest
         {
             Directory.Delete(directory, true);
         }
-    }
-
-    private static Task<OjmArchive> archiveLoad(O2JamWorkingBeatmap wrapper)
-    {
-        var field = typeof(O2JamWorkingBeatmap).GetField("archive", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        return ((Lazy<Task<OjmArchive>>)field.GetValue(wrapper)!).Value;
     }
 }

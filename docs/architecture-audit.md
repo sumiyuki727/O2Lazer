@@ -8,6 +8,7 @@
 - A01：补丁注册已区分玩法必需和可选；缺少必需补丁时阻止创建玩法界面，可选失败仅记录诊断；安装异常按独立 Harmony ID 回滚。清单与原生缺口见[补丁清单](compatibility-patches.md)。失败策略及回滚的定向测试通过，当前宿主版本的过滤回归共 824 项通过。真实客户端故障注入仍待验收。
 - A02：已用实际安装的 BMSRuleset 2026.920.0.0 完成两种载入顺序的定向测试，并修复 BMS 后加载时 O2Jam replay 钩子被覆盖的问题；用户实测还发现 BMS 单曲结算图标显示 `?`，已定位并修复与编辑器入口保护共用的 `ScreenStack.Push` 补丁冲突，修复版的结算图标已由用户在客户端确认正常。BMS 专用 Harmony 协调已收拢到 Host/Compatibility；[矩阵与未覆盖范围](bms-coexistence.md)另记。真实客户端的双 ruleset 完整游玩/结算/回放链路仍待验收。
 - A04：已记录[曲库与成绩身份及字段清单](library-persistence-contract.md)；用户确认源内容变化后旧成绩保留为历史记录，不挂到新版。显式刷新现会核对源 SHA-256，临时 Realm 测试覆盖相同时间戳/长度下的内容变化及启动清理：旧成绩 ID 与 Hash 保留，不转挂新谱面，旧谱面清理后关联为空。字段投影、版本和迁移方案仍待实现。
+- A05：已把外部 OJN/OJM 的懒读取、归档文件戳和失败重试判断收拢至 `O2JamExternalChartResources`；`OjnBeatmapFactory` 只从 `OjnDocument` 构造原生谱面，采样引用元数据位于 Integration/Beatmaps，Host/Audio 消费该数据并拥有播放资源。`O2JamWorkingBeatmap` 保留原生 Beatmap、Skin、Track 适配及转移生命周期。谱面、皮肤、预览和正式回放定向过滤测试通过；真实客户端快速切曲与退出仍归 A09 验收。
 - A08：OJN 集合、OJM 索引已在构造时冻结，封面与公开音频字节按调用方复制；共享缓存仍可复用同一解码对象而不受调用方改写。BGM 走不复制大块数据的只读流；格式与宿主定向测试通过。文件变化后的失效归 A09。
 - A09：显式刷新成功写入后现按 OJN 源路径失效两类文件戳缓存，临时库回归覆盖内容变化与旧成绩保留；OJM 归档读取失败或文件戳变化的工作谱面不再被选择缓存永久复用或转移旧音轨。快速切曲时排队预加载立即取消，在途解码返回的弃用对象由调度器释放；资源所有权见[音频契约](rate-mod-audio-readiness.md)。OJM 原位改写但文件戳未变、真实客户端快速切曲与宿主退出仍待验收。
 
@@ -15,13 +16,13 @@
 
 `O2Jam.Core` 和 `O2Jam.Formats` 是独立项目：前者只有 .NET 基础依赖，后者另需 `System.Text.Encoding.CodePages`。二者不引用 osu、Mania、Realm、UI 或彼此。当前宿主项目引用并在交付时合并它们；独立编译已成立，运行时仍是单 ruleset DLL。
 
-`Integration`、`Host`、`Presentation`、`ManiaScore` 和 `Host/Persistence/Realm` 是同一宿主程序集内的职责目录，不是编译隔离的程序集。现有依赖并非严格单向：格式到谱面的桥接直接构造宿主音频事件，部分 Mod 引用 UI 类型，设置和成绩显示用 partial 与 Realm 接入共同编译。它们有具体宿主原因，但“已完全解耦”不成立。后续抽取应以可替换契约和测试为依据，避免仅改目录或命名空间。
+`Integration`、`Host`、`Presentation`、`ManiaScore` 和 `Host/Persistence/Realm` 是同一宿主程序集内的职责目录，不是编译隔离的程序集。现有依赖并非严格单向：部分 Mod 引用 UI 类型，设置和成绩显示用 partial 与 Realm 接入共同编译。它们有具体宿主原因，但“已完全解耦”不成立。后续抽取应以可替换契约和测试为依据，避免仅改目录或命名空间。
 
 | 区域 | 当前责任 | 本次判断 |
 |---|---|---|
 | Core | 小节位置、BPM、判定、长条、分数、Combo、Jam、药丸、生命和快照 | 独立边界成立；玩法正确性仍需有限真实谱面与客户端验收 |
 | Formats | OJN/OJM/OMC/M30 解码 | 独立边界成立；输出集合与索引已冻结，公开字节按调用方复制 |
-| Integration | 格式转谱面、运行对象、核心判定到原生结果的翻译，以及查询/资格策略 | 桥接主责正确；并非纯翻译模块，部分文件拥有音频宿主对象或双玩法计分选择 |
+| Integration | 格式转原生谱面、外部资源快照、核心判定到原生结果的翻译，以及查询/资格策略 | 桥接主责正确；原生 WorkingBeatmap 适配仍需构造皮肤和音轨，双玩法计分选择待 A06 复核 |
 | Host | ruleset 接入、游玩生命周期、音频、Mods、回放、配置、导入、难度计算 | 宿主职责大体正确；其下并列功能互相引用，应建立显式契约与检查 |
 | Presentation | 等级、颜色、曲库交互、标签、HUD/皮肤与设置界面 | 不拥有 O2Jam 判定；少数策略和 UI 混放，长条视觉策略仍在宿主 Drawable 内 |
 | ManiaScore | 原生 Mania 玩法的转换、依赖、计分与显示适配 | 作为横切玩法路线保留合理；要继续确保不进入 O2Jam 核心结算 |
@@ -37,7 +38,7 @@
 | A02 | 高 | 原实现仅在安装时寻找 BMS Harmony；O2Lazer 先加载后 BMS 可覆盖 replay 读取钩子。私有字段/IL 与宿主版本仍有关。 | 已将 BMS 专用适配器收拢到 Host/Compatibility，增加后加载补注册与回滚登记；2026.921.0 宿主 + BMS 2026.920.0.0 双顺序矩阵通过，BMS 单曲结算图标已由客户端复测。完整联测及未来版本仍需验收。 |
 | A03 | 已关闭 | 重构前无标记 replay 属于测试实现，用户确认不需要兼容；它缺少可供独立导入的 ruleset 标记和谱面哈希。 | 保持明确拒绝旧格式的测试，只将带 `o2lazer` 标记的 schema v5 作为正式回放契约；旧成绩的关联与保留由 A04 处理。 |
 | A04 | 高 | Realm 写入器仍以标签 marker、宿主 `BeatmapInfo`、原生文件库与事务组织数据；当前后端契约只覆盖现有调用。旧成绩与正式 v5 replay 的谱面 ID 关联使重建写入结构存在迁移风险。 | R02 先完成字段/版本/身份表及迁移映射，使用临时数据库验证更新、移动、缺失、重复、回滚；在此之前不清理真实旧库。存储替换时应将 Realm 具体模型限制在适配器。 |
-| A05 | 中 | `Integration/Formats/Ojn/OjnBeatmapFactory` 直接构造 `Host/Audio` 事件和采样；`Integration/Beatmaps/O2JamWorkingBeatmap` 同时管理解码、谱面包装、音轨和皮肤资源。桥接与资源生命周期不能单独替换。 | 区分格式→中性谱面映射、谱面→原生对象、资源绑定三个职责。先明确输入/输出和所有权，再决定是否拆类；保留原生 WorkingBeatmap 生命周期。 |
+| A05 | 已关闭 | 原工厂引用 Host/Audio 的采样类型，`O2JamWorkingBeatmap` 同时管理外部文件读取和原生皮肤/音轨。 | `OjnDocument` 是独立格式结果，工厂将其转为原生谱面及 Integration 采样引用；外部资源快照由 `O2JamExternalChartResources` 管理，原生生命周期仍由 `WorkingBeatmap` 适配器负责。无需复制第二套音符/时间中间模型；文件变化与实机生命周期继续由 A09 验收。 |
 | A06 | 中 | `Integration/Scoring/O2JamScoreProcessor` 同时选择 O2Jam 核心历史与 ManiaScore 处理器；`Host/Mods/O2JamModNoRelease` 和 `O2JamModPerfect` 引用游玩/UI 类型。横切能力有真实契约需求，但边界未用编译或测试约束。 | 为玩法选择和 Mod 应用阶段写出明确接口/依赖图；只把纯判定规则放 Core，宿主/UI 适配留在对应端。增加跨层依赖检查，注明原生泛型/设置特性要求的例外。 |
 | A07 | 中 | `Presentation/DifficultyLevels/Policy/O2JamDifficultyRating` 与 `Host/Library/O2JamBeatmapIdentity` 仍声明 `.Core` namespace，但不在独立 Core 项目；同一命名空间散在多个层；独立 Core/Formats 项目本身也沿用 `osu.Game.Rulesets.O2Lazer.*` 命名空间。目录移动没有改变 API，容易误判玩法边界，也降低原样移植到新游戏时的命名清晰度。 | 按身份兼容和公开 API 影响逐类修正命名或建立明确命名空间约定；增加项目级边界测试，避免 UI/持久化语义回流独立 Core。 |
 | A08 | 已关闭 | 原 `IReadOnlyList` 包裹可变集合，封面与 OJM 字节数组直接暴露，调用方可能污染共享缓存。 | Formats 构造时冻结 OJN 集合、OJM 索引；公开字节返回独立副本，轨道只读流共享私有数据。两消费者隔离测试及宿主资源存储回归通过；文件失效由 A09 继续处理。 |

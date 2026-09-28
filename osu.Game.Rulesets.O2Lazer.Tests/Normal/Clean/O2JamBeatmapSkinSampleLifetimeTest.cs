@@ -9,6 +9,7 @@ using osu.Framework.Graphics.Audio;
 using osu.Framework.IO.Stores;
 using osu.Framework.Threading;
 using osu.Game.Rulesets.O2Lazer.Audio;
+using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
 using osu.Game.Audio;
 using osu.Game.Skinning;

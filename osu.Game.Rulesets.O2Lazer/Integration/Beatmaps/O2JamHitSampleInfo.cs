@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using osu.Game.Audio;
 
-namespace osu.Game.Rulesets.O2Lazer.Audio;
+namespace osu.Game.Rulesets.O2Lazer.Beatmaps;
 
 public sealed class O2JamHitSampleInfo : HitSampleInfo
 {

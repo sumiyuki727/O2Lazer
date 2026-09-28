@@ -4,6 +4,7 @@ using osu.Framework.Audio.Sample;
 using osu.Framework.Graphics.Audio;
 using osu.Framework.Logging;
 using osu.Game.Audio;
+using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Skinning;
 
 namespace osu.Game.Rulesets.O2Lazer.Audio;

@@ -17,7 +17,7 @@ O2Jam 音乐事件以谱面时间安排。HT/DT 默认保留音高，Adjust Pitc
 
 选曲与游玩暂停会停止共同事件钟和 BGM，并在原声道上冻结正在播放的小型 KS；恢复时不从头触发。跳转会重建 BGM 所处的谱面位置、丢弃跳转前的小型自动音尾音，并让后续事件按目标时间重新派发。游玩内原生命中 KS 的旧尾音也在 `GameplayClockContainer.OnSeek` 停止，回放向后跳转后重新经过的命中仍由原生回放输入触发。原生 `SampleChannel` 没有按音频内部偏移寻址的接口，因此跳到既有小型 KS 的中途时不会重建那段尾音；此限制须在客户端听感验收时检查。
 
-同曲不同难度只在背景编排兼容时转移原生轨道。`O2JamWorkingBeatmap` 懒加载外部 OJN/OJM，缓存与预加载负责避免快速切曲阻塞，但文件变化、取消和释放仍是[问题 A09](architecture-audit.md#待处理问题)的系统审查项。
+同曲不同难度只在背景编排兼容时转移原生轨道。`O2JamExternalChartResources` 懒加载外部 OJN/OJM 并核对 OJM 文件戳，`O2JamWorkingBeatmap` 负责原生轨道及皮肤接入；缓存与预加载负责避免快速切曲阻塞，但文件变化、取消和释放仍是[问题 A09](architecture-audit.md#初始审查问题)的系统审查项。
 
 资源所有权按以下边界处理：
 
@@ -30,4 +30,4 @@ O2Jam 音乐事件以谱面时间安排。HT/DT 默认保留音高，Adjust Pitc
 
 仅 OJM 内容变化而文件长度与时间戳均未变时，仍无法自动识别；正在播放的曲目也不会热切换音源。宿主退出时的资源释放顺序及真实客户端快速切曲听感仍需 A09 实机验收。
 
-相关实现：`Host/Audio/O2JamPreviewTrack.cs`、`O2JamBeatmapSkin.cs`、`O2JamHitSoundRateAdjustments.cs`、`Integration/Beatmaps/O2JamWorkingBeatmap.cs`。自动测试覆盖速率与通道绑定、事件顺序、暂停与跳转；实际设备的音量、起音、暂停恢复、快速切曲和长曲资源行为仍需客户端验证。[可选音频追踪](audio-sync-diagnostics.md)只记录观测，不自动调整偏移。
+相关实现：`Host/Audio/O2JamPreviewTrack.cs`、`O2JamBeatmapSkin.cs`、`O2JamHitSoundRateAdjustments.cs`、`Integration/Beatmaps/O2JamExternalChartResources.cs`、`O2JamWorkingBeatmap.cs`。自动测试覆盖速率与通道绑定、事件顺序、暂停与跳转；实际设备的音量、起音、暂停恢复、快速切曲和长曲资源行为仍需客户端验证。[可选音频追踪](audio-sync-diagnostics.md)只记录观测，不自动调整偏移。

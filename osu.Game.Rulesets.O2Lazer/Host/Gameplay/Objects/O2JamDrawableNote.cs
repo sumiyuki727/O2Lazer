@@ -4,6 +4,7 @@ using osu.Framework.Allocation;
 using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.Mania.Objects.Drawables;
 using osu.Game.Rulesets.O2Lazer.Audio;
+using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Objects;
 using osu.Game.Rulesets.O2Lazer.Scoring;
 using osu.Game.Rulesets.Scoring;
