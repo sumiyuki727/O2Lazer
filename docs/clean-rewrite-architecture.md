@@ -46,6 +46,16 @@ O2Jam.Core    ──> 纯玩法规则/状态
 
 Core 接收小节位置与普通规则配置，输出原始/药丸修正后的判定、长条状态和整局快照；它不认识 `HitObject`、Drawable、Mod、Realm 或 osu! 时钟。宿主提供谱面毫秒和输入，`O2JamJudgementBridge` 将它们转成核心所需位置并把最终判定映射为原生结果。Drawable 可以承载原生回调与延后父长条提交，但不能重新定义判定或分数；画面只消费已解析状态。内部 Combo 可为 -1，宿主显示和成绩分别投影。
 
+### 长条的判定、提交与视觉边界
+
+| 责任 | 所有者 | 当前接入点 |
+|---|---|---|
+| 头判/尾判、可开始/释放、拒绝头判后的尾 MISS | `O2Jam.Core` | `O2JamHoldJudgementEngine`、`O2JamHoldState`；`O2JamJudgementBridge` 转换原生结果 |
+| 按键回调与结果提交 | `Host/Gameplay/Objects` | `O2JamDrawableHoldNote` 调用原生 Head/Tail/Body 的 `ApplyResult` 路径，父体结果留到 `CheckForResult`；若在释放回调立刻提交父体，Mania 对象池可能在同一帧移除仍被 `Update` 读取的 Head/Tail |
+| 裁剪、色调、尾端与头部保留 | `Host/Gameplay/Objects` 内的原生 Drawable 适配 | `Update` 只读取已解析的 `O2JamHoldState` 和原生显示状态；`UpdateHitStateTransforms` 延长视觉寿命，不延后判定或计分。直接改动 Mania 的私有裁剪容器仍需在 Drawable 完成 |
+
+新增长条规则时先改 Core；仅当需要把规则结果提交给 osu! 时改桥接/Drawable。新增长条外观时只消费状态，不能在绘制路径调用判定。回放倒退必须恢复原生结果与 Core 历史，对象池复用后也要复测；现有过滤测试覆盖这些路径。
+
 谱面运行链为 `OjnReader` → `OjnDocument` → `OjnBeatmapFactory` → `O2JamBeatmap` → 原生可玩对象。`OjnDocument` 已是独立格式结果，不再复制第二套音符/时间中间模型。`O2JamExternalChartResources` 管理外部 OJN/OJM 的懒读取、归档文件戳和可复用性；`O2JamWorkingBeatmap` 保留原生 Beatmap、Skin、Track 绑定及转移，封面由内部原生工作谱面提供。缓存位于 Integration。解码结果的集合与索引在构造时冻结，封面及公开音频字节返回独立副本；BGM 通过不暴露底层数组的只读流读取，因此共享缓存可安全供多个只读消费者使用。导入则由 `Host/Library` 计划与批处理，经 `IO2JamLibraryWriter` 进入当前 Realm 后端；UI 设置页只提交操作并显示状态。
 
 普通 O2Jam 分数从 Core 历史构造；Mania Score 在转换谱面后交给原生 Mania 规则与计分适配。Mod 属性、玩法选择和预览/游玩音频均由宿主处理，不能让 Core 了解 MS。PP 资格策略为“选中 MS 且所有展开的 Mod 均原生 Ranked”；计算入口、资格判定、标签展示分属不同模块。

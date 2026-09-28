@@ -9,7 +9,6 @@ using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Objects;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Objects.Drawables;
-using osu.Game.Rulesets.Scoring;
 using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Screens.Play;
 using osuTK.Graphics;
@@ -61,17 +60,17 @@ public partial class O2JamDrawableHoldNote : DrawableHoldNote, IKeyBindingHandle
             : Colour4.White;
 
         if (O2JamRuntimeOptions.UseO2JamLongNoteMissVisual)
-            updateO2JamClipping();
+            updateO2JamClipping(GameplayState);
     }
 
-    private void updateO2JamClipping()
+    private void updateO2JamClipping(O2JamHoldState state)
     {
         if (Head.Parent?.Parent is not Container sizingContainer)
             return;
 
         // A rejected BAD head is still an IsHit to mania, although O2Jam never began the hold.
         // Undo native clipping for that case so the unheld LN falls past the line intact.
-        if (resolvedHeadOutcome() == O2JamHoldHeadOutcome.EndWithMiss)
+        if (state.HeadOutcome == O2JamHoldHeadOutcome.EndWithMiss)
         {
             sizingContainer.Height = 1;
             return;
@@ -79,7 +78,7 @@ public partial class O2JamDrawableHoldNote : DrawableHoldNote, IKeyBindingHandle
 
         // IsHit also includes unrescued BAD (framework Ok). Only the final COOL/GOOD result
         // continues clipping; BAD/MISS keep mania's frozen bounds and scroll past the line.
-        if (Tail.Result.Type is not (HitResult.Perfect or HitResult.Good))
+        if (state.TailAccuracy is not (O2JamAccuracy.Cool or O2JamAccuracy.Good))
             return;
 
         if (Time.Current >= HitObject.StartTime && DrawHeight > 0)
@@ -179,6 +178,4 @@ public partial class O2JamDrawableHoldNote : DrawableHoldNote, IKeyBindingHandle
         o2Tail.ResolveForcedMiss();
         o2Body.Resolve(false);
     }
-
-    private O2JamHoldHeadOutcome resolvedHeadOutcome() => GameplayState.HeadOutcome;
 }
