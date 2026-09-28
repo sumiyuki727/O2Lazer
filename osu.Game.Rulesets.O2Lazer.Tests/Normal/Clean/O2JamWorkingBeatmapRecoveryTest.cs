@@ -5,6 +5,7 @@ using NUnit.Framework;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Core;
+using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
@@ -51,9 +52,17 @@ public class O2JamWorkingBeatmapRecoveryTest
             await withArchive.Archive.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(withArchive.CanReuse, Is.True);
 
+            OjmArchiveCache.Shared.InvalidateSource(chartPath);
+            Assert.That(withArchive.CanReuse, Is.False,
+                "Explicit invalidation must replace a wrapper even when OJM length and timestamp match.");
+
+            var afterRefresh = new O2JamExternalChartResources(chartPath, O2JamDifficulty.EX);
+            await afterRefresh.Archive.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(afterRefresh.CanReuse, Is.True);
+
             using (var stream = File.Open(archivePath, FileMode.Append, FileAccess.Write, FileShare.Read))
                 stream.WriteByte(0);
-            Assert.That(withArchive.CanReuse, Is.False,
+            Assert.That(afterRefresh.CanReuse, Is.False,
                 "A changed OJM cannot keep the old sample skin or transfer its old music track.");
         }
         finally

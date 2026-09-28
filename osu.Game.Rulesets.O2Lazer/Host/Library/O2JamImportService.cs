@@ -96,6 +96,7 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
 
         var pending = new List<ScannedImport>();
         var scannedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var skippedImportedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // A bounded scan batch keeps unchanged sources out of the expensive importer while still
         // publishing enough intermediate values for the native progress animation to remain clear.
@@ -160,7 +161,11 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
                 {
                     scannedPaths.Add(item.Path);
                     if (item.WasSkipped)
+                    {
                         existing++;
+                        if (item.Source != null)
+                            skippedImportedPaths.Add(item.Path);
+                    }
                     else
                         pending.Add(item);
                 }
@@ -260,6 +265,11 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
                                                            && !scannedPaths.Contains(source.Key)
                                                            && !File.Exists(source.Key))
                                           .Select(source => source.Value.SetId));
+
+        // OJN metadata can be unchanged while its OJM is replaced with the same file stamp.
+        // An explicit refresh is the safe boundary to discard those archives off the hot path.
+        foreach (var path in skippedImportedPaths)
+            OjmArchiveCache.Shared.InvalidateSource(path);
 
         return new O2JamImportSummary(imported, updated, existing, failed, unavailable);
     }

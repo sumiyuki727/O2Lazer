@@ -13,6 +13,7 @@ using osu.Game.Models;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
+using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
 using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Import;
 using osu.Game.Rulesets.O2Lazer.Localisation;
@@ -147,12 +148,19 @@ public partial class O2JamLegacyLibraryMigrationTest
                     Does.Not.Contain(O2JamStarRatingMetadata.O2JamTagPrefix));
 
                 var sources = writer.GetImportedSources();
+                var archivePath = Path.Combine(sourceDirectory, "o2ma100.ojm");
+                File.WriteAllBytes(archivePath,
+                    [(byte)'O', (byte)'J', (byte)'M', 0, 0, 0, 0, 0,
+                        20, 0, 0, 0, 20, 0, 0, 0, 20, 0, 0, 0]);
+                var cachedArchive = OjmArchiveCache.Shared.GetAll(sourcePath, archivePath);
                 var progress = new System.Collections.Generic.List<(int Processed, int Total)>();
                 var summary = new O2JamImportService(new O2JamImportPlanner(), writer)
                               .Refresh([sourcePath], sources, (processed, total) => progress.Add((processed, total)));
 
                 Assert.Multiple(() =>
                 {
+                    Assert.That(OjmArchiveCache.Shared.IsCurrentArchive(sourcePath, cachedArchive), Is.False,
+                        "An explicit refresh must discard OJM even when the OJN was skipped.");
                     Assert.That(summary.AlreadyPresent, Is.EqualTo(1));
                     Assert.That(summary.Imported + summary.Updated + summary.Failed, Is.Zero);
                     Assert.That(progress, Is.EqualTo(new[] { (0, 1), (1, 1) }));

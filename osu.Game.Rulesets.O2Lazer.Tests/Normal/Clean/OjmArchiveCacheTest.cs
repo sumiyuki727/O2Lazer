@@ -153,18 +153,25 @@ public class OjmArchiveCacheTest
             var source = createFile(directory, "chart.ojn", [1]);
             var archivePath = createFile(directory, "song.ojm", [1]);
             var loadCount = 0;
-            var cache = new OjmArchiveCache(3, 1024, (_, _) =>
+            var cache = new OjmArchiveCache(3, 1024, (path, _) =>
             {
                 loadCount++;
-                return createArchive([1]);
+                return createArchive([File.ReadAllBytes(path)[0]]);
             });
             var first = cache.GetAll(source, archivePath);
+            var originalTimestamp = File.GetLastWriteTimeUtc(archivePath);
+            File.WriteAllBytes(archivePath, [2]);
+            File.SetLastWriteTimeUtc(archivePath, originalTimestamp);
+            Assert.That(cache.IsCurrentArchive(source, first), Is.True);
 
             cache.InvalidateSource(source);
+            var refreshed = cache.GetAll(source, archivePath);
 
             Assert.Multiple(() =>
             {
-                Assert.That(cache.GetAll(source, archivePath), Is.Not.SameAs(first));
+                Assert.That(cache.IsCurrentArchive(source, first), Is.False);
+                Assert.That(refreshed, Is.Not.SameAs(first));
+                Assert.That(refreshed.Samples.Keys, Is.EquivalentTo(new[] { 2 }));
                 Assert.That(loadCount, Is.EqualTo(2));
             });
         }

@@ -58,6 +58,15 @@ internal sealed class OjmArchiveCache
         }
     }
 
+    internal bool IsCurrentArchive(string sourcePath, OjmArchive archive)
+    {
+        var key = new CacheKey(Path.GetFullPath(sourcePath), "*");
+        lock (cacheLock)
+            return entries.TryGetValue(key, out var entry)
+                   && entry.Archive.IsValueCreated
+                   && ReferenceEquals(entry.Archive.Value, archive);
+    }
+
     private OjmArchive get(string sourcePath, string archivePath, IReadOnlySet<int>? sampleIds)
     {
         var canonicalSource = Path.GetFullPath(sourcePath);

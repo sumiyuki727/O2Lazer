@@ -55,7 +55,12 @@ internal sealed class O2JamExternalChartResources
 
             try
             {
-                return loaded == captureArchiveStamp();
+                if (loaded != captureArchiveStamp())
+                    return false;
+
+                // Manual refresh can invalidate an archive whose bytes changed without changing
+                // its file stamp. The old working beatmap must not retain its sample skin then.
+                return loaded.Path == null || OjmArchiveCache.Shared.IsCurrentArchive(chartPath, task.Result);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
