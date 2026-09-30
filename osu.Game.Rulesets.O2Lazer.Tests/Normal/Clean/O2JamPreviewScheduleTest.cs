@@ -1,8 +1,8 @@
 using System.Linq;
 using NUnit.Framework;
+using O2Jam.Core;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Objects;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;

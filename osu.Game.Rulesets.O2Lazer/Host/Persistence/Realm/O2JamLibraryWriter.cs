@@ -8,8 +8,8 @@ using osu.Game.Database;
 using osu.Game.Models;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
+using osu.Game.Rulesets.O2Lazer.Host.Library;
 using osu.Game.Rulesets.O2Lazer.Localisation;
 using Realms;
 

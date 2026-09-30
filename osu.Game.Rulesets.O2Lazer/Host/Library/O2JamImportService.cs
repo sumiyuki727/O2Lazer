@@ -5,8 +5,9 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using O2Jam.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojm;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
 

@@ -24,7 +24,7 @@ O2Jam.Core    ──> 纯玩法规则/状态
         Presentation ──> 原生控件、等级/颜色、曲库、HUD/皮肤
 ```
 
-箭头表达推荐的数据使用方向，不保证现有 C# 引用严格满足该图。除两个独立项目外，其余区域编译在同一 ruleset 项目；玩法接缝已按 A06 核对，命名及完整依赖矩阵仍由 [A07、A12](architecture-audit.md#初始审查问题) 处理。`O2LazerRuleset` 是 ruleset 入口，`Host/Compatibility/O2JamCompatibilityPatches` 汇总补丁安装；目录移动本身不产生编译隔离。
+箭头表达推荐的数据使用方向，不保证现有 C# 引用严格满足该图。除两个独立项目外，其余区域编译在同一 ruleset 项目；玩法接缝已按 A06 核对，A07 已明确命名与身份约定，完整依赖矩阵仍由 [A12](architecture-audit.md#初始审查问题) 处理。`O2LazerRuleset` 是 ruleset 入口，`Host/Compatibility/O2JamCompatibilityPatches` 汇总补丁安装；目录移动本身不产生编译隔离。
 
 | 目录 | 应有责任 | 当前代表入口 |
 |---|---|---|
@@ -40,7 +40,30 @@ O2Jam.Core    ──> 纯玩法规则/状态
 | `Presentation/` | 等级/星数、难度颜色、曲库组织、资格标签、设置界面、皮肤和 HUD 展示 | `DifficultyLevels`、`LibraryBrowsing`、`Performance`、`GameplayFeedback` |
 | `Resources/` | 本地化、音效、图标 | `Localisation/O2LazerStrings*.resx` |
 
-`Host/Localisation` 是服务 UI 的本地化设施，不拥有玩法规则。`Host/Compatibility` 是安装清单，不把所有补丁变为同一功能。旧 namespace 为持久化/反射兼容暂未全部迁移；判断边界以项目引用和真实调用为准。
+`Host/Localisation` 是服务 UI 的本地化设施，不拥有玩法规则。`Host/Compatibility` 是安装清单，不把所有补丁变为同一功能。
+
+### 命名空间与持久化身份
+
+独立模块的项目名、根命名空间和公开 API 一致：`O2Jam.Core` 只提供玩法规则，`O2Jam.Formats.Ojn` / `O2Jam.Formats.Ojm` 只提供解码结果。它们不引用宿主、存储或彼此。接入其他游戏时直接引用这两个项目；宿主构建仍将其合入单 DLL，ILRepack 保留这些 API 的可见性。源码使用方需更新 `using`，本次不保留误导边界的旧 `.Core` / `.Formats` 别名。
+
+| 实现 | 命名空间 | 归属理由 |
+|---|---|---|
+| 独立判定与状态 | `O2Jam.Core` | 不含 osu! 语义 |
+| 独立 OJN / OJM 解码 | `O2Jam.Formats.Ojn` / `.Ojm` | 不创建原生谱面或管理宿主缓存 |
+| 工厂、格式映射、编码目录提示及外部资源缓存 | `osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn` / `.Ojm` | 将独立格式接入当前玩法、曲库与资源生命周期 |
+| 谱面 Hash 生成 | `osu.Game.Rulesets.O2Lazer.Host.Library` | 是导入/成绩身份策略，不属于玩法内核 |
+| Lv/10 换算和旧难度名解析 | `osu.Game.Rulesets.O2Lazer.Presentation.DifficultyLevels.Policy` | 是等级体验与宿主兼容策略，不改变判定 |
+
+新增宿主类型原则上使用 `osu.Game.Rulesets.O2Lazer.<层>.<功能>`，与责任目录对应。同一 partial 类型的声明必须共用命名空间，例如目前设置页与 Realm 组装。既有 `.Beatmaps`、`.Objects`、`.Scoring`、`.Mods`、`.UI`、`.SongSelect` 等功能命名空间本轮保留以控制公开 API 和反射改动范围；它们不是层级标识，不能凭 `using` 判定依赖方向，也不声称这些名称全部为持久化所必需。A12 应按类型的真实源目录分析依赖，逐项证明保留或迁移的必要性。
+
+| 兼容契约 | 必须保留的身份 | 依据与验证 |
+|---|---|---|
+| ruleset 注册与旧成绩 | `osu.Game.Rulesets.O2Lazer.O2LazerRuleset`、程序集名、`o2lazer` 短名 | 原生 `RulesetInfo.InstantiationInfo` 保存实例化身份；身份与临时旧库迁移测试 |
+| 旧 HUD 及现有可编辑组件 | `.UI.HudComponents.O2LazerComboCounter`、`.O2LazerJudgementDisplay`，以及 `.Skinning.Components.O2JamComboCounter` | 原生 `SerialisedDrawableInfo.Type` 写入具体类型；旧布局类型解析与组件枚举测试。表中的省略前缀均为 `osu.Game.Rulesets.O2Lazer` |
+| Mod 与设置 | Mod 缩写、设置属性键、配置项、输入动作数值和键位 variant | 原生 `APIMod` 保存缩写与设置键，不靠 Mod 完整类型名；设置和回放回归 |
+| 正式 v5 回放与谱面关联 | `o2lazer` 标记、版本、帧/成绩字段、Beatmap Hash/MD5 | 回放写入固定数据 DTO，不写 Core/Formats 类型名；导入与旧成绩关联回归 |
+
+`check-module-boundary.ps1` 限定独立模块的命名空间与项目直接引用，并禁止宿主源码冒用独立模块命名空间。独立测试检查实际程序集引用与公开 API；宿主测试检查单 DLL 合并后的可见性和引用身份。这些检查不替代完整宿主依赖矩阵，也不等于客户端全流程验收。
 
 ## 玩法与原生宿主的接缝
 

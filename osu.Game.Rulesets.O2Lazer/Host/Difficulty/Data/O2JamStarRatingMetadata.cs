@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 using osu.Game.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Core;
+using osu.Game.Rulesets.O2Lazer.Presentation.DifficultyLevels.Policy;
 
 namespace osu.Game.Rulesets.O2Lazer.Difficulty;
 

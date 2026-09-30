@@ -1,7 +1,7 @@
 using System.Collections.Generic;
+using O2Jam.Core;
 using osu.Game.Rulesets.Mania.Beatmaps;
 using osu.Game.Rulesets.Mania.UI;
-using osu.Game.Rulesets.O2Lazer.Core;
 
 namespace osu.Game.Rulesets.O2Lazer.Beatmaps;
 

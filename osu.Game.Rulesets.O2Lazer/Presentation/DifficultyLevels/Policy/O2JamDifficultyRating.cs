@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace osu.Game.Rulesets.O2Lazer.Core;
+namespace osu.Game.Rulesets.O2Lazer.Presentation.DifficultyLevels.Policy;
 
 /// <summary>
 /// Maps OJN's three-digit-capable chart level onto osu!'s conventional star-rating scale.

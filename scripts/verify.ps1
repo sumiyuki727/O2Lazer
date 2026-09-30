@@ -10,6 +10,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
+& (Join-Path $PSScriptRoot 'check-module-boundary.ps1')
 & (Join-Path $PSScriptRoot 'check-storage-boundary.ps1')
 & (Join-Path $PSScriptRoot 'check-scoring-boundary.ps1')
 $binaryDirectory = (Resolve-Path -LiteralPath $OsuBinaryDirectory).Path

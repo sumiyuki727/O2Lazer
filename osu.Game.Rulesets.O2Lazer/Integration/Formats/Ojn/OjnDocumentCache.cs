@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using osu.Game.Rulesets.O2Lazer.Core;
+using O2Jam.Core;
+using O2Jam.Formats.Ojn;
 
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+namespace osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 /// <summary>
 /// Avoids parsing the same OJN difficulty again when song select revisits a recent entry.

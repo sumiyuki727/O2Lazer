@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using O2Jam.Formats.Ojm;
 
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojm;
+namespace osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojm;
 
 /// <summary>
 /// Retains a small number of indexed OJM archives across WorkingBeatmap instances.

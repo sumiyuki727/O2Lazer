@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using O2Jam.Formats.Ojm;
+using O2Jam.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojm;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Objects;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;

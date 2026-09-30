@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using O2Jam.Core;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Mania.Objects;
 using osu.Game.Rulesets.O2Lazer.Objects;
@@ -65,9 +66,9 @@ public sealed class O2JamBeatmapConverter : BeatmapConverter<ManiaHitObject>
         // osu! validates custom rulesets by converting an empty generic beatmap during startup.
         // A harmless fallback keeps that compatibility probe separate from real OJN decoding.
         var beatmap = source == null
-            ? new O2JamBeatmap(Core.O2JamDifficulty.EX, new Core.O2JamTimingMap(120))
+            ? new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120))
             : new O2JamBeatmap(source.O2JamDifficulty,
-                new Core.O2JamTimingMap(source.TimingMap.InitialBpm, source.TimingMap.Events))
+                new O2JamTimingMap(source.TimingMap.InitialBpm, source.TimingMap.Events))
         {
             Level = source?.Level ?? 0,
         };

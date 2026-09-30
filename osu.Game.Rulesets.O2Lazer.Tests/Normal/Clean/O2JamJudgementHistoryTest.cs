@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using osu.Game.Rulesets.O2Lazer.Core;
+using O2Jam.Core;
 using osu.Game.Rulesets.O2Lazer.Objects;
 using osu.Game.Rulesets.O2Lazer.Scoring;
 

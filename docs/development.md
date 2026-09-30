@@ -21,7 +21,7 @@ dotnet build osu.Game.Rulesets.O2Lazer.slnx -c Release "-p:OsuBinaryDirectory=$l
 ./scripts/verify.ps1 -OsuBinaryDirectory $lazerBinaries
 ```
 
-脚本先运行 `scripts/check-storage-boundary.ps1` 与 `scripts/check-scoring-boundary.ps1`，随后对格式、核心、宿主常规测试使用明确 `--filter`，并将旧库迁移与 replay 导入放在独立测试进程。计分检查防止 Integration/Scoring 再次引用具体玩法协调器/MS Mod，不是完整的跨层依赖分析。Realm 生命周期在同一 test host 中混跑曾产生原生事务断言，所以不要把这些过滤器合为一次无筛选运行。报告写入忽略的 `.artifacts/test-results`。2026-09-26 验证基线：Formats 39、Core 54、宿主常规 718、旧库迁移 5、replay 导入 8，合计 824 项通过；这是自动化基线，不等于实机端到端验收。之后各问题项的定向验证记在审查清单中。
+脚本先运行 `scripts/check-module-boundary.ps1`、`scripts/check-storage-boundary.ps1` 与 `scripts/check-scoring-boundary.ps1`，随后对格式、核心、宿主常规测试使用明确 `--filter`，并将旧库迁移与 replay 导入放在独立测试进程。模块检查限定独立 Core/Formats 的命名空间与直接项目依赖，防止宿主冒用这些名称；计分检查防止 Integration/Scoring 再次引用具体玩法协调器/MS Mod。这些是限定范围的源码检查，不是完整的跨层依赖分析；实际程序集依赖及合并后的公开 API 另由测试验证。Realm 生命周期在同一 test host 中混跑曾产生原生事务断言，所以不要把这些过滤器合为一次无筛选运行。报告写入忽略的 `.artifacts/test-results`。2026-09-26 验证基线：Formats 39、Core 54、宿主常规 718、旧库迁移 5、replay 导入 8，合计 824 项通过；这是自动化基线，不等于实机端到端验收。之后各问题项的定向验证记在审查清单中。
 
 单项验证示例：
 
@@ -44,3 +44,5 @@ BMS 共存诊断使用 `O2JAM_BMS_RULESET_PATH` 指向另行安装/构建的 DLL
 当前测试项目为匹配宿主二进制而引用 AutoMapper 13.0.1；NuGet 报 NU1903 已知漏洞，相关代码不打包进 ruleset DLL。网络不可用时漏洞审计另报 NU1900；不要把它解释为“没有漏洞”，也不要未经二进制兼容验证擅自替换主版本。宿主升级时重查这两项与其他依赖。
 
 源码责任见[当前架构](clean-rewrite-architecture.md)，本轮待处理项见[审查清单](architecture-audit.md)，阶段跟踪见[路线图](refactor-roadmap.md)，补丁必要性与失败策略见[补丁清单](compatibility-patches.md)。分层重构基线已提交为 `2ae294c`；之后按问题项分别检查 diff、测试、资源键、持久化身份、私有数据和生成产物。保留旧 HUD/皮肤序列化契约与 v5 replay 格式；源码目录和命名空间的整理不得悄悄改变它们。
+
+独立项目公开 API 使用 `O2Jam.Core`、`O2Jam.Formats.Ojn` 与 `O2Jam.Formats.Ojm`。格式到原生谱面的工厂/缓存使用 `osu.Game.Rulesets.O2Lazer.Integration.Formats.*`；引用这两组 API 需分别导入命名空间。新宿主类型按层和功能命名；既有功能命名空间及必须保留的序列化身份见[命名约定](clean-rewrite-architecture.md#命名空间与持久化身份)，不要把历史 `.UI` 或 `.Scoring` 当作单一责任层。

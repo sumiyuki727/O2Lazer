@@ -1,8 +1,9 @@
 using System;
 using System.Security.Cryptography;
 using System.Text;
+using O2Jam.Core;
 
-namespace osu.Game.Rulesets.O2Lazer.Core;
+namespace osu.Game.Rulesets.O2Lazer.Host.Library;
 
 /// <summary>
 /// Produces the persistent identity of one difficulty inside an external OJN file.

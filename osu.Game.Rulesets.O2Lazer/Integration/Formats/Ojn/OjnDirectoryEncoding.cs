@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using O2Jam.Formats.Ojn;
 
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+namespace osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 /// <summary>
 /// Supplies a conservative tie-breaker for short metadata that is valid in multiple code pages.

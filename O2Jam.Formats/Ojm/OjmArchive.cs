@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojm;
+namespace O2Jam.Formats.Ojm;
 
 public sealed class OjmArchive
 {

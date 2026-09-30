@@ -4,10 +4,12 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using O2Jam.Core;
+using O2Jam.Formats.Ojm;
+using O2Jam.Formats.Ojn;
 using osu.Framework.Logging;
-using osu.Game.Rulesets.O2Lazer.Core;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojm;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Beatmaps;
 

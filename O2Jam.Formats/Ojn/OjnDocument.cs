@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+namespace O2Jam.Formats.Ojn;
 
 public sealed record OjnMetadata
 {

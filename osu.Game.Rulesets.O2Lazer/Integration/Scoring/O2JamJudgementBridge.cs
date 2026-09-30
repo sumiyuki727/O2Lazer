@@ -1,5 +1,5 @@
+using O2Jam.Core;
 using osu.Game.Rulesets.Judgements;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Objects;
 using osu.Game.Rulesets.Scoring;
 

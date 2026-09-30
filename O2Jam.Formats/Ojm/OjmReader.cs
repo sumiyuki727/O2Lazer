@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojm;
+namespace O2Jam.Formats.Ojm;
 
 public sealed class OjmReader
 {

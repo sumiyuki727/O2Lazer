@@ -3,12 +3,13 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using NUnit.Framework;
-using Realms;
-using osu.Game.Rulesets.O2Lazer.Core;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using O2Jam.Core;
+using O2Jam.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Objects;
 using osu.Game.Rulesets.O2Lazer.Replays;
 using osu.Game.Scoring;
+using Realms;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 

@@ -1,7 +1,8 @@
 using System;
-using osu.Game.Rulesets.O2Lazer.Core;
+using O2Jam.Core;
+using O2Jam.Formats.Ojn;
 
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+namespace osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 internal static class OjnGameplayMapping
 {

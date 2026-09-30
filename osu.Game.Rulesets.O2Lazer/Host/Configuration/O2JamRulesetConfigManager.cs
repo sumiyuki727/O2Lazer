@@ -1,11 +1,11 @@
 using System;
+using O2Jam.Formats.Ojn;
 using osu.Framework.Configuration.Tracking;
 using osu.Game.Configuration;
 using osu.Game.Localisation;
 using osu.Game.Rulesets.Configuration;
 using osu.Game.Rulesets.Mania.Configuration;
 using osu.Game.Rulesets.Mania.UI;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Localisation;
 using osu.Game.Rulesets.O2Lazer.UI;
 

@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-using osu.Game.Rulesets.O2Lazer.Core;
+using O2Jam.Core;
 using osu.Game.Rulesets.O2Lazer.Import;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;

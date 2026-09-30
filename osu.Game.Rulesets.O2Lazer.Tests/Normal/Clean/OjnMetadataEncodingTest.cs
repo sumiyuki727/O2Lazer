@@ -5,9 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using NUnit.Framework;
-using osu.Game.Rulesets.O2Lazer.Core;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using O2Jam.Core;
+using O2Jam.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Import;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 

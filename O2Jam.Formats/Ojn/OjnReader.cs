@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+namespace O2Jam.Formats.Ojn;
 
 public sealed class OjnReader
 {

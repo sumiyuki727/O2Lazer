@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace osu.Game.Rulesets.O2Lazer.Core;
+namespace O2Jam.Core;
 
 public readonly record struct O2JamBpmEvent(double Position, double Bpm);
 

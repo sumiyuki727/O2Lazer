@@ -1,4 +1,4 @@
-namespace osu.Game.Rulesets.O2Lazer.Core;
+namespace O2Jam.Core;
 
 public enum O2JamDifficulty
 {

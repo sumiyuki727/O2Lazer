@@ -1,4 +1,4 @@
-namespace osu.Game.Rulesets.O2Lazer.Core;
+namespace O2Jam.Core;
 
 /// <summary>
 /// Endpoint accuracies are resolved values, after pill conversion. Immutable snapshots allow

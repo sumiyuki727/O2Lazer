@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using O2Jam.Core;
 using osu.Framework.Audio.Sample;
 using osu.Framework.Audio.Track;
 using osu.Game.Audio;
@@ -10,7 +11,6 @@ using osu.Game.Rulesets.Mania.Mods;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.O2Lazer.Objects;
 

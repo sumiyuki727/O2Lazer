@@ -1,6 +1,6 @@
 using System;
 
-namespace osu.Game.Rulesets.O2Lazer.Core;
+namespace O2Jam.Core;
 
 public readonly record struct O2JamJudgement(
     O2JamAccuracy Accuracy,

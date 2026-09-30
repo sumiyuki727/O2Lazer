@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using O2Jam.Core;
+using O2Jam.Formats.Ojn;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mania.Beatmaps;
@@ -8,9 +10,8 @@ using osu.Game.Rulesets.Mania.Mods;
 using osu.Game.Rulesets.Mania.Objects;
 using osu.Game.Rulesets.Mania.UI;
 using osu.Game.Rulesets.Mods;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.O2Lazer.Objects;
 

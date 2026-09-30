@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using osu.Game.Rulesets.O2Lazer.Core;
+using O2Jam.Core;
 
 namespace osu.Game.Rulesets.O2Lazer.Scoring;
 

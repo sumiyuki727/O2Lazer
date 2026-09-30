@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
+        <RootNamespace>O2Jam.Core</RootNamespace>
         <Nullable>enable</Nullable>
         <LangVersion>14</LangVersion>
         <RequiresOsuReferences>false</RequiresOsuReferences>

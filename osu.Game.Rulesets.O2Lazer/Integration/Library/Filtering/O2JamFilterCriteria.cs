@@ -7,7 +7,6 @@ using osu.Framework.Bindables;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Filter;
 using osu.Game.Rulesets.Mods;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
 using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Screens.Select;

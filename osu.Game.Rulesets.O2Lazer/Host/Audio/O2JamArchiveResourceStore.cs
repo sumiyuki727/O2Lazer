@@ -4,8 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using O2Jam.Formats.Ojm;
 using osu.Framework.IO.Stores;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
 
 namespace osu.Game.Rulesets.O2Lazer.Audio;
 

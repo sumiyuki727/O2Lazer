@@ -1,4 +1,4 @@
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+namespace O2Jam.Formats.Ojn;
 
 public enum OjnMetadataEncoding
 {

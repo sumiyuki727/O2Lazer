@@ -2,14 +2,14 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using O2Jam.Core;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Track;
 using osu.Framework.Graphics.Textures;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Audio;
-using osu.Game.Rulesets.O2Lazer.Core;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 using osu.Game.Skinning;
 using osu.Game.Storyboards;
 

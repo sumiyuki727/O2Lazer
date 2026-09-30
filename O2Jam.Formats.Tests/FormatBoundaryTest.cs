@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using O2Jam.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
@@ -16,6 +16,10 @@ public class FormatBoundaryTest
         Assert.That(assembly.GetName().Name, Is.EqualTo("O2Jam.Formats"));
         Assert.That(assembly.GetReferencedAssemblies().Select(reference => reference.Name),
             Has.All.Matches<string>(name => name == "netstandard" || name.StartsWith("System", StringComparison.Ordinal)));
+        Assert.That(assembly.GetExportedTypes().Select(type => type.Namespace),
+            Has.All.Matches<string>(name => name is "O2Jam.Formats.Ojn" or "O2Jam.Formats.Ojm"));
+        Assert.That(assembly.GetExportedTypes().Select(type => type.Namespace),
+            Has.All.Matches<string>(name => name is "O2Jam.Formats.Ojn" or "O2Jam.Formats.Ojm"));
     }
 
     [TestCase(OjnDifficulty.EX)]

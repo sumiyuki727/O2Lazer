@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
+using O2Jam.Formats.Ojm;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojm;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 

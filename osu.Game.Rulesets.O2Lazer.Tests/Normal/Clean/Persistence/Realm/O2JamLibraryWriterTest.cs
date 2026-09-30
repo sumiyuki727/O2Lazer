@@ -3,11 +3,12 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using NUnit.Framework;
+using O2Jam.Core;
 using osu.Game.Beatmaps;
 using osu.Game.Models;
 using osu.Game.Rulesets;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
+using osu.Game.Rulesets.O2Lazer.Host.Library;
 using osu.Game.Rulesets.O2Lazer.Import;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;

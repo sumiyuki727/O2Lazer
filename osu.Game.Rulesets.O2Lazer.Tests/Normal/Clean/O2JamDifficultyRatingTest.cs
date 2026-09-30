@@ -1,7 +1,7 @@
 using NUnit.Framework;
-using osu.Game.Rulesets.O2Lazer.Core;
+using osu.Game.Rulesets.O2Lazer.Presentation.DifficultyLevels.Policy;
 
-namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Core;
+namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 [TestFixture]
 public class O2JamDifficultyRatingTest

@@ -1,8 +1,8 @@
 using System;
 using System.IO;
 using NUnit.Framework;
-using osu.Game.Rulesets.O2Lazer.Core;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using O2Jam.Core;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 

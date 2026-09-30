@@ -3,8 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using O2Jam.Core;
+using O2Jam.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
 
@@ -23,7 +25,7 @@ public sealed class O2JamImportPlanner
                              .Where(chart => chart.Notes.Any(note => note.IsPlayable))
                              .Select(chart =>
                              {
-                                 var timingMap = new Core.O2JamTimingMap(document.Metadata.InitialBpm, chart.BpmEvents.Select(change => change.ToGameplay()));
+                                 var timingMap = new O2JamTimingMap(document.Metadata.InitialBpm, chart.BpmEvents.Select(change => change.ToGameplay()));
                                  var finalPosition = chart.Notes.Select(note => note.EndPosition ?? note.Position).DefaultIfEmpty(0).Max();
                                  var objectLength = timingMap.TimeAt(finalPosition) + 5000;
                                  var declaredLength = document.Metadata.Durations[(int)chart.Difficulty] * 1000d;
@@ -71,7 +73,7 @@ public sealed class O2JamImportPlanner
             charts);
     }
 
-    private static string calculateDifficultyMd5(byte[] source, Core.O2JamDifficulty difficulty)
+    private static string calculateDifficultyMd5(byte[] source, O2JamDifficulty difficulty)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
         hash.AppendData(source);

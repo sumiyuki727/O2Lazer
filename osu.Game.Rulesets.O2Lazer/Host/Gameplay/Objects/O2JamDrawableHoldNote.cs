@@ -1,3 +1,4 @@
+using O2Jam.Core;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
@@ -7,7 +8,6 @@ using osu.Framework.Input.Events;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mania.Objects.Drawables;
 using osu.Game.Rulesets.O2Lazer.Configuration;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Objects;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Objects.Drawables;

@@ -6,12 +6,13 @@ using System.Text;
 using ManagedBass;
 using ManagedBass.Fx;
 using NUnit.Framework;
-using Realms;
+using O2Jam.Formats.Ojm;
+using O2Jam.Formats.Ojn;
 using osu.Framework.Threading;
 using osu.Game.Rulesets.O2Lazer.Audio;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Objects;
+using Realms;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 

@@ -2,10 +2,10 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using O2Jam.Core;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Core;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojm;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 

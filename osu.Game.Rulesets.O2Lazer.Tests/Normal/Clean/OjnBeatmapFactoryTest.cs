@@ -4,10 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using NUnit.Framework;
+using O2Jam.Core;
+using O2Jam.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Core;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Objects;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;

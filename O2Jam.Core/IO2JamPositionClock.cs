@@ -1,4 +1,4 @@
-namespace osu.Game.Rulesets.O2Lazer.Core;
+namespace O2Jam.Core;
 
 /// <summary>
 /// Supplies integrated chart position to judgement. Future rate-changing mods replace or wrap

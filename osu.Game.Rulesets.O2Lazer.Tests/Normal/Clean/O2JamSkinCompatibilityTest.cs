@@ -1,9 +1,9 @@
 using System;
 using System.Linq;
 using NUnit.Framework;
+using O2Jam.Core;
 using osu.Framework.Testing;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Localisation;
 using osu.Game.Rulesets.O2Lazer.Skinning;
 using osu.Game.Rulesets.O2Lazer.Skinning.Components;

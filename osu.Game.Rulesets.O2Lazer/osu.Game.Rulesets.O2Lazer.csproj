@@ -74,8 +74,8 @@
             <O2LazerRepackInputAssemblies Include="@(O2LazerHarmonyAssembly)" />
             <!-- Embed standalone modules to retain the single-DLL ruleset deployment. -->
             <O2LazerRepackInputAssemblies Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'O2Jam.Formats' or '%(ReferencePath.Filename)' == 'O2Jam.Core'" />
-            <O2LazerRepackInternalizeExclude Include="^osu\.Game\.Rulesets\.O2Lazer\.Formats\." />
-            <O2LazerRepackInternalizeExclude Include="^osu\.Game\.Rulesets\.O2Lazer\.Core\." />
+            <O2LazerRepackInternalizeExclude Include="^O2Jam\.Formats\." />
+            <O2LazerRepackInternalizeExclude Include="^O2Jam\.Core\." />
         </ItemGroup>
         <Error Condition="'@(O2LazerHarmonyAssembly)' == ''" Text="Unable to locate 0Harmony.dll for the O2Lazer ruleset repack." />
         <ILRepack

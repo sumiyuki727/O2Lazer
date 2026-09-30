@@ -1,12 +1,13 @@
 using System.Collections.Generic;
 using System.Linq;
+using O2Jam.Core;
+using O2Jam.Formats.Ojn;
 using osu.Game.Audio;
 using osu.Game.Beatmaps.ControlPoints;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Core;
 using osu.Game.Rulesets.O2Lazer.Objects;
 
-namespace osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+namespace osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 public sealed class OjnBeatmapFactory
 {

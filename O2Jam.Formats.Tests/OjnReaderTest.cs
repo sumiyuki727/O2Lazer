@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using NUnit.Framework;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojn;
+using O2Jam.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 

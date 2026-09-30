@@ -8,20 +8,20 @@ using System.Threading.Tasks;
 using ManagedBass;
 using ManagedBass.Mix;
 using NUnit.Framework;
+using O2Jam.Core;
+using O2Jam.Formats.Ojm;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Mixing;
 using osu.Framework.Audio.Sample;
 using osu.Framework.Audio.Track;
 using osu.Framework.Bindables;
+using osu.Framework.Development;
 using osu.Framework.Graphics.Audio;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Development;
 using osu.Framework.Threading;
 using osu.Game.Audio;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Core;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 

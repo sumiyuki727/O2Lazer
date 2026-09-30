@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using O2Jam.Formats.Ojm;
 using osu.Game.Rulesets.O2Lazer.Audio;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 

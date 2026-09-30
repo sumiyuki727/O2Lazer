@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using O2Jam.Formats.Ojm;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Sample;
 using osu.Framework.Audio.Track;
@@ -12,7 +13,6 @@ using osu.Framework.Graphics.Textures;
 using osu.Framework.Logging;
 using osu.Game.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
-using osu.Game.Rulesets.O2Lazer.Formats.Ojm;
 using osu.Game.Skinning;
 
 namespace osu.Game.Rulesets.O2Lazer.Audio;
