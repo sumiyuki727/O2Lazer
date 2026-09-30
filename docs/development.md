@@ -54,7 +54,25 @@ BMS 共存诊断使用 `O2JAM_BMS_RULESET_PATH` 指向另行安装/构建的 DLL
 
 ## 依赖与提交边界
 
-当前测试项目为匹配宿主二进制而引用 AutoMapper 13.0.1；NuGet 报 NU1903 已知漏洞，相关代码不打包进 ruleset DLL。网络不可用时漏洞审计另报 NU1900；不要把它解释为“没有漏洞”，也不要未经二进制兼容验证擅自替换主版本。宿主升级时重查这两项与其他依赖。
+### 宿主依赖审计 A16
+
+2026-10-01 核对当前宿主二进制和依赖清单：`osu.Game.dll` 为 2026.921.0.0，`osu!.deps.json` 声明 AutoMapper 13.0.1，其程序集身份为 13.0.0.0。原生 `RealmObjectExtensions` 实际引用 `MapperConfiguration` 的单参数构造；O2Lazer 刷新已有谱面元数据时通过原生 `Detach()` 复制结果。测试项目的 AutoMapper 包用于满足这个运行依赖，本仓库没有另建 Mapper，也没有把它合入交付 DLL。客户端仍使用自己的 AutoMapper 副本，因此不能把风险描述为“仅测试环境存在”。`PrivateAssets=all` 只限制包依赖传播，不是安全隔离。
+
+NU1903 对应 [GHSA-rvv3-g6hj-g44x](https://github.com/advisories/GHSA-rvv3-g6hj-g44x)：深层对象图映射可能因无默认递归深度限制而耗尽栈，公告的修复版本为 15.1.1 与 16.1.1。原生 Beatmap/BeatmapSet 脱管映射已有 `MaxDepth(1/2)`，O2Lazer 使用固定的原生模型，不接收任意类型对象图；这是当前使用范围的依据，不代表已证明整个宿主不受影响。没有运行使进程栈溢出的攻击样本。
+
+[AutoMapper 15 升级说明](https://docs.automapper.io/en/stable/15.0-Upgrade-Guide.html)明确改变 `MapperConfiguration` 构造签名并增加许可要求。只替换测试包不能同步修改现有宿主的构造调用；移除包也会缺少原生 Realm 的运行依赖。本轮保留 13.0.1 和可见告警，不加 `NoWarn`、不关闭审计、不为绕开告警复制原生脱管实现。A16 保留为宿主依赖风险，等待兼容宿主更新或明确的后端替换方案后处理。
+
+在线审计命令（先构建/还原当前项目，确保 assets 与引用一致）：
+
+```powershell
+dotnet list osu.Game.Rulesets.O2Lazer.slnx package --vulnerable --include-transitive --format json --no-restore
+```
+
+本次查询覆盖解决方案 8 个项目已还原的 NuGet 依赖图，唯一报告为 AutoMapper 13.0.1。它不覆盖通过 `<Reference>` 引用的整个 lazer 二进制依赖清单，也不等于所有客户端依赖安全。原始包报告与宿主构造引用证据保存在忽略的 `.artifacts/dependency-audit/a16-*.json`。先前的 NU1900 是历史查询失败，本次查询成功；以后查询失败仍应记录为审计不完整，不能解释为没有漏洞。
+
+93 项定向过滤回归通过：曲库写入、结算/选歌成绩、计分、会话和 replay 契约 80 项，独立进程旧库迁移 5 项及正式 replay 导入 8 项。仅使用临时库，未修改用户真实库或更换包版本。这些验证证明当前路径兼容，不能证明漏洞已修复。
+
+宿主升级时先核对 Game/Mania 版本、宿主依赖清单、AutoMapper 实际调用 API 和测试包，再查询全部已还原包的公告；最后按上述分进程规则复测 Realm/成绩/replay。不要把单独升级测试依赖得到的成功当作已验证当前客户端。
 
 源码责任见[当前架构](clean-rewrite-architecture.md)，本轮待处理项见[审查清单](architecture-audit.md)，阶段跟踪见[路线图](refactor-roadmap.md)，补丁必要性与失败策略见[补丁清单](compatibility-patches.md)。分层重构基线已提交为 `2ae294c`；之后按问题项分别检查 diff、测试、资源键、持久化身份、私有数据和生成产物。保留旧 HUD/皮肤序列化契约与 v5 replay 格式；源码目录和命名空间的整理不得悄悄改变它们。
 
