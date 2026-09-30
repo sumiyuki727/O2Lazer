@@ -22,7 +22,10 @@ public sealed record O2JamImportPlan(
 {
     public DateTimeOffset? SourceTimestamp { get; init; }
     public OjnMetadataEncoding? EncodingFallback { get; init; }
+    public IReadOnlyList<O2JamImportSlot> Slots { get; init; } = [];
 }
+
+public sealed record O2JamImportSlot(O2JamDifficulty Difficulty, string Md5Hash, bool IsPlayable);
 
 public sealed record O2JamImportChart(
     O2JamDifficulty Difficulty,

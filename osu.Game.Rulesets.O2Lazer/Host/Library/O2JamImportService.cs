@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using O2Jam.Formats.Ojn;
+using osu.Game.Rulesets.O2Lazer.Host.Library;
 using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojm;
 using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
@@ -124,18 +125,22 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
 
                     if (source == null && tryFindImportedContent(fullPath, importedContent, out var matches))
                     {
+                        if (matches.Select(match => match.Value.SetId).Distinct().Count() != 1)
+                            throw new InvalidDataException("Multiple stored sets claim this OJN content; automatic merging is unavailable.");
                         var existingMatch = matches.FirstOrDefault(match => File.Exists(match.Key));
                         if (!existingMatch.Equals(default(KeyValuePair<string, O2JamImportedSource>)))
                         {
                             // A second path for the same source adds no new library entry.
                             wasSkipped = true;
                         }
-                        else
+                        else if (matches.All(match => O2JamSourcePresence.IsDefinitelyMissing(match.Key)))
                         {
                             // The source moved. Reusing its set preserves beatmap IDs and lets the
                             // writer replace the stale external path before missing-source cleanup.
                             source = matches[0].Value;
                         }
+                        else
+                            throw new IOException("The previous OJN source is unavailable; its absence cannot be confirmed.");
                     }
 
                     scanned[index] = new ScannedImport(fullPath, source, wasSkipped, null);
@@ -262,10 +267,11 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
         var retainedSetIds = pending.Where(item => item.Source != null)
                                     .Select(item => item.Source!.SetId)
                                     .ToHashSet();
-        writer.MarkDeleted(importedSources.Where(source => !retainedSetIds.Contains(source.Value.SetId)
-                                                           && !scannedPaths.Contains(source.Key)
-                                                           && !File.Exists(source.Key))
-                                          .Select(source => source.Value.SetId));
+        if (failed == 0 && !unavailable)
+            writer.MarkDeleted(importedSources.Where(source => !retainedSetIds.Contains(source.Value.SetId)
+                                                               && !scannedPaths.Contains(source.Key)
+                                                               && O2JamSourcePresence.IsDefinitelyMissing(source.Key))
+                                              .Select(source => source.Value.SetId));
 
         // OJN metadata can be unchanged while its OJM is replaced with the same file stamp.
         // An explicit refresh is the safe boundary to discard those archives off the hot path.
@@ -287,8 +293,11 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
             || O2JamSourceTimestamp.Read(path) != source.LastLocalUpdate)
             return false;
 
-        using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        if (!string.Equals(Convert.ToHexString(SHA256.HashData(stream)), source.SourceHash, StringComparison.OrdinalIgnoreCase))
+        var snapshot = O2JamSourceSnapshot.Read(path);
+        if (snapshot.Timestamp != source.LastLocalUpdate
+            || !string.Equals(snapshot.Hash, source.SourceHash, StringComparison.OrdinalIgnoreCase)
+            || source.DifficultyIdentities?.Any(identity => !string.Equals(identity.Md5Hash,
+                O2JamBeatmapIdentity.Md5FromSource(snapshot.Data, identity.Difficulty), StringComparison.OrdinalIgnoreCase)) == true)
             return false;
 
         if (source.EncodingFallback is { } encoding && OjnDirectoryEncoding.Shared.GetForFile(path) != encoding)

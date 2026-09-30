@@ -31,7 +31,7 @@ internal static class O2JamReplayPersistencePatch
     private static readonly object installLock = new();
     private static PropertyInfo? playerScoreManagerProperty;
     private static FieldInfo? scoreImporterFilesField;
-    private static FieldInfo? scoreImporterBeatmapsField;
+    private static FieldInfo? scoreImporterRealmField;
     private static FieldInfo? scoreImporterRulesetsField;
     private static MethodInfo? drawableScheduleMethod;
 
@@ -56,14 +56,14 @@ internal static class O2JamReplayPersistencePatch
 
                 playerScoreManagerProperty = AccessTools.Property(typeof(Player), "scoreManager");
                 scoreImporterFilesField = AccessTools.Field(typeof(RealmArchiveModelImporter<ScoreInfo>), "Files");
-                scoreImporterBeatmapsField = AccessTools.Field(typeof(ScoreImporter), "beatmaps");
+                scoreImporterRealmField = AccessTools.Field(typeof(RealmArchiveModelImporter<ScoreInfo>), "Realm");
                 scoreImporterRulesetsField = AccessTools.Field(typeof(ScoreImporter), "rulesets");
                 drawableScheduleMethod = AccessTools.Method(typeof(Drawable), "Schedule", [typeof(Action)]);
 
                 if (importScoreTarget == null || importScorePrefix == null || importScorePostfix == null
                     || getScoreTarget == null || getScorePrefix == null || createModelTarget == null || createModelPrefix == null
                     || playerScoreManagerProperty == null || scoreImporterFilesField == null
-                    || scoreImporterBeatmapsField == null || scoreImporterRulesetsField == null || drawableScheduleMethod == null)
+                    || scoreImporterRealmField == null || scoreImporterRulesetsField == null || drawableScheduleMethod == null)
                     return false;
 
                 var playerUsesBmsHarmony = O2JamBmsHarmonyCompatibility.TryPatch(
@@ -203,20 +203,13 @@ internal static class O2JamReplayPersistencePatch
         if (!O2JamReplayArchive.TryReadMetadata(bytes, out var metadata))
             return true;
 
-        if (scoreImporterBeatmapsField!.GetValue(__instance) is not Func<BeatmapManager> beatmapsFactory
+        if (scoreImporterRealmField!.GetValue(__instance) is not RealmAccess realm
             || scoreImporterRulesetsField!.GetValue(__instance) is not RulesetStore rulesets)
             return true;
 
-        var beatmaps = beatmapsFactory();
-        var beatmap = !string.IsNullOrEmpty(metadata.BeatmapHash)
-            ? beatmaps.QueryBeatmap(candidate => candidate.Hash == metadata.BeatmapHash)
-            : null;
-        beatmap ??= !string.IsNullOrEmpty(metadata.BeatmapMd5)
-            ? beatmaps.QueryBeatmap(candidate => candidate.MD5Hash == metadata.BeatmapMd5)
-            : null;
-
-        if (beatmap != null && beatmap.Ruleset.ShortName != O2LazerIdentity.ShortName)
-            return true;
+        // Native QueryBeatmap returns the first match. Shared legacy hashes and foreign
+        // rulesets require a unique, consistent match before an archive can become a score.
+        var beatmap = realm.Run(database => O2JamReplayBeatmapResolver.Resolve(database, metadata.BeatmapHash, metadata.BeatmapMd5)?.Detach());
 
         var ruleset = rulesets.GetRuleset(O2LazerIdentity.ShortName);
         if (beatmap == null || ruleset == null)

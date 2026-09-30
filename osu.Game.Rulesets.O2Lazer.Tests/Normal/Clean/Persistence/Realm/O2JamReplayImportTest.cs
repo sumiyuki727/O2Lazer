@@ -23,7 +23,7 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 [TestFixture]
 [NonParallelizable]
-public class O2JamReplayImportTest
+public partial class O2JamReplayImportTest
 {
     private SynchronizationContext? previousContext;
 

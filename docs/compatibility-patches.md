@@ -9,7 +9,7 @@
 | `O2JamComboCompatibilityPatches` | 必需 | 原生连击显示和断连音效不认识 O2Jam 的 `-1` 内部哨兵。 |
 | `O2JamSongSelectRankPatch` | 可选 | 共用来源文件时，原生本地成绩展示不能精确对应 OJN 难度。 |
 | `O2JamBeatmapBoundaryPatches` | 必需 | 原生跨模式转换入口会尝试把 O2Jam 谱面交给不兼容的 ruleset。 |
-| `O2JamReplayPersistencePatch` | 必需 | 原生 replay 导入、写入入口不保存 O2Jam 的专用数据。 |
+| `O2JamReplayPersistencePatch` | 必需 | 原生 replay 导入、写入入口不保存 O2Jam 的专用数据；单条谱面查询不能验证旧共享 Hash 与 MD5 的唯一一致身份。A04-2 复用 ScoreImporter 现有 Realm 接缝限定查询，不改变正式 v5 编码。 |
 | `O2JamPerformanceEligibilityPatch` | 可选 | 原生 PP/资格显示入口没有 O2Jam 的标签呈现规则。 |
 | `O2JamPlayerSettingsPatch` | 可选 | 原生玩家设置组没有按 O2Jam 显示特定控件的扩展点。 |
 | `O2JamModSelectAttributesPatch` | 可选 | Mod 选择器没有直接采用 O2Jam 难度属性的公开入口。 |

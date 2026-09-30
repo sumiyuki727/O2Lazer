@@ -1,11 +1,10 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using O2Jam.Core;
 using O2Jam.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
+using osu.Game.Rulesets.O2Lazer.Host.Library;
 using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
@@ -56,7 +55,7 @@ public sealed class O2JamImportPlanner
                                  return new O2JamImportChart(
                                      chart.Difficulty.ToGameplay(),
                                      chart.Level,
-                                     calculateDifficultyMd5(sourceData, chart.Difficulty.ToGameplay()),
+                                     O2JamBeatmapIdentity.Md5FromSource(sourceData, chart.Difficulty.ToGameplay()),
                                      Math.Max(objectLength, declaredLength),
                                      playable.Length,
                                      playable.Count(note => note.EndPosition != null),
@@ -73,9 +72,7 @@ public sealed class O2JamImportPlanner
             : document.Metadata.Title;
         var cover = document.Metadata.Cover;
         var background = cover.Length > 0 ? cover : document.Metadata.Thumbnail;
-        var genericSetIdentity = string.Concat(charts.Select(chart => chart.Md5Hash).OrderBy(hash => hash, StringComparer.Ordinal));
-        var setHash = Convert.ToHexString(SHA256.HashData(
-            Encoding.UTF8.GetBytes($"{O2LazerIdentity.ShortName}:{genericSetIdentity}"))).ToLowerInvariant();
+        var setHash = O2JamBeatmapIdentity.SetFromMd5Hashes(charts.Select(chart => chart.Md5Hash));
 
         return new O2JamImportPlan(
             fullPath,
@@ -94,14 +91,8 @@ public sealed class O2JamImportPlanner
         {
             SourceTimestamp = snapshot.Timestamp,
             EncodingFallback = encodingFallback,
+            Slots = document.Charts.Select(chart => new O2JamImportSlot(chart.Difficulty.ToGameplay(),
+                O2JamBeatmapIdentity.Md5FromSource(sourceData, chart.Difficulty.ToGameplay()), chart.Notes.Any(note => note.IsPlayable))).ToArray(),
         };
-    }
-
-    private static string calculateDifficultyMd5(byte[] source, O2JamDifficulty difficulty)
-    {
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
-        hash.AppendData(source);
-        hash.AppendData([(byte)difficulty]);
-        return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
     }
 }

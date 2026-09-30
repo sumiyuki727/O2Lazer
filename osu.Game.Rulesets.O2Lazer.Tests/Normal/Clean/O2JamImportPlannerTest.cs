@@ -37,6 +37,8 @@ public class O2JamImportPlannerTest
             Assert.That(first.SourcePath, Is.EqualTo(Path.GetFullPath(path)));
             Assert.That(first.Title, Is.EqualTo("Clean O2Jam"));
             Assert.That(first.Charts, Has.Count.EqualTo(1));
+            Assert.That(first.Slots, Has.Count.EqualTo(3));
+            Assert.That(first.Slots.Where(slot => slot.IsPlayable).Select(slot => slot.Difficulty), Is.EqualTo(new[] { O2JamDifficulty.EX }));
             Assert.That(first.Charts[0].Difficulty, Is.EqualTo(O2JamDifficulty.EX));
             Assert.That(first.Charts[0].TotalObjectCount, Is.EqualTo(1));
             Assert.That(first.Charts[0].HoldObjectCount, Is.EqualTo(1));
@@ -50,5 +52,17 @@ public class O2JamImportPlannerTest
             Assert.That(first.SetHash, Is.Not.EqualTo(string.Concat(first.Charts.Select(chart => chart.Md5Hash))));
             Assert.That(first.Charts[0].Md5Hash, Is.EqualTo(second.Charts[0].Md5Hash));
         });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RefreshValidatesStoredDifficultyMd5BeforeSkipping(bool corrupted)
+    {
+        var path = Path.Combine(directory, "identity.ojn");
+        File.WriteAllBytes(path, OjnTestData.CreateChart());
+        var plan = new O2JamImportPlanner().Create(path);
+        var source = new O2JamImportedSource(Guid.NewGuid(), plan.SourceTimestamp, plan.SourceData.Length, true, true, plan.SourceHash,
+            DifficultyIdentities: [new O2JamStoredDifficultyIdentity(O2JamDifficulty.EX, corrupted ? "old-md5" : plan.Charts[0].Md5Hash)]);
+        Assert.That(O2JamImportService.isUnchanged(path, source), Is.EqualTo(!corrupted));
     }
 }

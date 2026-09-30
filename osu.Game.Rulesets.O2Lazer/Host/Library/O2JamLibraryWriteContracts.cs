@@ -21,7 +21,10 @@ public sealed record O2JamImportedSource(
     bool HasCurrentEncoding,
     string? SourceHash = null,
     OjnMetadataEncoding? EncodingFallback = null,
-    IReadOnlyList<O2JamImportDifficultyCache>? ManiaCache = null);
+    IReadOnlyList<O2JamImportDifficultyCache>? ManiaCache = null,
+    IReadOnlyList<O2JamStoredDifficultyIdentity>? DifficultyIdentities = null);
+
+public sealed record O2JamStoredDifficultyIdentity(O2JamDifficulty Difficulty, string Md5Hash);
 
 public sealed record O2JamImportDifficultyCache(O2JamDifficulty Difficulty, double StarRating, int MaxCombo, int Version);
 

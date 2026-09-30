@@ -13,7 +13,7 @@ internal static class O2JamChartSourceScanner
         var options = new EnumerationOptions
         {
             RecurseSubdirectories = true,
-            IgnoreInaccessible = true,
+            IgnoreInaccessible = false,
             ReturnSpecialDirectories = false,
             AttributesToSkip = FileAttributes.ReparsePoint,
             BufferSize = 64 * 1024,

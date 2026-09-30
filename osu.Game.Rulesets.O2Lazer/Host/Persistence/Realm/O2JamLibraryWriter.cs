@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Game.Beatmaps;
+using osu.Game.Collections;
 using osu.Game.Database;
 using osu.Game.Models;
 using osu.Game.Rulesets;
@@ -111,6 +113,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
                                                              && O2JamStarRatingMetadata.ReadMania(candidate).HasValue
                                                              && O2JamStarRatingMetadata.ReadManiaMaxCombo(candidate.Metadata.Tags).HasValue);
             var current = validCharts && sourceLength != null && hasManiaCache
+                          && string.Equals(sourceBeatmap.BeatmapSet!.Hash, O2JamBeatmapIdentity.SetFromMd5Hashes(ownedBeatmaps.Select(candidate => candidate.MD5Hash)), StringComparison.Ordinal)
                           && metadata.All(projection => projection!.ProjectionVersion == O2JamImportMetadata.ProjectionVersion)
                           && ownedBeatmaps.All(candidate => !candidate.Metadata.Tags.Contains(O2JamStarRatingMetadata.O2JamTagPrefix, StringComparison.Ordinal))
                           && ownedBeatmaps.All(candidate => parseSourceLength(candidate.Metadata.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries)) == sourceLength
@@ -123,9 +126,12 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
                                   && metadata.All(projection => projection != null && projection.EncodingFallback == metadata[0]!.EncodingFallback);
             var maniaCache = validCharts && hasManiaCache ? ownedBeatmaps.Select((candidate, index) => new O2JamImportDifficultyCache(
                 metadata[index]!.Difficulty, candidate.StarRating, O2JamStarRatingMetadata.ReadManiaMaxCombo(candidate.Metadata.Tags)!.Value, O2JamManiaStarRating.CacheVersion)).ToArray() : null;
-            sources[sourcePath] = new O2JamImportedSource(
+            var source = new O2JamImportedSource(
                 setBeatmaps.Key, sourceBeatmap.LastLocalUpdate, sourceLength, current, encodingCurrent, sourceHash,
-                encodingCurrent ? metadata[0]!.EncodingFallback : null, maniaCache);
+                encodingCurrent ? metadata[0]!.EncodingFallback : null, maniaCache,
+                validCharts ? ownedBeatmaps.Select((candidate, index) => new O2JamStoredDifficultyIdentity(metadata[index]!.Difficulty, candidate.MD5Hash)).ToArray() : null);
+            if (!sources.TryAdd(sourcePath, source))
+                throw new InvalidDataException("Multiple stored sets claim the same OJN path; automatic selection is unavailable.");
         }
 
         return sources;
@@ -141,6 +147,10 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
             {
                 var set = database.Find<BeatmapSetInfo>(id);
                 if (set is not { DeletePending: false } || !isOwnedByO2Lazer(set))
+                    continue;
+                // The scan's set ID can survive an in-place move within this refresh.
+                // Recheck the committed location rather than deleting from its stale index.
+                if (!tryGetSourcePath(set, out var path) || !O2JamSourcePresence.IsDefinitelyMissing(path))
                     continue;
 
                 set.DeletePending = true;
@@ -176,7 +186,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
                                                         : (Guid.Empty, SourcePath: string.Empty))
                                                     .Where(source => source.Item1 != Guid.Empty)
                                                     .ToArray());
-        var missing = sources.Where(source => !File.Exists(source.SourcePath))
+        var missing = sources.Where(source => O2JamSourcePresence.IsDefinitelyMissing(source.SourcePath))
                              .Select(source => source.Item1);
         return MarkDeleted(missing);
     }
@@ -189,7 +199,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         {
             var charts = validateMetadata(set, plan);
             var changed = synchroniseFiles(database, set, plan);
-            changed |= refreshMetadata(set, plan, charts);
+            changed |= refreshMetadata(set, plan, charts, database);
             if (!changed)
                 return O2JamLibraryWriteResult.AlreadyPresent;
 
@@ -203,14 +213,16 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         if (request.KnownSourceSetId != null)
         {
             var knownSet = database.Find<BeatmapSetInfo>(request.KnownSourceSetId.Value);
-            if (knownSet is { DeletePending: false } && isOwnedByO2Lazer(knownSet))
+            if (knownSet is { DeletePending: false })
                 sourceSet = knownSet;
         }
         else if (!request.SourceIndexWasLoaded)
         {
-            sourceSet = database.All<BeatmapSetInfo>()
-                                .AsEnumerable()
-                                .FirstOrDefault(set => !set.DeletePending && containsSourceChart(set, plan.SourcePath));
+            var pathMatches = database.All<BeatmapSetInfo>().Where(set => !set.DeletePending)
+                                      .AsEnumerable().Where(set => containsSourceChart(set, plan.SourcePath)).Take(2).ToArray();
+            if (pathMatches.Length > 1)
+                throw new InvalidDataException("Multiple stored sets claim the same OJN path.");
+            sourceSet = pathMatches.SingleOrDefault();
         }
 
         // Older releases can produce a different set hash when an OJN difficulty contains
@@ -219,27 +231,36 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         if (sourceSet != null)
             ensureSupportedProjection(sourceSet);
 
-        if (sourceSet != null && containsSourceContent(sourceSet, plan))
-        {
-            return updateMetadata(sourceSet);
-        }
+        var contentMatches = database.All<BeatmapSetInfo>().Where(set => !set.DeletePending)
+                                     .AsEnumerable().Where(set => set.Beatmaps.Any(beatmap => beatmap.Ruleset.ShortName == O2LazerIdentity.ShortName)
+                                                                  && containsSourceContent(set, plan)).Take(2).ToArray();
+        if (contentMatches.Length > 1)
+            throw new InvalidDataException("Multiple stored sets claim the same OJN content; automatic merging is unavailable.");
+        if (sourceSet != null && !containsSourceChart(sourceSet, plan.SourcePath) && !containsSourceContent(sourceSet, plan))
+            throw new InvalidDataException("The source index no longer identifies this OJN.");
 
-        var matchingSet = database.All<BeatmapSetInfo>()
-                                  .Where(set => !set.DeletePending && set.Hash == plan.SetHash)
-                                  .AsEnumerable()
-                                  .FirstOrDefault(isOwnedByO2Lazer);
+        var matchingSet = contentMatches.SingleOrDefault();
         if (matchingSet != null)
         {
             ensureSupportedProjection(matchingSet);
-            var result = sourceSet?.ID == matchingSet.ID || containsSourceChart(matchingSet, plan.SourcePath)
-                ? updateMetadata(matchingSet)
-                : O2JamLibraryWriteResult.AlreadyPresent;
+            var result = O2JamLibraryWriteResult.AlreadyPresent;
+            var hasPreviousPath = tryGetSourcePath(matchingSet, out var previousPath);
+            if (containsSourceChart(matchingSet, plan.SourcePath))
+                result = updateMetadata(matchingSet);
+            else if (hasPreviousPath && O2JamSourcePresence.IsDefinitelyMissing(previousPath))
+                result = updateMetadata(matchingSet);
+            else if (!hasPreviousPath || !File.Exists(previousPath))
+                throw new IOException("The previous source location is unavailable; it cannot safely be replaced by this copy.");
 
             if (sourceSet != null && sourceSet.ID != matchingSet.ID)
                 sourceSet.DeletePending = true;
 
             return result;
         }
+
+        if (database.All<BeatmapSetInfo>().Where(set => !set.DeletePending && set.Hash == plan.SetHash)
+                    .AsEnumerable().Any(isOwnedByO2Lazer))
+            throw new InvalidDataException("The set hash matches without verifiable source content.");
 
         var replacedSet = sourceSet;
 
@@ -252,17 +273,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         synchroniseFiles(database, beatmapSet, plan);
 
         foreach (var chart in plan.Charts)
-        {
-            var beatmapInfo = new BeatmapInfo(ruleset)
-            {
-                // Difficulty identities remain independent of projection revisions.
-                Hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty),
-                MD5Hash = chart.Md5Hash,
-                BeatmapSet = beatmapSet,
-            };
-            applyProjection(beatmapInfo, plan, chart);
-            beatmapSet.Beatmaps.Add(beatmapInfo);
-        }
+            addDifficulty(beatmapSet, ruleset, plan, chart);
 
         database.Add(beatmapSet);
         if (replacedSet != null)
@@ -308,54 +319,108 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
     }
 
     internal static bool refreshMetadata(BeatmapSetInfo set, O2JamImportPlan plan)
-        => refreshMetadata(set, plan, validateMetadata(set, plan));
+        => refreshMetadata(set, plan, validateMetadata(set, plan), set.Realm);
 
-    private static bool refreshMetadata(BeatmapSetInfo set, O2JamImportPlan plan, (BeatmapInfo Beatmap, O2JamImportChart Chart)[] charts)
+    private static bool refreshMetadata(BeatmapSetInfo set, O2JamImportPlan plan, (BeatmapInfo Beatmap, O2JamImportSlot Slot)[] charts, Realm? database)
     {
+        // Snapshot every association and collection owner before changing any shared legacy
+        // hash. A later chart must not see evidence altered by an earlier chart's migration.
+        var collectionOwners = database != null && charts.Any(entry => entry.Slot.IsPlayable && entry.Beatmap.MD5Hash != entry.Slot.Md5Hash)
+            ? database.All<BeatmapInfo>().AsEnumerable().GroupBy(candidate => candidate.MD5Hash, StringComparer.OrdinalIgnoreCase)
+                      .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase)
+            : null;
+        var snapshots = charts.Select(entry => (
+            entry.Beatmap, entry.Slot,
+            Scores: entry.Beatmap.IsManaged ? entry.Beatmap.Scores.ToArray() : [],
+            OldMd5: entry.Beatmap.MD5Hash,
+            TransferCollections: collectionOwners != null && !string.IsNullOrEmpty(entry.Beatmap.MD5Hash)
+                && collectionOwners.GetValueOrDefault(entry.Beatmap.MD5Hash) == 1)).ToArray();
+        var ruleset = set.Beatmaps[0].Ruleset;
         var changed = update(set.Hash, plan.SetHash, value => set.Hash = value);
         foreach (var file in set.Files.Where(file => string.Equals(file.File.Hash, plan.SourceHash, StringComparison.OrdinalIgnoreCase)))
             changed |= update(file.Filename, plan.FileName, value => file.Filename = value);
 
-        foreach (var (beatmap, chart) in charts)
+        foreach (var (beatmap, slot, scores, oldMd5, transferCollections) in snapshots)
         {
-            var hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty);
-            if (!string.Equals(beatmap.Hash, hash, StringComparison.OrdinalIgnoreCase))
+            var chart = plan.Charts.SingleOrDefault(candidate => candidate.Difficulty == slot.Difficulty);
+            if (chart == null)
             {
-                // Only already attached scores can identify a legacy shared-hash difficulty.
-                var scores = beatmap.IsManaged ? beatmap.Scores.ToArray() : [];
-                beatmap.Hash = hash;
+                if (database == null)
+                    throw new InvalidOperationException("Removing a historical difficulty requires the native model transaction.");
                 foreach (var score in scores)
-                {
-                    score.BeatmapHash = hash;
-                    score.BeatmapInfo = beatmap;
-                }
+                    score.BeatmapInfo = null;
+                set.Beatmaps.Remove(beatmap);
+                database.Remove(beatmap.Metadata);
+                database.Remove(beatmap);
+                changed = true;
+                continue;
+            }
+
+            var hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty);
+            changed |= update(beatmap.Hash, hash, value => beatmap.Hash = value);
+            foreach (var score in scores)
+                changed |= update(score.BeatmapHash, hash, value => score.BeatmapHash = value);
+
+            if (beatmap.MD5Hash != chart.Md5Hash)
+            {
+                beatmap.MD5Hash = chart.Md5Hash;
+                if (transferCollections)
+                    beatmap.TransferCollectionReferences(database!, oldMd5);
+                else if (database != null && database.All<BeatmapCollection>().AsEnumerable()
+                                                   .Any(collection => collection.BeatmapMD5Hashes.Contains(oldMd5)))
+                    Logger.Log($"O2Lazer retained ambiguous collection references while migrating difficulty {beatmap.ID}.");
                 changed = true;
             }
             changed |= applyProjection(beatmap, plan, chart);
         }
+
+        foreach (var chart in plan.Charts.Where(chart => !charts.Any(entry => entry.Slot.Difficulty == chart.Difficulty)))
+        {
+            addDifficulty(set, ruleset, plan, chart);
+            changed = true;
+        }
         return changed;
     }
 
-    private static (BeatmapInfo Beatmap, O2JamImportChart Chart)[] validateMetadata(BeatmapSetInfo set, O2JamImportPlan plan)
+    private static void addDifficulty(BeatmapSetInfo set, RulesetInfo ruleset, O2JamImportPlan plan, O2JamImportChart chart)
+    {
+        var beatmap = new BeatmapInfo(ruleset)
+        {
+            Hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty),
+            MD5Hash = chart.Md5Hash,
+            BeatmapSet = set,
+        };
+        applyProjection(beatmap, plan, chart);
+        set.Beatmaps.Add(beatmap);
+    }
+
+    private static (BeatmapInfo Beatmap, O2JamImportSlot Slot)[] validateMetadata(BeatmapSetInfo set, O2JamImportPlan plan)
     {
         ensureSupportedProjection(set);
 
-        var result = new List<(BeatmapInfo, O2JamImportChart)>();
+        var slots = plan.Slots.Count > 0 ? plan.Slots : plan.Charts.Select(chart => new O2JamImportSlot(chart.Difficulty, chart.Md5Hash, true)).ToArray();
+        if (slots.Select(slot => slot.Difficulty).Distinct().Count() != slots.Count
+            || slots.Any(slot => slot.IsPlayable != plan.Charts.Any(chart => chart.Difficulty == slot.Difficulty)
+                                 || slot.IsPlayable && plan.Charts.Single(chart => chart.Difficulty == slot.Difficulty).Md5Hash != slot.Md5Hash))
+            throw new InvalidDataException("The prepared OJN slot inventory conflicts with its playable projection.");
+        var result = new List<(BeatmapInfo, O2JamImportSlot)>();
         foreach (var beatmap in set.Beatmaps)
         {
             var status = O2JamImportMetadata.Read(beatmap.Metadata.Tags, out var projection);
             if (status is O2JamImportMetadataStatus.Invalid or O2JamImportMetadataStatus.Unsupported)
                 throw new InvalidDataException("The stored O2Lazer projection is conflicting or newer than this ruleset.");
 
-            var matches = plan.Charts.Where(chart => projection != null
-                ? projection.Difficulty == chart.Difficulty
-                : string.Equals(beatmap.Hash, O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty), StringComparison.OrdinalIgnoreCase)
-                  || string.Equals(beatmap.MD5Hash, chart.Md5Hash, StringComparison.OrdinalIgnoreCase)).ToArray();
+            var evidence = slots.Where(slot => string.Equals(beatmap.Hash,
+                                             O2JamBeatmapIdentity.FromSource(plan.SourceHash, slot.Difficulty), StringComparison.OrdinalIgnoreCase)
+                                             || string.Equals(beatmap.MD5Hash, slot.Md5Hash, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (evidence.Length > 1 || projection != null && evidence.Any(slot => slot.Difficulty != projection.Difficulty))
+                throw new InvalidDataException("The stored OJN hash and difficulty evidence conflict.");
+            var matches = projection != null ? slots.Where(slot => slot.Difficulty == projection.Difficulty).ToArray() : evidence;
             if (matches.Length == 0 && status == O2JamImportMetadataStatus.Legacy)
             {
                 // Keep the known legacy storage format as a bounded migration fallback.
                 // Arbitrary display-name prefixes cannot identify a difficulty.
-                matches = plan.Charts.Where(chart =>
+                matches = slots.Where(chart =>
                     beatmap.DifficultyName.StartsWith(chart.Difficulty + " Lv.", StringComparison.OrdinalIgnoreCase)
                     && ushort.TryParse(beatmap.DifficultyName.AsSpan(6), NumberStyles.None, CultureInfo.InvariantCulture, out _)).ToArray();
             }
@@ -494,12 +559,11 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
 
     internal static bool containsSourceContent(BeatmapSetInfo set, O2JamImportPlan plan)
     {
-        if (!containsSourceChart(set, plan.SourcePath))
-            return false;
-
-        return set.Files.Any(file => string.Equals(file.Filename, plan.FileName, StringComparison.OrdinalIgnoreCase)
-                                     && string.Equals(file.File.Hash, plan.SourceHash, StringComparison.OrdinalIgnoreCase))
-               || set.Beatmaps.Any(beatmap => string.Equals(beatmap.Hash, plan.SourceHash, StringComparison.OrdinalIgnoreCase));
+        var sourceHashes = set.Files.Where(file => file.Filename.EndsWith(".ojn", StringComparison.OrdinalIgnoreCase))
+                              .Select(file => file.File.Hash).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return sourceHashes.Length == 1
+            ? string.Equals(sourceHashes[0], plan.SourceHash, StringComparison.OrdinalIgnoreCase)
+            : sourceHashes.Length == 0 && set.Beatmaps.Any(beatmap => string.Equals(beatmap.Hash, plan.SourceHash, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool tryGetSourcePath(BeatmapSetInfo set, out string sourcePath)
