@@ -1,0 +1,95 @@
+{
+  "Allowed": {
+    "Core": [],
+    "Formats": [],
+    "Integration": [
+      "Core",
+      "Formats"
+    ],
+    "Host": [
+      "Core",
+      "Formats",
+      "Integration",
+      "ManiaScore"
+    ],
+    "ManiaScore": [
+      "Core",
+      "Formats",
+      "Integration",
+      "Host"
+    ],
+    "Persistence": [
+      "Core",
+      "Formats",
+      "Integration",
+      "Host",
+      "ManiaScore"
+    ],
+    "Presentation": [
+      "Core",
+      "Formats",
+      "Integration",
+      "Host",
+      "ManiaScore"
+    ],
+    "Composition": [
+      "Core",
+      "Formats",
+      "Integration",
+      "Host",
+      "ManiaScore",
+      "Persistence",
+      "Presentation"
+    ]
+  },
+  "Exceptions": [
+    {
+      "Source": "osu.Game.Rulesets.O2Lazer/Host/Difficulty/Data/O2JamStarRatingMetadata.cs",
+      "Target": "osu.Game.Rulesets.O2Lazer/Presentation/DifficultyLevels/Policy/O2JamDifficultyRating.cs",
+      "Type": "osu.Game.Rulesets.O2Lazer.Presentation.DifficultyLevels.Policy.O2JamDifficultyRating",
+      "Reason": "旧等级标签、难度名及 Lv/10 的读取共用同一无绘制策略；保留用户将等级系统归为产品模块的分类，避免复制兼容公式。"
+    },
+    {
+      "Source": "osu.Game.Rulesets.O2Lazer/Host/Mods/O2JamModPerfect.cs",
+      "Target": "osu.Game.Rulesets.O2Lazer/Presentation/AccessAndSettings/O2JamPerfectHitSettingsCheckbox.cs",
+      "Type": "osu.Game.Rulesets.O2Lazer.UI.O2JamPerfectHitSettingsCheckbox",
+      "Reason": "原生 SettingSource 的 SettingControlType 必须声明具体设置控件，玩法失败条件仍继承原生 Perfect。"
+    },
+    {
+      "Source": "osu.Game.Rulesets.O2Lazer/ManiaScore/Mods/O2JamModManiaScore.cs",
+      "Target": "osu.Game.Rulesets.O2Lazer/Presentation/AccessAndSettings/Icons/O2JamModIcons.cs",
+      "Type": "osu.Game.Rulesets.O2Lazer.UI.Icons.O2JamModIcons",
+      "Reason": "原生 Mod.Icon 声明图标元数据；PNG 字形注册与绘制由原生 FontStore/ModIcon 承接，不为这个声明再建立图标模型。"
+    },
+    {
+      "Source": "osu.Game.Rulesets.O2Lazer/Host/Persistence/Realm/O2JamSettingsSubsection.Realm.cs",
+      "Target": "osu.Game.Rulesets.O2Lazer/Presentation/AccessAndSettings/O2JamSettingsSubsection.cs",
+      "Type": "osu.Game.Rulesets.O2Lazer.Configuration.O2JamSettingsSubsection",
+      "Reason": "原生依赖加载器在同一 partial 中注入具体 Realm 后端，然后只把会话交给设置控件；存储重设计前保留该有界组装接缝。"
+    },
+    {
+      "Source": "osu.Game.Rulesets.O2Lazer/Host/Persistence/Realm/O2JamSongSelectRankPatch.cs",
+      "Target": "osu.Game.Rulesets.O2Lazer/Presentation/LibraryBrowsing/O2JamSongSelectRankPatch.cs",
+      "Type": "osu.Game.Rulesets.O2Lazer.UI.O2JamSongSelectRankPatch",
+      "Reason": "具体 Realm 集合通知调用同名 partial 中的精确难度成绩选择策略；A04 重设计存储接口时再拆此接缝。"
+    }
+  ],
+  "SharedTypes": [
+    {
+      "Type": "osu.Game.Rulesets.O2Lazer.Configuration.O2JamSettingsSubsection",
+      "Sources": [
+        "osu.Game.Rulesets.O2Lazer/Host/Persistence/Realm/O2JamSettingsSubsection.Realm.cs",
+        "osu.Game.Rulesets.O2Lazer/Presentation/AccessAndSettings/O2JamSettingsSubsection.cs"
+      ],
+      "Reason": "原生依赖加载器在同一 partial 中注入具体 Realm 后端，然后只把会话交给设置控件；存储重设计前保留该有界组装接缝。"
+    },
+    {
+      "Type": "osu.Game.Rulesets.O2Lazer.UI.O2JamSongSelectRankPatch",
+      "Sources": [
+        "osu.Game.Rulesets.O2Lazer/Host/Persistence/Realm/O2JamSongSelectRankPatch.cs",
+        "osu.Game.Rulesets.O2Lazer/Presentation/LibraryBrowsing/O2JamSongSelectRankPatch.cs"
+      ],
+      "Reason": "具体 Realm 集合通知调用同名 partial 中的精确难度成绩选择策略；A04 重设计存储接口时再拆此接缝。"
+    }
+  ]
+}

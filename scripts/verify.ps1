@@ -20,6 +20,8 @@ foreach ($assemblyName in @('osu.Game.dll', 'osu.Game.Rulesets.Mania.dll')) {
     }
 }
 
+& (Join-Path $PSScriptRoot 'check-architecture.ps1') -OsuBinaryDirectory $binaryDirectory -Configuration $Configuration -DotNet $DotNet
+
 # Corpus scans and diagnostic tests need private data or process isolation, not a routine check.
 $testArguments = @(
     'test',
@@ -62,6 +64,9 @@ try {
     if ($NoBuild) { $coreArguments += '--no-build' }
     & $DotNet @coreArguments
     if ($LASTEXITCODE -ne 0) { throw "Core verification failed (exit code $LASTEXITCODE)." }
+
+    & $DotNet test (Join-Path $PSScriptRoot 'Architecture.Tests/Architecture.Tests.csproj') -c $Configuration --filter 'FullyQualifiedName~.Normal.'
+    if ($LASTEXITCODE -ne 0) { throw "Architecture checker tests failed (exit code $LASTEXITCODE)." }
 
     & $DotNet @testArguments
     if ($LASTEXITCODE -ne 0) {

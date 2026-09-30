@@ -39,7 +39,7 @@ public sealed partial class O2JamRulesetIcon : Sprite
             {
                 sharedRenderer = renderer;
                 var resources = new NamespacedResourceStore<byte[]>(
-                    new DllResourceStore(typeof(O2LazerRuleset).Assembly), "Resources");
+                    new DllResourceStore(typeof(O2JamRulesetIcon).Assembly), "Resources");
                 sharedTextureStore = new TextureStore(renderer, new TextureLoaderStore(resources), false);
             }
 

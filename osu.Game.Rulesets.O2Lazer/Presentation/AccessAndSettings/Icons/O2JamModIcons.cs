@@ -36,7 +36,7 @@ public static class O2JamModIcons
 
     private sealed class IconStore(IRenderer renderer) : TextureStore(renderer,
         new TextureLoaderStore(new NamespacedResourceStore<byte[]>(
-            new DllResourceStore(typeof(O2LazerRuleset).Assembly), "Resources")), false), ITexturedGlyphLookupStore
+            new DllResourceStore(typeof(O2JamModIcons).Assembly), "Resources")), false), ITexturedGlyphLookupStore
     {
         public ITexturedCharacterGlyph? Get(string? fontName, char character)
         {

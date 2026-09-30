@@ -17,7 +17,7 @@ O2Jam 音乐事件以谱面时间安排。HT/DT 默认保留音高，Adjust Pitc
 
 选曲与游玩暂停会停止共同事件钟和 BGM，并在原声道上冻结正在播放的小型 KS；恢复时不从头触发。跳转会重建 BGM 所处的谱面位置、丢弃跳转前的小型自动音尾音，并让后续事件按目标时间重新派发。游玩内原生命中 KS 的旧尾音也在 `GameplayClockContainer.OnSeek` 停止，回放向后跳转后重新经过的命中仍由原生回放输入触发。原生 `SampleChannel` 没有按音频内部偏移寻址的接口，因此跳到既有小型 KS 的中途时不会重建那段尾音；用户已在客户端观察到此限制并决定暂时搁置。
 
-同曲不同难度只在背景编排兼容时转移原生轨道。`O2JamExternalChartResources` 懒加载外部 OJN/OJM 并核对 OJM 文件戳，`O2JamWorkingBeatmap` 负责原生轨道及皮肤接入；缓存与预加载负责避免快速切曲阻塞，但文件变化、取消和释放仍是[问题 A09](architecture-audit.md#初始审查问题)的系统审查项。
+同曲不同难度只在背景编排兼容时转移原生轨道。Integration 的 `O2JamExternalChartResources` 懒加载外部 OJN/OJM 并核对 OJM 文件戳，Host 的 `O2JamWorkingBeatmap` 负责原生轨道及皮肤接入。缓存失效、取消和释放已按[问题 A09](architecture-audit.md#初始审查问题)完成定向检查及有界客户端复测，边界与剩余限制如下。
 
 资源所有权按以下边界处理：
 
@@ -30,4 +30,4 @@ O2Jam 音乐事件以谱面时间安排。HT/DT 默认保留音高，Adjust Pitc
 
 仅 OJM 内容变化而文件长度与时间戳均未变时，选曲不会自动识别；手动刷新会失效已导入谱面的 OJM 缓存，即使 OJN 被判定为未变化。已加载的工作谱面在下次选中时不再复用旧归档，正在播放的曲目不会热切换音源。用户于 2026-09-29 确认手动刷新表现正常；此前有界音频复测除上述小型 KS 尾音限制外未报告异常。全曲库听感不在这些验证范围内。
 
-相关实现：`Host/Audio/O2JamPreviewTrack.cs`、`O2JamBeatmapSkin.cs`、`O2JamHitSoundRateAdjustments.cs`、`Integration/Beatmaps/O2JamExternalChartResources.cs`、`O2JamWorkingBeatmap.cs`。自动测试覆盖速率与通道绑定、事件顺序、暂停与跳转；有界客户端复测无其他异常，不代表所有实际设备、长曲或谱面均已验收。[可选音频追踪](audio-sync-diagnostics.md)只记录观测，不自动调整偏移。
+相关实现：`Host/Audio/O2JamPreviewTrack.cs`、`O2JamBeatmapSkin.cs`、`O2JamHitSoundRateAdjustments.cs`、`Integration/Beatmaps/O2JamExternalChartResources.cs`、`Host/Beatmaps/O2JamWorkingBeatmap.cs`。自动测试覆盖速率与通道绑定、事件顺序、暂停与跳转；有界客户端复测无其他异常，不代表所有实际设备、长曲或谱面均已验收。[可选音频追踪](audio-sync-diagnostics.md)只记录观测，不自动调整偏移。

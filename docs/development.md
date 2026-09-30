@@ -21,7 +21,18 @@ dotnet build osu.Game.Rulesets.O2Lazer.slnx -c Release "-p:OsuBinaryDirectory=$l
 ./scripts/verify.ps1 -OsuBinaryDirectory $lazerBinaries
 ```
 
-脚本先运行 `scripts/check-module-boundary.ps1`、`scripts/check-storage-boundary.ps1` 与 `scripts/check-scoring-boundary.ps1`，随后对格式、核心、宿主常规测试使用明确 `--filter`，并将旧库迁移与 replay 导入放在独立测试进程。模块检查限定独立 Core/Formats 的命名空间与直接项目依赖，防止宿主冒用这些名称；计分检查防止 Integration/Scoring 再次引用具体玩法协调器/MS Mod。这些是限定范围的源码检查，不是完整的跨层依赖分析；实际程序集依赖及合并后的公开 API 另由测试验证。Realm 生命周期在同一 test host 中混跑曾产生原生事务断言，所以不要把这些过滤器合为一次无筛选运行。报告写入忽略的 `.artifacts/test-results`。2026-09-26 验证基线：Formats 39、Core 54、宿主常规 718、旧库迁移 5、replay 导入 8，合计 824 项通过；这是自动化基线，不等于实机端到端验收。之后各问题项的定向验证记在审查清单中。
+脚本先运行模块、存储、计分三项源码检查，再运行 `scripts/check-architecture.ps1` 的真实类型/成员依赖分析；随后对格式、核心、检查器和宿主常规测试使用明确 `--filter`，并将旧库迁移与 replay 导入放在独立测试进程。独立项目/程序集边界及合并后的公开 API 另由测试验证。Realm 生命周期混跑曾产生原生事务断言，临时结算测试还需避免把原生通知调度交给已结束的 NUnit 异步上下文；不要把这些过滤器合为一次无筛选运行。测试报告写入忽略的 `.artifacts/test-results`。2026-09-30 A12 验证：Formats 41、Core 55、检查器 15、宿主常规 752、旧库迁移 5、replay 导入 8，合计 876 项通过；这是自动化基线，不等于实机端到端验收。
+
+架构检查从 MSBuild 获取实际源码、预处理符号与 ReferencePath，用 SDK 自带 Roslyn 分析生产和音频诊断配置。Game/Mania 版本必须匹配 `Directory.Build.props`；完整报告为 `.artifacts/architecture/dependencies.json`。矩阵和五条精确例外见[架构约定](clean-rewrite-architecture.md#允许依赖矩阵与例外)，可执行策略为 `scripts/architecture-policy.json`。新增源码必须归属已知层，解析错误、越层、额外 partial 声明和过期例外均失败。
+
+单独查看依赖报告：
+
+```powershell
+./scripts/check-architecture.ps1 -OsuBinaryDirectory $lazerBinaries
+# 调查尚未满足矩阵的修改时可使用 -ReportOnly；解析错误仍失败。
+```
+
+`.github/workflows/architecture.yml` 为 push/PR 配置了独立模块、源码边界及语义检查器测试。完整宿主依赖分析需要仓库变量 `OSU_BINARY_ARCHIVE_URL` 指向匹配版本的可信 Game/Mania 二进制 ZIP，归档必须只有一个包含这两个 DLL 的目录。变量未设置时 CI 摘要明确报告宿主分析未执行；不能把独立测试成功视为全宿主检查成功。本轮在本机匹配二进制上完成全图检查，尚未配置该远程变量或执行远程 CI。检查器是开发工具，不增加 ruleset 运行依赖。
 
 单项验证示例：
 

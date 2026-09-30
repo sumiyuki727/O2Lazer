@@ -17,30 +17,65 @@
 O2Jam.Formats ──> 纯解码结果
 O2Jam.Core    ──> 纯玩法规则/状态
          \       /
-       Integration ──> osu! 谱面、对象、判定与查询契约
+       Integration ──> osu! 谱面、对象、判定翻译契约
              ↑
-       Host / ManiaScore ──> 原生生命周期、音频、Mods、缓存、存储
+       Host / ManiaScore ──> 原生生命周期、音频、Mods、缓存、查询与资格
              ↑
         Presentation ──> 原生控件、等级/颜色、曲库、HUD/皮肤
+
+Composition 组装各模块；Persistence 接入具体存储后端
 ```
 
-箭头表达推荐的数据使用方向，不保证现有 C# 引用严格满足该图。除两个独立项目外，其余区域编译在同一 ruleset 项目；玩法接缝已按 A06 核对，A07 已明确命名与身份约定，完整依赖矩阵仍由 [A12](architecture-audit.md#初始审查问题) 处理。`O2LazerRuleset` 是 ruleset 入口，`Host/Compatibility/O2JamCompatibilityPatches` 汇总补丁安装；目录移动本身不产生编译隔离。
+图示表达数据使用关系，实际 C# 引用遵循下方的允许依赖矩阵。除两个独立项目外，其余区域编译在同一 ruleset 项目；语义检查约束源代码依赖，不产生程序集隔离。根目录的 `O2LazerRuleset` 和 `Composition/O2JamCompatibilityPatches` 是跨模块组装入口；`Host/Compatibility` 只承接原生兼容和 BMS 共存适配。
 
 | 目录 | 应有责任 | 当前代表入口 |
 |---|---|---|
 | `O2Jam.Core/` | 音乐位置、BPM、判定窗口、长条状态、整局分数/Combo/Jam/药丸/生命；只依赖 .NET | `O2JamTimingMap`、`O2JamJudgementEngine`、`O2JamGameplayState` |
 | `O2Jam.Formats/` | OJN/OJM/OMC/M30 字节到格式数据；不写数据库、不创建 osu 对象 | `OjnReader`、`OjmReader` |
-| `Integration/Formats`、`Integration/Beatmaps` | 格式数据到可游玩谱面、外部资源快照、原生 WorkingBeatmap 与转换边界 | `OjnBeatmapFactory`、`O2JamExternalChartResources`、`O2JamWorkingBeatmap` |
+| `Integration/Identity`、`Integration/Formats`、`Integration/Beatmaps` | ruleset 短名/键位契约、格式到可游玩谱面、采样引用与外部资源快照 | `O2LazerIdentity`、`OjnBeatmapFactory`、`O2JamExternalChartResources` |
 | `Integration/Objects`、`Integration/Scoring` | 时间和判定转译、核心结果与原生结果关联；向宿主提供判定解析契约 | `O2JamJudgementBridge`、`IO2JamJudgementResolver`、`O2JamJudgementHistory` |
-| `Integration/Library/Filtering`、`Integration/Performance/Eligibility` | 曲库查询语义和 PP 资格策略，不决定绘制 | `O2JamFilterCriteria`、`O2JamPerformanceEligibility` |
+| `Host/Beatmaps` | 原生工作谱面、Skin/Track 构造、缓存与资源转移生命周期 | `O2JamWorkingBeatmap`、`O2JamWorkingBeatmapCache`、`O2JamWorkingBeatmapHook` |
+| `Host/Library/Filtering`、`Host/Performance/Eligibility` | 原生曲库查询入口和 O2Jam PP 资格，读取难度/Mod 策略，不决定绘制 | `O2JamFilterCriteria`、`O2JamPerformanceEligibility` |
 | `Host/Library`、`Host/Configuration` | 导入应用流程、写入契约、操作会话、配置 | `O2JamImportService`、`IO2JamLibraryWriter`、`O2JamLibrarySettingsSession` |
 | `Host/Audio`、`Host/Gameplay`、`Host/Replays`、`Host/Mods`、`Host/Difficulty` | 原生轨道、Drawable/对象池、计分协调、输入回放、Mod、难度缓存与计算 | `O2JamPreviewTrack`、`O2JamDrawableRuleset`、`O2JamScoreProcessor`、`O2JamDifficultyCalculator` |
 | `Host/Persistence/Realm` | 当前 Realm 实现及原生存储接入 | `O2JamLibraryWriter`、`O2JamReplayPersistencePatch` |
 | `ManiaScore/` | 与 O2Jam 核心并列的 Mania 玩法路线及其展示联动 | `O2JamManiaScoreBeatmapAdapter`、`ManiaScoreProcessorAdapter` |
 | `Presentation/` | 等级/星数、难度颜色、曲库组织、资格标签、设置界面、皮肤和 HUD 展示 | `DifficultyLevels`、`LibraryBrowsing`、`Performance`、`GameplayFeedback` |
+| `Composition/` 与根 ruleset 入口 | 组装服务、注册和安装各功能补丁 | `O2JamCompatibilityPatches`、`O2LazerRuleset` |
 | `Resources/` | 本地化、音效、图标 | `Localisation/O2LazerStrings*.resx` |
 
-`Host/Localisation` 是服务 UI 的本地化设施，不拥有玩法规则。`Host/Compatibility` 是安装清单，不把所有补丁变为同一功能。
+`Host/Localisation` 是服务 UI 的本地化设施，不拥有玩法规则。补丁仍归服务的功能模块，总安装器只负责组装和失败策略。
+
+### 允许依赖矩阵与例外
+
+`scripts/architecture-policy.json` 是可执行规则；下表只列本仓库代码依赖，同层引用允许。Persistence 对应 `Host/Persistence`，不按历史 namespace 判断归属。
+
+| 调用方 | 可引用的其他层 |
+|---|---|
+| Core | 无 |
+| Formats | 无 |
+| Integration | Core、Formats |
+| Host | Core、Formats、Integration、ManiaScore |
+| ManiaScore | Core、Formats、Integration、Host |
+| Persistence | Core、Formats、Integration、Host、ManiaScore |
+| Presentation | Core、Formats、Integration、Host、ManiaScore |
+| Composition | 所有层 |
+
+Integration 可创建原生谱面/判定对象，但不拥有工作谱面的 Track/Skin 生命周期，也不选择 MS 玩法或读取宿主难度缓存。曲库查询和资格入口使用原生 `IRulesetFilterCriteria`、`ModUtils`、`Mod.Ranked`，自身包含 O2Jam 元数据/MS 选择语义，故归 Host；它们不因返回数值或布尔值就变为纯接入契约。需要第二 ruleset 时先验证真实复用点，避免提前增加一套查询或资格框架。
+
+当前保留五条精确例外，匹配调用文件、目标文件和类型，不能通配整个目录：
+
+| 调用方 → 目标 | 原因 |
+|---|---|
+| `Host/Difficulty/Data/O2JamStarRatingMetadata` → `Presentation/DifficultyLevels/Policy/O2JamDifficultyRating` | 旧难度名/标签读取共用等级解析与 Lv/10 政策；目标不持有 UI 状态，避免复制公式。 |
+| `Host/Mods/O2JamModPerfect` → `Presentation/AccessAndSettings/O2JamPerfectHitSettingsCheckbox` | 原生 `SettingSource` 需要具体设置控件类型；失败规则继续使用原生 Perfect。 |
+| `ManiaScore/Mods/O2JamModManiaScore` → `Presentation/AccessAndSettings/Icons/O2JamModIcons` | 原生 `Mod.Icon` 声明图标元数据，注册和绘制仍由原生 FontStore/ModIcon 执行。 |
+| `Persistence/O2JamSettingsSubsection.Realm` → `Presentation/O2JamSettingsSubsection` | 原生依赖注入以同名 partial 组装具体后端，再交给无 Realm 的设置会话；存储重设计由 A04 处理。 |
+| `Persistence/O2JamSongSelectRankPatch` → `Presentation/O2JamSongSelectRankPatch` | Realm 集合通知调用当前难度成绩选择策略；存储重设计由 A04 处理。 |
+
+最后两项同时登记为跨层 partial 例外，限定准确的两个声明文件；新增第三个声明必须重新审查。例外消失也会让检查失败，要求删除过期许可。它们是仍存在的编译耦合，不意味着存储可直接替换。
+
+`scripts/check-architecture.ps1` 从实际 MSBuild Compile/ReferencePath 获取源码和匹配宿主引用，通过 SDK 自带 Roslyn 解析类型及成员的真实声明位置；覆盖别名、全限定名称、推断类型和 partial 成员，并分别分析生产及音频诊断配置。未分类源码、解析错误、未批准依赖或过期例外均使检查失败，报告写入 `.artifacts/architecture/dependencies.json`。工具不进入 ruleset DLL。矩阵约束跨层源码引用，同层功能之间的依赖及读写语义仍需代码审查；反射字符串、私有 IL 目标、外部原生库的传递依赖和运行期回调不属于这份静态报告，继续依靠补丁清单、定向测试和 A11 实机验收。
 
 ### 命名空间与持久化身份
 
@@ -54,7 +89,7 @@ O2Jam.Core    ──> 纯玩法规则/状态
 | 谱面 Hash 生成 | `osu.Game.Rulesets.O2Lazer.Host.Library` | 是导入/成绩身份策略，不属于玩法内核 |
 | Lv/10 换算和旧难度名解析 | `osu.Game.Rulesets.O2Lazer.Presentation.DifficultyLevels.Policy` | 是等级体验与宿主兼容策略，不改变判定 |
 
-新增宿主类型原则上使用 `osu.Game.Rulesets.O2Lazer.<层>.<功能>`，与责任目录对应。同一 partial 类型的声明必须共用命名空间，例如目前设置页与 Realm 组装。既有 `.Beatmaps`、`.Objects`、`.Scoring`、`.Mods`、`.UI`、`.SongSelect` 等功能命名空间本轮保留以控制公开 API 和反射改动范围；它们不是层级标识，不能凭 `using` 判定依赖方向，也不声称这些名称全部为持久化所必需。A12 应按类型的真实源目录分析依赖，逐项证明保留或迁移的必要性。
+新增宿主类型原则上使用 `osu.Game.Rulesets.O2Lazer.<层>.<功能>`，与责任目录对应。同一 partial 类型的声明必须共用命名空间，例如目前设置页与 Realm 组装。既有 `.Beatmaps`、`.Objects`、`.Scoring`、`.Mods`、`.UI`、`.SongSelect` 等功能命名空间保留以控制公开 API 和反射改动范围；它们不是层级标识，不能凭 `using` 判定依赖方向，也不声称这些名称全部为持久化所必需。A12 检查按真实声明文件判断归属，新增代码必须遵守矩阵，不能靠共用 namespace 隐藏越层调用。
 
 | 兼容契约 | 必须保留的身份 | 依据与验证 |
 |---|---|---|
@@ -82,7 +117,7 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 
 长条视觉开关读取当前游玩依赖中的 `O2JamRulesetConfigManager` 绑定值，进程级投影只作未注入配置时的回退。原生依赖容器缓存具体配置类型；不能以接口缓存的测试替代真实宿主注入。皮肤回归同时检查父对象和内部原生组件的实际颜色，避免父对象正常掩盖内部灰化。
 
-谱面运行链为 `OjnReader` → `OjnDocument` → `OjnBeatmapFactory` → `O2JamBeatmap` → 原生可玩对象。`OjnDocument` 已是独立格式结果，不再复制第二套音符/时间中间模型。`O2JamExternalChartResources` 管理外部 OJN/OJM 的懒读取、归档文件戳和可复用性；`O2JamWorkingBeatmap` 保留原生 Beatmap、Skin、Track 绑定及转移，封面由内部原生工作谱面提供。缓存位于 Integration。解码结果的集合与索引在构造时冻结，封面及公开音频字节返回独立副本；BGM 通过不暴露底层数组的只读流读取，因此共享缓存可安全供多个只读消费者使用。导入则由 `Host/Library` 计划与批处理，经 `IO2JamLibraryWriter` 进入当前 Realm 后端；UI 设置页只提交操作并显示状态。
+谱面运行链为 `OjnReader` → `OjnDocument` → `OjnBeatmapFactory` → `O2JamBeatmap` → 原生可玩对象。`OjnDocument` 已是独立格式结果，不再复制第二套音符/时间中间模型。Integration 的 `O2JamExternalChartResources` 管理外部 OJN/OJM 懒读取、文件戳和格式缓存；`Host/Beatmaps/O2JamWorkingBeatmap` 保留原生 Beatmap、Skin、Track 绑定及转移，封面由内部原生工作谱面提供，工作谱面缓存/替换钩子同归 Host。解码结果的集合与索引在构造时冻结，封面及公开音频字节返回独立副本；BGM 通过不暴露底层数组的只读流读取，因此共享缓存可安全供多个只读消费者使用。导入则由 `Host/Library` 计划与批处理，经 `IO2JamLibraryWriter` 进入当前 Realm 后端；UI 设置页只提交操作并显示状态。
 
 普通 O2Jam 分数从 Core 历史构造；Mania Score 在转换谱面后交给原生 Mania 规则与计分适配。Mod 属性、玩法选择和预览/游玩音频均由宿主处理，不能让 Core 了解 MS。PP 资格策略为“选中 MS 且所有展开的 Mod 均原生 Ranked”；计算入口、资格判定、标签展示分属不同模块。
 
@@ -100,7 +135,7 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 | Constant Speed、Cover/Hidden/FadeIn | `Host/Mods`；原生滚动接口及遮罩组件 | 避开原生 Mod 对具体 `DrawableManiaRuleset` 的强转，继续由原生组件绘制 |
 | Perfect 设置 | `Host/Mods` 的 `SettingSource` 指向 `Presentation/AccessAndSettings` 控件 | 原生反射接口需要具体控件类型；这是声明式展示接入，玩法仍用原生 ManiaModPerfect 的失败条件 |
 
-新增 Mod 应先确定它在哪个原生阶段生效，再核对是否改变对象类型、KS 映射、小节位置或计分路线。不要把原生类型强转失败作为重写整套玩法的理由。`check-scoring-boundary.ps1` 防止当前具体计分路线类型重新进入 Integration/Scoring；它是窄范围源码检查，完整跨层检查仍属于 A12。
+新增 Mod 应先确定它在哪个原生阶段生效，再核对是否改变对象类型、KS 映射、小节位置或计分路线。不要把原生类型强转失败作为重写整套玩法的理由。`check-scoring-boundary.ps1` 检查当前具体计分接缝，`check-architecture.ps1` 同时限制整个 Integration 对 Host/MS 的引用。
 
 设置页未选择导入路径时隐藏更新/清除按钮的整组，选择路径后由原生流式布局显示；操作是否可执行仍由曲库应用状态决定。设置会话初始化或同步收藏夹时暂时禁用按钮，不能绕过串行操作保护。
 
@@ -116,9 +151,11 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 | OJN/OJM 解码 | `O2Jam.Formats` 及格式夹具 | Integration 映射；真实样本有界验证；不把 OJN 通道类型加进 Core |
 | 导入字段或存储 | `Host/Library` 契约与 `Host/Persistence/Realm` 实现 | 先定义身份/版本/旧成绩映射；临时库迁移与失败重试测试 |
 | Mania Score 或 Mod | `ManiaScore`/`Host/Mods`，必要时 Integration 的玩法选择 | 原生可用性、转换、计分、回放与 MS 开关组合 |
-| 等级、筛选、标签、设置或 HUD | 对应 `Presentation` 模块；查询/资格纯策略留 Integration | 比较原生扩展点；视觉、异步更新与本地化验收 |
+| 等级、筛选、标签、设置或 HUD | 对应 `Presentation` 模块；原生查询/资格入口归 Host | 比较原生扩展点；视觉、异步更新与本地化验收 |
 | 音频/预览 | `Host/Audio` 和资源边界 | 保留原生时钟/轨道；测试暂停、寻址、变速、快速切曲及效果音量 |
 | 补丁 | 服务功能的模块；登记在总安装器 | 证明原生缺口、限定 ruleset、验证目标签名及失败回滚、多 ruleset 载入 |
 | 未来 BMS 等新 ruleset | 在第二消费者中验证可复用的宿主设施 | 各自格式结果接入原生 `WorkingBeatmap`；O2Jam 专用 Core/格式不强行公共化；共用补丁协调须处理版本和所有权 |
 
 当前问题按 [A01–A16](architecture-audit.md#初始审查问题) 逐项解决；每项结束时更新路线图和必要测试。已有行为不能只因“旧代码”而删除：旧皮肤布局类型、规则集短名与键值、谱面/成绩身份及 v5 回放均涉及持久化契约。
+
+新增源文件先选责任目录；若语义检查拒绝引用，先判断是否放错层、是否可直接使用原生入口或已有契约。只有具体原生接缝无法满足需求时才提出例外，并补充原因和验证依据；不能只扩大允许矩阵来通过检查。

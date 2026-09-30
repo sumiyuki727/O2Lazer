@@ -78,12 +78,13 @@ internal static class O2JamDifficultyCachePatch
             return Task.FromCanceled<StarDifficulty?>(cancellationToken);
 
         var selectedMods = mods?.ToArray() ?? [];
+        var storedStars = O2JamStarRatingMetadata.ReadMania(beatmap);
         if (O2JamGameplayProfile.RequiresStarCalculation(selectedMods)
-            || O2JamStarRatingMetadata.ReadMania(beatmap) == null)
+            || storedStars == null)
             return cache.GetDifficultyAsync(beatmap, ruleset, selectedMods, cancellationToken, computationDelay);
 
         return Task.FromResult<StarDifficulty?>(new StarDifficulty(
-            O2JamDisplayedDifficulty.GetStars(beatmap),
+            storedStars.Value,
             O2JamStarRatingMetadata.ResolveManiaMaxCombo(beatmap)));
     }
 }

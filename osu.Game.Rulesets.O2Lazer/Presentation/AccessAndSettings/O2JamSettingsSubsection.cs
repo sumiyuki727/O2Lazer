@@ -47,7 +47,7 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
     [Resolved(CanBeNull = true)]
     private IDialogOverlay? dialogOverlay { get; set; }
 
-    public O2JamSettingsSubsection(O2LazerRuleset ruleset)
+    public O2JamSettingsSubsection(Ruleset ruleset)
         : base(ruleset)
     {
     }

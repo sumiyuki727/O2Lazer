@@ -39,13 +39,18 @@ public partial class O2JamStarRatingDisplayTest
     [TestCase(false, false, true, 3.25)]
     public void ResultsKeepLevelTextSeparateFromTheColourScale(bool o2lazer, bool ms, bool inLibrary, double expected)
     {
+        runWithSynchronousRealm(() => checkNativeResults(o2lazer, ms, inLibrary, expected));
+    }
+
+    private static void runWithSynchronousRealm(Action assertion)
+    {
         var previousContext = SynchronizationContext.Current;
         try
         {
             // No UI notifications are needed here. Avoid handing Realm's native scheduler
             // to NUnit's asynchronous context after the temporary database has been closed.
             SynchronizationContext.SetSynchronizationContext(null);
-            checkNativeResults(o2lazer, ms, inLibrary, expected);
+            assertion();
         }
         finally
         {
@@ -117,25 +122,28 @@ public partial class O2JamStarRatingDisplayTest
     [Test]
     public void NativeResultsUseRecordedRateModDifficulty()
     {
-        var ruleset = new O2LazerRuleset().RulesetInfo;
-        var beatmap = createBeatmap(ruleset, 75, 3.25);
-        using var storage = new TemporaryNativeStorage($"{nameof(O2JamStarRatingDisplayTest)}-{Guid.NewGuid():N}");
-        using var realm = new RealmAccess(storage, "client.realm");
-        realm.Write(database => database.Add(new BeatmapInfo { ID = beatmap.ID }));
-        using var cache = new TestDifficultyCache(ruleset);
-        var score = new ScoreInfo(ruleset: ruleset) { BeatmapInfo = beatmap, Mods = [new O2JamModDoubleTime()] };
-        using var panel = new ExpandedPanelMiddleContent(score);
-
-        typeof(ExpandedPanelMiddleContent).GetMethod("load", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [realm, cache]);
-
-        var display = panel.ChildrenOfType<StarRatingDisplay>().Single();
-        var icon = panel.ChildrenOfType<DifficultyIcon>().Single();
-        Assert.Multiple(() =>
+        runWithSynchronousRealm(() =>
         {
-            Assert.That(display.Current.Value.Stars, Is.EqualTo(7.5));
-            Assert.That(icon.Current.Value.Stars, Is.EqualTo(7.5));
-            Assert.That(getTooltipStars(icon), Is.EqualTo(7.5));
-            Assert.That(cache.NativeLookups, Is.EqualTo(1));
+            var ruleset = new O2LazerRuleset().RulesetInfo;
+            var beatmap = createBeatmap(ruleset, 75, 3.25);
+            using var storage = new TemporaryNativeStorage($"{nameof(O2JamStarRatingDisplayTest)}-{Guid.NewGuid():N}");
+            using var realm = new RealmAccess(storage, "client.realm");
+            realm.Write(database => database.Add(new BeatmapInfo { ID = beatmap.ID }));
+            using var cache = new TestDifficultyCache(ruleset);
+            var score = new ScoreInfo(ruleset: ruleset) { BeatmapInfo = beatmap, Mods = [new O2JamModDoubleTime()] };
+            using var panel = new ExpandedPanelMiddleContent(score);
+
+            typeof(ExpandedPanelMiddleContent).GetMethod("load", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [realm, cache]);
+
+            var display = panel.ChildrenOfType<StarRatingDisplay>().Single();
+            var icon = panel.ChildrenOfType<DifficultyIcon>().Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(display.Current.Value.Stars, Is.EqualTo(7.5));
+                Assert.That(icon.Current.Value.Stars, Is.EqualTo(7.5));
+                Assert.That(getTooltipStars(icon), Is.EqualTo(7.5));
+                Assert.That(cache.NativeLookups, Is.EqualTo(1));
+            });
         });
     }
 
