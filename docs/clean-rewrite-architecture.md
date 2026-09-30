@@ -1,6 +1,6 @@
 # O2Lazer 当前架构
 
-更新：2026-09-30。本文件描述当前 `master` 的责任边界和新增功能指引，不用历史目录名或某次测试数表示架构已全部完成。[全项目审查和待处理问题](architecture-audit.md)、[路线图](refactor-roadmap.md)、[玩法行为规格](o2jam-behaviour-spec.md)分别负责风险、进度和游戏规则。
+更新：2026-10-01。本文件描述当前 `master` 的责任边界和新增功能指引，不用历史目录名或某次测试数表示架构已全部完成。[全项目审查和待处理问题](architecture-audit.md)、[路线图](refactor-roadmap.md)、[玩法行为规格](o2jam-behaviour-spec.md)分别负责风险、进度和游戏规则。
 
 ## Design intent and decision precedence
 
@@ -136,6 +136,14 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 | Perfect 设置 | `Host/Mods` 的 `SettingSource` 指向 `Presentation/AccessAndSettings` 控件 | 原生反射接口需要具体控件类型；这是声明式展示接入，玩法仍用原生 ManiaModPerfect 的失败条件 |
 
 新增 Mod 应先确定它在哪个原生阶段生效，再核对是否改变对象类型、KS 映射、小节位置或计分路线。不要把原生类型强转失败作为重写整套玩法的理由。`check-scoring-boundary.ps1` 检查当前具体计分接缝，`check-architecture.ps1` 同时限制整个 Integration 对 Host/MS 的引用。
+
+### 谱面变换与数据所有权
+
+格式层的 `OjnDocument` 是不可变的共享解码结果；`OjnBeatmapFactory` 将其映射到缓存源谱面。每次原生 `WorkingBeatmap.GetPlayableBeatmap` 经 `O2JamBeatmapConverter` 创建独立的可玩对象和集合，再按原生 Mod 阶段应用修改。不要把缓存源谱面的可变对象交给 Mod，也不要为了 Mod 复制另一套格式或核心谱面模型。原生转换器只复制谱面容器，O2Jam 转换器因此仍需复制音符、长条及采样列表，保留小节位置和 KS 映射。
+
+Mirror/Random 直接继承原生 Mania 的 `IApplicableToBeatmap` 实现；MS 对象替换及 O2Jam Invert/No Release 使用 `IApplicableAfterBeatmapConversion`，在对象默认值和嵌套对象建立前接入。这些是宿主阶段，不归 Core 或 Formats；判定和 Drawable 不应再执行谱面变换。
+
+A15 已删除未使用的 `IO2JamChartTransform<TChart>`，不增加替代接口或第二条调度管线。仓库、只读参考源码及当前已安装规则集未发现使用者；该类型原先公开，但未参与已有存储、皮肤或 replay 身份。无法据此保证未知第三方二进制没有引用它，若有此类调用方需重新适配。未来确实出现独立游戏或第二 ruleset 的变换需求时，先确认输入输出、所有权、应用顺序及随机种子/replay 契约，再从真实消费者提取最小接口；仅有未来扩展设想不足以保留抽象。
 
 设置页未选择导入路径时隐藏更新/清除按钮的整组，选择路径后由原生流式布局显示；操作是否可执行仍由曲库应用状态决定。设置会话初始化或同步收藏夹时暂时禁用按钮，不能绕过串行操作保护。
 
