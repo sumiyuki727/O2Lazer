@@ -91,7 +91,9 @@ public partial class O2JamDrawableHoldTail : DrawableHoldNoteTail
 
     protected override void UpdateHitStateTransforms(ArmedState state)
     {
-        if (state != ArmedState.Miss && !(state == ArmedState.Hit && O2JamRuntimeOptions.UseO2JamLongNoteMissVisual))
+        var useO2JamVisual = (ParentHitObject as O2JamDrawableHoldNote)?.UseO2JamLongNoteMissVisual
+                             ?? O2JamRuntimeOptions.UseO2JamLongNoteMissVisual;
+        if (state != ArmedState.Miss && !(state == ArmedState.Hit && useO2JamVisual))
         {
             base.UpdateHitStateTransforms(state);
             return;

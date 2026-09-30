@@ -1,6 +1,6 @@
 # O2Lazer 当前架构
 
-更新：2026-09-27。本文件描述当前 `master` 的责任边界和新增功能指引，不用历史目录名或某次测试数表示架构已全部完成。[全项目审查和待处理问题](architecture-audit.md)、[路线图](refactor-roadmap.md)、[玩法行为规格](o2jam-behaviour-spec.md)分别负责风险、进度和游戏规则。
+更新：2026-09-30。本文件描述当前 `master` 的责任边界和新增功能指引，不用历史目录名或某次测试数表示架构已全部完成。[全项目审查和待处理问题](architecture-audit.md)、[路线图](refactor-roadmap.md)、[玩法行为规格](o2jam-behaviour-spec.md)分别负责风险、进度和游戏规则。
 
 ## Design intent and decision precedence
 
@@ -53,12 +53,17 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 | 头判/尾判、可开始/释放、拒绝头判后的尾 MISS | `O2Jam.Core` | `O2JamHoldJudgementEngine`、`O2JamHoldState`；`O2JamJudgementBridge` 转换原生结果 |
 | 按键回调与结果提交 | `Host/Gameplay/Objects` | `O2JamDrawableHoldNote` 调用原生 Head/Tail/Body 的 `ApplyResult` 路径，父体结果留到 `CheckForResult`；若在释放回调立刻提交父体，Mania 对象池可能在同一帧移除仍被 `Update` 读取的 Head/Tail |
 | 裁剪、色调、尾端与头部保留 | `Host/Gameplay/Objects` 内的原生 Drawable 适配 | `Update` 只读取已解析的 `O2JamHoldState` 和原生显示状态；`UpdateHitStateTransforms` 延长视觉寿命，不延后判定或计分。直接改动 Mania 的私有裁剪容器仍需在 Drawable 完成 |
+| Legacy 皮肤 MISS 色调适配 | `Presentation/GameplayFeedback/Skinning` | 继续使用原生 Mania 皮肤组件，只消除内部独立灰化，由父长条统一决定开关效果。对象池预加载时 `HitObject` 尚未赋值，因此按 O2Jam 绘制对象类型取得绑定副本；身体皮肤的依赖对象为父长条，不是逻辑 Body。副本随皮肤释放，不能解绑原始长条状态。原生 Mania/MS 绘制对象不应用此色调适配 |
 
 新增长条规则时先改 Core；仅当需要把规则结果提交给 osu! 时改桥接/Drawable。新增长条外观时只消费状态，不能在绘制路径调用判定。回放倒退必须恢复原生结果与 Core 历史，对象池复用后也要复测；现有过滤测试覆盖这些路径。
+
+长条视觉开关读取当前游玩依赖中的 `O2JamRulesetConfigManager` 绑定值，进程级投影只作未注入配置时的回退。原生依赖容器缓存具体配置类型；不能以接口缓存的测试替代真实宿主注入。皮肤回归同时检查父对象和内部原生组件的实际颜色，避免父对象正常掩盖内部灰化。
 
 谱面运行链为 `OjnReader` → `OjnDocument` → `OjnBeatmapFactory` → `O2JamBeatmap` → 原生可玩对象。`OjnDocument` 已是独立格式结果，不再复制第二套音符/时间中间模型。`O2JamExternalChartResources` 管理外部 OJN/OJM 的懒读取、归档文件戳和可复用性；`O2JamWorkingBeatmap` 保留原生 Beatmap、Skin、Track 绑定及转移，封面由内部原生工作谱面提供。缓存位于 Integration。解码结果的集合与索引在构造时冻结，封面及公开音频字节返回独立副本；BGM 通过不暴露底层数组的只读流读取，因此共享缓存可安全供多个只读消费者使用。导入则由 `Host/Library` 计划与批处理，经 `IO2JamLibraryWriter` 进入当前 Realm 后端；UI 设置页只提交操作并显示状态。
 
 普通 O2Jam 分数从 Core 历史构造；Mania Score 在转换谱面后交给原生 Mania 规则与计分适配。Mod 属性、玩法选择和预览/游玩音频均由宿主处理，不能让 Core 了解 MS。PP 资格策略为“选中 MS 且所有展开的 Mod 均原生 Ranked”；计算入口、资格判定、标签展示分属不同模块。
+
+设置页未选择导入路径时隐藏更新/清除按钮的整组，选择路径后由原生流式布局显示；操作是否可执行仍由曲库应用状态决定。设置会话初始化或同步收藏夹时暂时禁用按钮，不能绕过串行操作保护。
 
 回放输入沿用原生 `FramedReplayInputHandler` 调度及 ManiaAction，宿主只定义 O2Jam 帧格式。当前归档仅写/读带 `o2lazer` 标记的 v5；重构前无标记 replay 属于测试实现，明确不兼容。旧成绩关联必须保留；任何重建谱面或存储设计都需先验证 ID 映射。Realm 直接类型集中在 `Host/Persistence/Realm`，但原生模型和两个 partial 组装点仍产生编译耦合；详见 [存储边界](realm-isolation.md) 和 [回放时序](replay-timing-boundary.md)。
 

@@ -71,6 +71,29 @@ public partial class O2JamHoldVisualProbeTest
         [Values(ScrollingDirection.Down, ScrollingDirection.Up)] ScrollingDirection direction)
         => runVisualProbe(50, true, direction, headAccuracy);
 
+    [TestCase(true, false, 407.617)]
+    [TestCase(false, true, 500)]
+    public void DrawableUsesInjectedRulesetSettingWhenRuntimeProjectionDiffers(bool configuredVisual, bool projectedVisual, double earlyRelease)
+    {
+        using var config = new O2JamRulesetConfigManager(null, new O2LazerRuleset().RulesetInfo);
+        config.SetValue(O2JamRulesetSetting.O2JamStyleDroppedHold, configuredVisual);
+        var previousVisual = O2JamRuntimeOptions.UseO2JamLongNoteMissVisual;
+        O2JamRuntimeOptions.UseO2JamLongNoteMissVisual = projectedVisual;
+        try
+        {
+            using var host = new TestRunHeadlessGameHost($"O2JamInjectedHoldVisual-{Guid.NewGuid():N}");
+            var game = new ProbeGame(earlyRelease, configuredVisual, injectedConfig: config);
+            host.Run(game);
+            if (game.Failure != null)
+                throw game.Failure;
+            Assert.That(game.Completed, Is.True);
+        }
+        finally
+        {
+            O2JamRuntimeOptions.UseO2JamLongNoteMissVisual = previousVisual;
+        }
+    }
+
     [Test]
     public void NoReleaseAutomaticallyResolvesAHeldTail()
     {
@@ -127,6 +150,7 @@ public partial class O2JamHoldVisualProbeTest
         private readonly O2JamAccuracy? rejectedHead;
         private readonly bool noRelease;
         private readonly bool rewind;
+        private readonly O2JamRulesetConfigManager? injectedConfig;
         private readonly O2JamScoreProcessor processor = new(new O2LazerRuleset());
         private O2JamGameplaySnapshot initialState;
         private O2JamGameplaySnapshot completedState;
@@ -144,13 +168,15 @@ public partial class O2JamHoldVisualProbeTest
         public List<string> Observations { get; } = [];
 
         public ProbeGame(double earlyRelease, bool? verifyO2Visual = null, ScrollingDirection direction = ScrollingDirection.Down,
-                         O2JamAccuracy? rejectedHead = null, bool noRelease = false, bool rewind = false)
+                         O2JamAccuracy? rejectedHead = null, bool noRelease = false, bool rewind = false,
+                         O2JamRulesetConfigManager? injectedConfig = null)
         {
             releaseTime = 1821.917808219 - earlyRelease;
             this.verifyO2Visual = verifyO2Visual;
             this.rejectedHead = rejectedHead;
             this.noRelease = noRelease;
             this.rewind = rewind;
+            this.injectedConfig = injectedConfig;
             expectedAccuracy = rejectedHead.HasValue ? O2JamAccuracy.Miss : earlyRelease switch
             {
                 50 => O2JamAccuracy.Cool,
@@ -170,6 +196,8 @@ public partial class O2JamHoldVisualProbeTest
             dependencies.CacheAs<IScrollingInfo>(scrolling);
             dependencies.CacheAs<IBindable<ManiaAction>>(new Bindable<ManiaAction>(ManiaAction.Key1));
             dependencies.CacheAs<ScoreProcessor>(processor);
+            if (injectedConfig != null)
+                dependencies.Cache(injectedConfig);
             dependencies.Cache(new osu.Game.Graphics.OsuColour());
             dependencies.Cache(new Column(3, true));
             dependencies.Cache(new StageDefinition(7));
@@ -205,7 +233,7 @@ public partial class O2JamHoldVisualProbeTest
                 };
             }
             playfield.Add(note);
-            ISkin skin = new ProbeSkin();
+            ISkin skin = UseLegacySkin ? createLegacySkin() : new ProbeSkin();
             var realmPath = Environment.GetEnvironmentVariable("O2JAM_DIAGNOSTIC_REALM");
             if (realmPath != null && Guid.TryParse(Environment.GetEnvironmentVariable("O2JAM_DIAGNOSTIC_SKIN"), out var skinId))
             {
@@ -214,7 +242,7 @@ public partial class O2JamHoldVisualProbeTest
                 mania.BeatmapInfo.Ruleset = new ManiaRuleset().RulesetInfo;
                 skin = O2JamSkinTransformer.WrapIfNeeded(new ManiaLegacySkinTransformer(legacy, mania));
             }
-            Add(new SkinProvidingContainer(skin)
+            Add(skinProvider = new ReloadableProbeSkinProvider(skin)
             {
                 Clock = frameClock,
                 Child = new Container
@@ -266,6 +294,8 @@ public partial class O2JamHoldVisualProbeTest
                         break;
                     case 2:
                         snapshot("head pressed");
+                        if (ReloadLegacySkin)
+                            skinProvider.Reload();
                         seek(releaseTime);
                         break;
                     case 3:
@@ -450,6 +480,9 @@ public partial class O2JamHoldVisualProbeTest
 
         private void verifyRemainder()
         {
+            if (UseLegacySkin)
+                verifyLegacyColours();
+
             if (verifyO2Visual == true)
             {
                 Assert.That(hold.HitObject, Is.Not.Null);

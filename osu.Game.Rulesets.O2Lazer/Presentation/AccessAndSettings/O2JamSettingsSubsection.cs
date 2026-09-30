@@ -38,6 +38,7 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
     private Bindable<bool> syncSourceFolderCollections = null!;
     private RoundedButton refreshButton = null!;
     private DangerousRoundedButton deleteButton = null!;
+    private FillFlowContainer libraryActions = null!;
     private bool disposed;
 
     [Resolved(CanBeNull = true)]
@@ -74,14 +75,24 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
                 Current = importPath,
                 Clicked = () => performer?.PerformFromScreen(menu => menu.Push(new O2JamDirectorySelectScreen(config))),
             },
-            refreshButton,
-            deleteButton = new DangerousRoundedButton
+            libraryActions = new FillFlowContainer
             {
-                Text = O2LazerStrings.DeleteAllImportedFiles,
                 RelativeSizeAxes = Axes.X,
-                Height = 36,
-                Action = confirmDeleteAll,
-                Padding = SettingsPanel.CONTENT_PADDING,
+                AutoSizeAxes = Axes.Y,
+                Direction = FillDirection.Vertical,
+                Spacing = new Vector2(0, SettingsSection.ITEM_SPACING_V2),
+                Children =
+                [
+                    refreshButton,
+                    deleteButton = new DangerousRoundedButton
+                    {
+                        Text = O2LazerStrings.DeleteAllImportedFiles,
+                        RelativeSizeAxes = Axes.X,
+                        Height = 36,
+                        Action = confirmDeleteAll,
+                        Padding = SettingsPanel.CONTENT_PADDING,
+                    },
+                ],
             },
             new SettingsItemV2(new FormSliderBar<double>
             {
@@ -118,6 +129,7 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
 
         Children = children;
         library.Application.ActivityChanged += onLibraryActivityChanged;
+        importPath.ValueChanged += onImportPathChanged;
         updateButtons();
     }
 
@@ -127,10 +139,15 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
             Schedule(updateButtons);
     }
 
+    private void onImportPathChanged(ValueChangedEvent<string> path) => onLibraryActivityChanged();
+
     private void updateButtons()
     {
         if (disposed)
             return;
+        // Hide the group so settings search cannot reveal path-dependent actions by changing
+        // each filterable button's alpha. Native flow layout collapses an absent group.
+        libraryActions.Alpha = string.IsNullOrWhiteSpace(importPath.Value) ? 0 : 1;
         refreshButton.Enabled.Value = library.Application.CanRefresh;
         deleteButton.Enabled.Value = !library.Application.IsBusy;
     }
@@ -152,6 +169,8 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
         disposed = true;
         if (library != null)
             library.Application.ActivityChanged -= onLibraryActivityChanged;
+        if (importPath != null)
+            importPath.ValueChanged -= onImportPathChanged;
         importPath?.UnbindAll();
         syncSourceFolderCollections?.UnbindAll();
         base.Dispose(isDisposing);

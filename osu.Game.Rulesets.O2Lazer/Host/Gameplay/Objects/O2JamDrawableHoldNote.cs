@@ -1,3 +1,5 @@
+using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Input.Bindings;
@@ -25,6 +27,9 @@ public partial class O2JamDrawableHoldNote : DrawableHoldNote, IKeyBindingHandle
     private O2JamDrawableHoldHead o2Head => (O2JamDrawableHoldHead)Head;
     private O2JamDrawableHoldTail o2Tail => (O2JamDrawableHoldTail)Tail;
     private O2JamDrawableHoldBody o2Body => (O2JamDrawableHoldBody)Body;
+    private IBindable<bool>? configuredVisual;
+
+    internal bool UseO2JamLongNoteMissVisual => configuredVisual?.Value ?? O2JamRuntimeOptions.UseO2JamLongNoteMissVisual;
 
     public O2JamDrawableHoldNote()
     {
@@ -33,6 +38,15 @@ public partial class O2JamDrawableHoldNote : DrawableHoldNote, IKeyBindingHandle
     public O2JamDrawableHoldNote(O2JamHoldNote hitObject)
         : base(hitObject)
     {
+    }
+
+    [BackgroundDependencyLoader(true)]
+    private void load(O2JamRulesetConfigManager? rulesetConfig)
+    {
+        // Native ruleset dependencies cache the concrete manager. Its bindable is authoritative
+        // even if another config instance changes the process-wide projection.
+        if (rulesetConfig != null)
+            configuredVisual = rulesetConfig.GetBindable<bool>(O2JamRulesetSetting.O2JamStyleDroppedHold);
     }
 
     protected override DrawableHitObject CreateNestedHitObject(HitObject hitObject) => hitObject switch
@@ -55,11 +69,11 @@ public partial class O2JamDrawableHoldNote : DrawableHoldNote, IKeyBindingHandle
 
         // The parent tint works for every mania skin implementation. Legacy skin pieces undo
         // their own native tint separately so this remains the single visual policy switch.
-        Colour = MissingStartTime.Value != null && !O2JamRuntimeOptions.UseO2JamLongNoteMissVisual
+        Colour = MissingStartTime.Value != null && !UseO2JamLongNoteMissVisual
             ? Colour4.DarkGray
             : Colour4.White;
 
-        if (O2JamRuntimeOptions.UseO2JamLongNoteMissVisual)
+        if (UseO2JamLongNoteMissVisual)
             updateO2JamClipping(GameplayState);
     }
 
@@ -94,7 +108,7 @@ public partial class O2JamDrawableHoldNote : DrawableHoldNote, IKeyBindingHandle
 
     protected override void UpdateHitStateTransforms(ArmedState state)
     {
-        if (state != ArmedState.Miss && !(state == ArmedState.Hit && O2JamRuntimeOptions.UseO2JamLongNoteMissVisual))
+        if (state != ArmedState.Miss && !(state == ArmedState.Hit && UseO2JamLongNoteMissVisual))
         {
             base.UpdateHitStateTransforms(state);
             return;

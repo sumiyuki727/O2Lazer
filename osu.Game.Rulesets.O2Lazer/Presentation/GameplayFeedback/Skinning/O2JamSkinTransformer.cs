@@ -3,9 +3,8 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Game.Rulesets.Mania;
-using osu.Game.Rulesets.Mania.Objects.Drawables;
 using osu.Game.Rulesets.Mania.Skinning.Legacy;
-using osu.Game.Rulesets.O2Lazer.Objects;
+using osu.Game.Rulesets.O2Lazer.UI.Objects;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Skinning;
 using osuTK.Graphics;
@@ -57,14 +56,12 @@ internal sealed partial class O2JamSkinTransformer : SkinTransformer
         [BackgroundDependencyLoader]
         private void load(DrawableHitObject drawableObject)
         {
-            if (drawableObject.HitObject is not (O2JamHoldHead or O2JamHoldTail))
-                return;
-
+            // Pools load skin components before assigning a HitObject. Keep a bound copy so
+            // disposing a skin component cannot unbind the drawable's own gameplay state.
             missingStartTime = drawableObject switch
             {
-                DrawableHoldNote hold => hold.MissingStartTime,
-                DrawableHoldNoteHead head => head.MissingStartTime,
-                DrawableHoldNoteTail tail => tail.MissingStartTime,
+                O2JamDrawableHoldHead head => head.MissingStartTime.GetBoundCopy(),
+                O2JamDrawableHoldTail tail => tail.MissingStartTime.GetBoundCopy(),
                 _ => null,
             };
         }

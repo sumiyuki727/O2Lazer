@@ -10,12 +10,11 @@ using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.Textures;
 using osu.Framework.Testing;
 using osu.Game.Rulesets.Mania.Beatmaps;
-using osu.Game.Rulesets.Mania.Objects.Drawables;
 using osu.Game.Rulesets.Mania.Skinning;
 using osu.Game.Rulesets.Mania.Skinning.Legacy;
 using osu.Game.Rulesets.Mania.UI;
 using osu.Game.Rulesets.O2Lazer.Configuration;
-using osu.Game.Rulesets.O2Lazer.Objects;
+using osu.Game.Rulesets.O2Lazer.UI.Objects;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.UI.Scrolling;
 using osu.Game.Skinning;
@@ -61,11 +60,14 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
     [BackgroundDependencyLoader]
     private void load(ISkinSource skin, IScrollingInfo scrollingInfo, Column column, StageDefinition stage, DrawableHitObject drawableObject)
     {
-        if (drawableObject.HitObject is not O2JamHoldBody)
+        // Native mania places its body skin under the parent hold drawable, not the logical
+        // body hit object. Pools also load this component before assigning the chart entry.
+        if (drawableObject is not O2JamDrawableHoldNote hold)
             return;
 
         direction.BindTo(scrollingInfo.Direction);
-        missingStartTime = (drawableObject as DrawableHoldNote)?.MissingStartTime;
+        // Drawable disposal automatically unbinds fields; the hold owns the original bindable.
+        missingStartTime = hold.MissingStartTime.GetBoundCopy();
 
         var style = skin.GetManiaSkinConfig<LegacyManiaSkinConfiguration.LegacyNoteBodyStyle>(
                             LegacyManiaSkinConfigurationLookups.NoteBodyStyle)?.Value;
@@ -81,6 +83,17 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
             return;
 
         setExtensionTexture(texture);
+    }
+
+    protected override void LoadComplete()
+    {
+        base.LoadComplete();
+
+        // The native component tree is fixed for this skin instance. Cache once so static
+        // bodies do not rescan it every frame, and stretch/native MS bodies never gain repeats.
+        if (canExtend)
+            nativeBodyAnimation = nativePiece.ChildrenOfType<TextureAnimation>()
+                                            .FirstOrDefault(animation => animation.FrameCount > 1);
     }
 
     protected override void UpdateAfterChildren()
@@ -99,8 +112,6 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
 
     private void synchroniseAnimationFrame()
     {
-        nativeBodyAnimation ??= nativePiece.ChildrenOfType<TextureAnimation>()
-                                               .FirstOrDefault(animation => animation.FrameCount > 1);
         if (nativeBodyAnimation == null)
             return;
 
