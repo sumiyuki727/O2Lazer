@@ -33,8 +33,8 @@ public sealed partial class O2JamModNoRelease : ManiaModNoRelease, IApplicableAf
         if (drawableRuleset is not O2JamDrawableRuleset o2JamRuleset)
             return;
 
-        // O2Jam tails retain their exact-type pool. MS creates plain mania tails, for which this
-        // mod installs the same automatic-release drawable used by native mania No Release.
+        // Native No Release casts to DrawableManiaRuleset and keeps its automatic tail private.
+        // MS needs this local tail adapter; O2Jam tails retain their separate exact-type pool.
         foreach (var stage in o2JamRuleset.Playfield.Stages)
         {
             foreach (var column in stage.Columns)

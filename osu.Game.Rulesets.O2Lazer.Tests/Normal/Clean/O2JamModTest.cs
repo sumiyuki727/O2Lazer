@@ -6,6 +6,7 @@ using osu.Game.Beatmaps.ControlPoints;
 using osu.Game.Configuration;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mania.Mods;
+using osu.Game.Rulesets.Mania.Objects;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
@@ -166,6 +167,35 @@ public class O2JamModTest
                 Assert.That(hold.Tail.Samples, Is.Empty);
             });
         }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ManiaScoreInvertMatchesNativeRegardlessOfConversionOrder(bool maniaScoreFirst)
+    {
+        var ruleset = new O2LazerRuleset();
+        var source = createBeatmap(ruleset);
+        var working = new FlatWorkingBeatmap(source);
+        var expected = (O2JamBeatmap)working.GetPlayableBeatmap(ruleset.RulesetInfo, [new O2JamModManiaScore()], default);
+        new ManiaModInvert().ApplyToBeatmap(expected);
+        var maniaScore = new O2JamModManiaScore();
+        var invert = new O2JamModInvert();
+        Mod[] mods = maniaScoreFirst ? [maniaScore, invert] : [invert, maniaScore];
+        var actual = (O2JamBeatmap)working.GetPlayableBeatmap(ruleset.RulesetInfo, mods, default);
+
+        Assert.That(actual.HitObjects, Has.All.TypeOf<HoldNote>());
+        Assert.That(actual.HitObjects.Select(note => (note.Column, note.StartTime, ((HoldNote)note).Duration)),
+            Is.EqualTo(expected.HitObjects.Select(note => (note.Column, note.StartTime, ((HoldNote)note).Duration))));
+        foreach (var (hold, nativeHold) in actual.HitObjects.Cast<HoldNote>().Zip(expected.HitObjects.Cast<HoldNote>()))
+        {
+            Assert.That(hold.Head, Is.TypeOf<HeadNote>());
+            Assert.That(hold.Tail, Is.TypeOf<TailNote>());
+            Assert.That(hold.Head.Samples.Cast<O2JamHitSampleInfo>().Select(sample => (sample.SampleId, sample.Volume, sample.Pan)),
+                Is.EqualTo(nativeHold.GetNodeSamples(0).Cast<O2JamHitSampleInfo>().Select(sample => (sample.SampleId, sample.Volume, sample.Pan))));
+            Assert.That(hold.Tail.Samples, Is.Empty);
+        }
+        Assert.That(actual.AutomaticAudioEvents, Is.EqualTo(source.AutomaticAudioEvents));
+        Assert.That(actual.MeasureLineTimes, Is.EqualTo(source.MeasureLineTimes));
     }
 
     [TestCase(typeof(O2JamModWindUp), 1.2)]

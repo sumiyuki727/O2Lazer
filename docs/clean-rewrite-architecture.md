@@ -24,17 +24,17 @@ O2Jam.Core    ──> 纯玩法规则/状态
         Presentation ──> 原生控件、等级/颜色、曲库、HUD/皮肤
 ```
 
-箭头表达推荐的数据使用方向，不保证现有 C# 引用严格满足该图。除两个独立项目外，其余区域编译在同一 ruleset 项目；目前仍有 [A06、A07、A12](architecture-audit.md#初始审查问题) 的横向/反向依赖。`O2LazerRuleset` 是 ruleset 入口，`Host/Compatibility/O2JamCompatibilityPatches` 汇总补丁安装；目录移动本身不产生编译隔离。
+箭头表达推荐的数据使用方向，不保证现有 C# 引用严格满足该图。除两个独立项目外，其余区域编译在同一 ruleset 项目；玩法接缝已按 A06 核对，命名及完整依赖矩阵仍由 [A07、A12](architecture-audit.md#初始审查问题) 处理。`O2LazerRuleset` 是 ruleset 入口，`Host/Compatibility/O2JamCompatibilityPatches` 汇总补丁安装；目录移动本身不产生编译隔离。
 
 | 目录 | 应有责任 | 当前代表入口 |
 |---|---|---|
 | `O2Jam.Core/` | 音乐位置、BPM、判定窗口、长条状态、整局分数/Combo/Jam/药丸/生命；只依赖 .NET | `O2JamTimingMap`、`O2JamJudgementEngine`、`O2JamGameplayState` |
 | `O2Jam.Formats/` | OJN/OJM/OMC/M30 字节到格式数据；不写数据库、不创建 osu 对象 | `OjnReader`、`OjmReader` |
 | `Integration/Formats`、`Integration/Beatmaps` | 格式数据到可游玩谱面、外部资源快照、原生 WorkingBeatmap 与转换边界 | `OjnBeatmapFactory`、`O2JamExternalChartResources`、`O2JamWorkingBeatmap` |
-| `Integration/Objects`、`Integration/Scoring` | 输入和时间转译、核心结果到原生 Judgement/ScoreProcessor；原生 `ApplyResult` 提交 | `O2JamJudgementBridge`、`O2JamScoreProcessor` |
+| `Integration/Objects`、`Integration/Scoring` | 时间和判定转译、核心结果与原生结果关联；向宿主提供判定解析契约 | `O2JamJudgementBridge`、`IO2JamJudgementResolver`、`O2JamJudgementHistory` |
 | `Integration/Library/Filtering`、`Integration/Performance/Eligibility` | 曲库查询语义和 PP 资格策略，不决定绘制 | `O2JamFilterCriteria`、`O2JamPerformanceEligibility` |
 | `Host/Library`、`Host/Configuration` | 导入应用流程、写入契约、操作会话、配置 | `O2JamImportService`、`IO2JamLibraryWriter`、`O2JamLibrarySettingsSession` |
-| `Host/Audio`、`Host/Gameplay`、`Host/Replays`、`Host/Mods`、`Host/Difficulty` | 原生轨道、Drawable/对象池、输入回放、Mod、难度缓存与计算 | `O2JamPreviewTrack`、`O2JamDrawableRuleset`、`O2JamDifficultyCalculator` |
+| `Host/Audio`、`Host/Gameplay`、`Host/Replays`、`Host/Mods`、`Host/Difficulty` | 原生轨道、Drawable/对象池、计分协调、输入回放、Mod、难度缓存与计算 | `O2JamPreviewTrack`、`O2JamDrawableRuleset`、`O2JamScoreProcessor`、`O2JamDifficultyCalculator` |
 | `Host/Persistence/Realm` | 当前 Realm 实现及原生存储接入 | `O2JamLibraryWriter`、`O2JamReplayPersistencePatch` |
 | `ManiaScore/` | 与 O2Jam 核心并列的 Mania 玩法路线及其展示联动 | `O2JamManiaScoreBeatmapAdapter`、`ManiaScoreProcessorAdapter` |
 | `Presentation/` | 等级/星数、难度颜色、曲库组织、资格标签、设置界面、皮肤和 HUD 展示 | `DifficultyLevels`、`LibraryBrowsing`、`Performance`、`GameplayFeedback` |
@@ -62,6 +62,22 @@ Core 接收小节位置与普通规则配置，输出原始/药丸修正后的�
 谱面运行链为 `OjnReader` → `OjnDocument` → `OjnBeatmapFactory` → `O2JamBeatmap` → 原生可玩对象。`OjnDocument` 已是独立格式结果，不再复制第二套音符/时间中间模型。`O2JamExternalChartResources` 管理外部 OJN/OJM 的懒读取、归档文件戳和可复用性；`O2JamWorkingBeatmap` 保留原生 Beatmap、Skin、Track 绑定及转移，封面由内部原生工作谱面提供。缓存位于 Integration。解码结果的集合与索引在构造时冻结，封面及公开音频字节返回独立副本；BGM 通过不暴露底层数组的只读流读取，因此共享缓存可安全供多个只读消费者使用。导入则由 `Host/Library` 计划与批处理，经 `IO2JamLibraryWriter` 进入当前 Realm 后端；UI 设置页只提交操作并显示状态。
 
 普通 O2Jam 分数从 Core 历史构造；Mania Score 在转换谱面后交给原生 Mania 规则与计分适配。Mod 属性、玩法选择和预览/游玩音频均由宿主处理，不能让 Core 了解 MS。PP 资格策略为“选中 MS 且所有展开的 Mod 均原生 Ranked”；计算入口、资格判定、标签展示分属不同模块。
+
+### 玩法路线与 Mod 应用阶段
+
+`O2JamScoreProcessor` 位于 `Host/Gameplay/Scoring`，协调两条计分路线并承接原生 `ApplyResult`、回退、Combo 和成绩填充。Integration 的判定桥接只通过 `IO2JamJudgementResolver` 请求最终准确度，不读取 MS Mod 或依赖具体宿主计分器；MS 的解析入口不改变 O2Jam 核心状态。`ManiaScoreProcessorAdapter` 只公开受保护的原生 Mania 计分钩子，不复制其公式。已有类的 namespace/程序集身份保持不变。
+
+| 阶段或功能 | 所有者与原生入口 | 保留适配的原因 |
+|---|---|---|
+| MS 选择、依赖 Mod | `ManiaScore/Mods`；原生 Mod 选择转换后做依赖补全 | EZ/HR/Classic 需要同时选中 MS；仅有依赖 Mod 不隐式切换计分路线 |
+| MS 谱面替换 | `O2JamModManiaScore` → `O2JamManiaScoreBeatmapAdapter`；`IApplicableAfterBeatmapConversion` | 在 `ApplyDefaults` 前生成原生 Mania 对象，OD/HP 基线先于普通难度 Mod 应用 |
+| Invert | MS 已转换为原生对象时直接调用原生 ManiaModInvert；O2Jam 对象使用本地适配 | 非 MS 路线必须补充头尾小节位置，保留 KS 起点映射；两种 MS/Invert 顺序与原生结果对照 |
+| O2Jam No Release | `Host/Mods`；转换后写入 ReleaseTimingDisabled，游玩由 Core 判定 | 原生 No Release 会替换 O2Jam 长条和小节判定元数据，不能直接调用其谱面替换 |
+| MS No Release | `Host/Mods`；`IApplicableToDrawableRuleset<ManiaHitObject>` 注册自动尾判池 | 原生入口强转 `DrawableManiaRuleset` 且尾对象/绘制实现为私有类型；保留最小尾判适配，O2Jam 精确类型池不受影响 |
+| Constant Speed、Cover/Hidden/FadeIn | `Host/Mods`；原生滚动接口及遮罩组件 | 避开原生 Mod 对具体 `DrawableManiaRuleset` 的强转，继续由原生组件绘制 |
+| Perfect 设置 | `Host/Mods` 的 `SettingSource` 指向 `Presentation/AccessAndSettings` 控件 | 原生反射接口需要具体控件类型；这是声明式展示接入，玩法仍用原生 ManiaModPerfect 的失败条件 |
+
+新增 Mod 应先确定它在哪个原生阶段生效，再核对是否改变对象类型、KS 映射、小节位置或计分路线。不要把原生类型强转失败作为重写整套玩法的理由。`check-scoring-boundary.ps1` 防止当前具体计分路线类型重新进入 Integration/Scoring；它是窄范围源码检查，完整跨层检查仍属于 A12。
 
 设置页未选择导入路径时隐藏更新/清除按钮的整组，选择路径后由原生流式布局显示；操作是否可执行仍由曲库应用状态决定。设置会话初始化或同步收藏夹时暂时禁用按钮，不能绕过串行操作保护。
 

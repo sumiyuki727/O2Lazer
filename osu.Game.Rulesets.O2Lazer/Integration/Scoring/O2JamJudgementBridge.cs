@@ -44,8 +44,8 @@ internal static class O2JamJudgementBridge
 
         // Resolve pills before native health, combo, samples and judgement display see the result.
         // Do not set Type here: that would bypass DrawableHitObject's legal None -> result transition.
-        var resolved = processor is O2JamScoreProcessor o2Jam && !o2Jam.UsesManiaScoring
-            ? o2Jam.ResolveForApplication(result, accuracy).ResolvedAccuracy
+        var resolved = processor is IO2JamJudgementResolver resolver
+            ? resolver.ResolveAccuracyForApplication(result, accuracy)
             : accuracy;
         return O2JamResultMapper.ToFramework(resolved);
     }

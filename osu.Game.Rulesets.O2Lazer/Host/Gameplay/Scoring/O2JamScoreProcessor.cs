@@ -12,7 +12,7 @@ using osu.Game.Scoring;
 
 namespace osu.Game.Rulesets.O2Lazer.Scoring;
 
-public sealed partial class O2JamScoreProcessor : ScoreProcessor
+public sealed partial class O2JamScoreProcessor : ScoreProcessor, IO2JamJudgementResolver
 {
     private readonly ManiaScoreProcessorAdapter mania = new();
 
@@ -68,6 +68,9 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor
 
         return resolution;
     }
+
+    O2JamAccuracy IO2JamJudgementResolver.ResolveAccuracyForApplication(O2JamJudgementResult result, O2JamAccuracy requestedAccuracy) =>
+        UsesManiaScoring ? requestedAccuracy : ResolveForApplication(result, requestedAccuracy).ResolvedAccuracy;
 
     protected override JudgementResult CreateResult(HitObject hitObject, Judgement judgement) =>
         judgement is O2JamJudgementDefinition

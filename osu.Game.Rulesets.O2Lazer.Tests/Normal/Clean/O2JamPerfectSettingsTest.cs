@@ -101,6 +101,14 @@ public partial class O2JamPerfectSettingsTest
 
                 if (++phase == 5)
                 {
+                    var observer = o2Settings.SelectedMods.GetBoundCopy();
+                    o2Settings.RemovePanel();
+                    foreach (var control in controls)
+                        control.Dispose();
+                    o2Settings.SelectedMods.Value = [perfect, new O2JamModManiaScore()];
+                    Assert.That(observer.Value.OfType<O2JamModManiaScore>().Count(), Is.EqualTo(1),
+                        "Disposing custom settings must not unbind the overlay selection.");
+                    observer.UnbindAll();
                     Completed = true;
                     Exit();
                     return;
@@ -136,6 +144,8 @@ public partial class O2JamPerfectSettingsTest
                 SelectedMods = { BindTarget = SelectedMods },
             };
         }
+
+        public void RemovePanel() => Remove(panel, true);
 
         protected override void Update()
         {
