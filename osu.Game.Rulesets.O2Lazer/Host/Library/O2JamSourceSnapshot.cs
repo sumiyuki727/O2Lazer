@@ -6,6 +6,16 @@ namespace osu.Game.Rulesets.O2Lazer.Import;
 
 internal sealed record O2JamSourceSnapshot(byte[] Data, string Hash, DateTimeOffset Timestamp)
 {
+    public static string ReadHash(string path)
+    {
+        var timestamp = O2JamSourceTimestamp.Read(path);
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var hash = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+        if (O2JamSourceTimestamp.Read(path) != timestamp)
+            throw new IOException("The OJN changed while scanning its content.");
+        return hash;
+    }
+
     public static O2JamSourceSnapshot Read(string path)
     {
         var timestamp = O2JamSourceTimestamp.Read(path);

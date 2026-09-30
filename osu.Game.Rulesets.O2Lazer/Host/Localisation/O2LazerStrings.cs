@@ -53,6 +53,9 @@ public static class O2LazerStrings
     public static LocalisableString RefreshingProgress(int processed, int total) => get("refreshing_progress", processed, total);
     public static LocalisableString SynchronisingCollections => get("synchronising_collections");
     public static LocalisableString RefreshComplete => get("refresh_complete");
+    public static LocalisableString RefreshUpdatesPending => get("refresh_updates_pending");
+    public static LocalisableString RefreshStopped(int imported, int updated) => get("refresh_stopped", imported, updated);
+    public static LocalisableString RefreshWithFailures(int imported, int updated, int failed) => get("refresh_with_failures", imported, updated, failed);
     public static LocalisableString ImportSelectedFile => get("import_selected_file");
     public static LocalisableString ImportCurrentFolder => get("import_current_folder");
     public static LocalisableString ImportDirectoryRecursive => get("import_directory_recursive");

@@ -30,6 +30,13 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
 
     private readonly RealmAccess realm;
     private readonly RealmFileStore files;
+    private readonly O2JamLibraryNotificationQueue<Guid, BeatmapInfo> notifications = new();
+
+    public int PendingNotifications => notifications.Count;
+
+    private Action<BeatmapInfo>[] recipients => BeatmapUpdated?.GetInvocationList().Cast<Action<BeatmapInfo>>().ToArray() ?? [];
+
+    public void RetryNotifications() => notifications.Retry(recipients);
 
     // Detached snapshots are published after committing, so consumers can invalidate native
     // working/difficulty caches without coupling database writes to UI services or Realm threads.
@@ -64,8 +71,9 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
                 if (ruleset?.Available != true)
                     return;
 
+                var writeIndex = new O2JamLibraryWriteIndex(database);
                 for (var index = 0; index < requests.Count; index++)
-                    results[index] = write(database, ruleset, requests[index], updatedBeatmaps);
+                    results[index] = write(database, ruleset, requests[index], updatedBeatmaps, writeIndex, sourceGuards);
             });
         }
         finally
@@ -74,8 +82,8 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
                 guard.Dispose();
         }
 
-        foreach (var beatmap in updatedBeatmaps.DistinctBy(beatmap => beatmap.ID))
-            BeatmapUpdated?.Invoke(beatmap);
+        foreach (var beatmap in updatedBeatmaps.GroupBy(beatmap => beatmap.ID).Select(group => group.Last()))
+            notifications.Publish(beatmap.ID, beatmap, recipients);
 
         return results;
     }
@@ -191,7 +199,8 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         return MarkDeleted(missing);
     }
 
-    private O2JamLibraryWriteResult write(Realm database, RulesetInfo ruleset, O2JamLibraryWriteRequest request, List<BeatmapInfo> updatedBeatmaps)
+    private O2JamLibraryWriteResult write(Realm database, RulesetInfo ruleset, O2JamLibraryWriteRequest request,
+                                        List<BeatmapInfo> updatedBeatmaps, O2JamLibraryWriteIndex index, List<FileStream> sourceGuards)
     {
         var plan = request.Plan;
 
@@ -200,6 +209,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
             var charts = validateMetadata(set, plan);
             var changed = synchroniseFiles(database, set, plan);
             changed |= refreshMetadata(set, plan, charts, database);
+            index.Update(set);
             if (!changed)
                 return O2JamLibraryWriteResult.AlreadyPresent;
 
@@ -208,21 +218,17 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
             return O2JamLibraryWriteResult.Updated;
         }
 
-        BeatmapSetInfo? sourceSet = null;
+        var sourceSet = index.FindPath(plan.SourcePath);
 
         if (request.KnownSourceSetId != null)
         {
             var knownSet = database.Find<BeatmapSetInfo>(request.KnownSourceSetId.Value);
             if (knownSet is { DeletePending: false })
+            {
+                if (sourceSet != null && sourceSet.ID != knownSet.ID)
+                    throw new InvalidDataException("The destination path is registered to another OJN set.");
                 sourceSet = knownSet;
-        }
-        else if (!request.SourceIndexWasLoaded)
-        {
-            var pathMatches = database.All<BeatmapSetInfo>().Where(set => !set.DeletePending)
-                                      .AsEnumerable().Where(set => containsSourceChart(set, plan.SourcePath)).Take(2).ToArray();
-            if (pathMatches.Length > 1)
-                throw new InvalidDataException("Multiple stored sets claim the same OJN path.");
-            sourceSet = pathMatches.SingleOrDefault();
+            }
         }
 
         // Older releases can produce a different set hash when an OJN difficulty contains
@@ -231,15 +237,10 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         if (sourceSet != null)
             ensureSupportedProjection(sourceSet);
 
-        var contentMatches = database.All<BeatmapSetInfo>().Where(set => !set.DeletePending)
-                                     .AsEnumerable().Where(set => set.Beatmaps.Any(beatmap => beatmap.Ruleset.ShortName == O2LazerIdentity.ShortName)
-                                                                  && containsSourceContent(set, plan)).Take(2).ToArray();
-        if (contentMatches.Length > 1)
-            throw new InvalidDataException("Multiple stored sets claim the same OJN content; automatic merging is unavailable.");
+        var matchingSet = index.FindContent(plan.SourceHash);
         if (sourceSet != null && !containsSourceChart(sourceSet, plan.SourcePath) && !containsSourceContent(sourceSet, plan))
             throw new InvalidDataException("The source index no longer identifies this OJN.");
 
-        var matchingSet = contentMatches.SingleOrDefault();
         if (matchingSet != null)
         {
             ensureSupportedProjection(matchingSet);
@@ -247,19 +248,32 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
             var hasPreviousPath = tryGetSourcePath(matchingSet, out var previousPath);
             if (containsSourceChart(matchingSet, plan.SourcePath))
                 result = updateMetadata(matchingSet);
-            else if (hasPreviousPath && O2JamSourcePresence.IsDefinitelyMissing(previousPath))
-                result = updateMetadata(matchingSet);
-            else if (!hasPreviousPath || !File.Exists(previousPath))
-                throw new IOException("The previous source location is unavailable; it cannot safely be replaced by this copy.");
+            else
+            {
+                if (!hasPreviousPath)
+                    throw new IOException("The previous source location is unavailable; it cannot safely be replaced by this copy.");
+                if (O2JamSourcePresence.IsDefinitelyMissing(previousPath))
+                    result = updateMetadata(matchingSet);
+                else
+                {
+                    var guard = new FileStream(previousPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    sourceGuards.Add(guard);
+                    var previousHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(guard));
+                    if (!string.Equals(previousHash, plan.SourceHash, StringComparison.OrdinalIgnoreCase))
+                        result = updateMetadata(matchingSet);
+                }
+            }
 
             if (sourceSet != null && sourceSet.ID != matchingSet.ID)
+            {
                 sourceSet.DeletePending = true;
+                index.Update(sourceSet);
+            }
 
             return result;
         }
 
-        if (database.All<BeatmapSetInfo>().Where(set => !set.DeletePending && set.Hash == plan.SetHash)
-                    .AsEnumerable().Any(isOwnedByO2Lazer))
+        if (index.ContainsSetHash(plan.SetHash))
             throw new InvalidDataException("The set hash matches without verifiable source content.");
 
         var replacedSet = sourceSet;
@@ -276,8 +290,12 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
             addDifficulty(beatmapSet, ruleset, plan, chart);
 
         database.Add(beatmapSet);
+        index.Update(beatmapSet);
         if (replacedSet != null)
+        {
             replacedSet.DeletePending = true;
+            index.Update(replacedSet);
+        }
 
         return O2JamLibraryWriteResult.Imported;
     }
@@ -578,7 +596,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         return false;
     }
 
-    private static bool tryGetSourcePath(BeatmapInfo beatmap, out string sourcePath)
+    internal static bool tryGetSourcePath(BeatmapInfo beatmap, out string sourcePath)
     {
         if (string.Equals(beatmap.Ruleset.ShortName, O2LazerIdentity.ShortName, StringComparison.Ordinal))
         {

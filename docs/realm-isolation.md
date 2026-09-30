@@ -1,6 +1,6 @@
 # 当前 Realm 存储边界
 
-更新：2026-10-01。这里记录现状，不预设 osu! 未来存储技术，也不授权删除或重写用户数据。[A04 设计](library-persistence-contract.md#重设计草案的范围与分层)中的 A04-1/2 已实现统一投影/版本与身份迁移并通过临时库验证；去重/通知和文件预留仍待后续步骤。重构前的测试 replay 不在兼容范围。
+更新：2026-10-01。这里记录现状，不预设 osu! 未来存储技术，也不授权删除或重写用户数据。[A04 设计](library-persistence-contract.md#重设计草案的范围与分层)中的 A04-1/2/3 已实现统一投影/版本、身份迁移、去重/稳定路径和提交后通知，并通过临时库验证；文件预留恢复及联测仍待 A04-4/5。重构前的测试 replay 不在兼容范围。
 
 生产代码中直接使用 Realm/RealmAccess/RealmFileStore/RealmUser 的文件集中在 `osu.Game.Rulesets.O2Lazer/Host/Persistence/Realm`：
 
@@ -24,3 +24,5 @@
 A04-1 的源快照及提交前只读句柄验证位于 Host/Library，原生 Tags 载体编解码也位于该宿主桥接目录，供元数据读写方共用；它们不返回 Realm 托管对象，不把 Tags 协议当成独立 Core/Formats 或未来存储 schema。Realm 适配器共用字段投影和原生文件引用同步，难度复制及作者快照复用原生 CopyTo/DeepClone。具体 Realm schema 与当前两个 partial 接缝未改。全脚本 922 项过滤回归及全部边界检查通过；没有安装到客户端或对真实库执行写入。
 
 A04-2 的三槽位清单、MD5 公式及缺失证明同样归 Host/Library；具体成绩关联快照、全库集合所有者检查、原生模型移除和正式 v5 唯一查询仍在 Host/Persistence/Realm。没有新增跨后端 ORM、身份别名表或永久迁移表。原生单条 QueryBeatmap 无法验证唯一性，因此 replay 导入在原生 ScoreImporter 的既有 Realm 接缝中限定 O2Lazer 活动谱面查询；归档字节与原生分数导入/读取管线保持。详见[身份迁移边界](library-persistence-contract.md#a04-2-实施边界)。
+
+A04-3 的规范路径、SHA-256 分组、通知重试队列及取消结果快照位于 Host/Library，均不接收 Realm 对象。每个模型事务内的原生集合路径/内容索引留在 Host/Persistence/Realm；它按实际事务状态更新，不依赖扫描旧快照。工作谱面与难度缓存分别订阅脱管快照，监听器失败不改变已提交结果。原生没有外部 OJN 的副本协调和提交后独立重试入口，新增适配只覆盖这些缺口，没有 schema、ORM 或通用存档层。范围和失败语义见[存储契约](library-persistence-contract.md#a04-3-实施边界)。

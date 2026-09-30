@@ -30,11 +30,12 @@ public sealed record O2JamImportDifficultyCache(O2JamDifficulty Difficulty, doub
 
 public sealed record O2JamLibraryWriteRequest(
     O2JamImportPlan Plan,
-    Guid? KnownSourceSetId = null,
-    bool SourceIndexWasLoaded = false);
+    Guid? KnownSourceSetId = null);
 
 public interface IO2JamLibraryWriter
 {
+    int PendingNotifications { get; }
+    void RetryNotifications();
     O2JamLibraryWriteResult Write(O2JamImportPlan plan);
     IReadOnlyList<O2JamLibraryWriteResult> WriteBatch(IReadOnlyList<O2JamLibraryWriteRequest> requests);
     int MarkDeleted(IEnumerable<Guid> setIds);

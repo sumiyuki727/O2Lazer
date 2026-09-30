@@ -193,10 +193,41 @@ public class O2JamLibraryApplicationTest
         Assert.That(creations, Is.EqualTo(1));
     }
 
+    [Test]
+    public async Task CancellationAfterBackendCommitRetainsSummary()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var backend = new FakeBackend { RefreshAction = (_, _) => cancellation.Cancel() };
+        using var application = new O2JamLibraryApplication(backend);
+        await application.UpdateSettingsAsync("library", false);
+        var exception = Assert.ThrowsAsync<O2JamImportCancelledException>(async () =>
+            await application.RefreshAsync(cancellationToken: cancellation.Token))!;
+        Assert.That(exception.Summary.Imported, Is.EqualTo(1));
+        Assert.That(exception.Summary.Failed, Is.Zero);
+        Assert.That(application.IsBusy, Is.False);
+    }
+
+    [Test]
+    public async Task PostRefreshCollectionAndActivityFailuresDoNotReplaceWriteResults()
+    {
+        var backend = new FakeBackend();
+        using var application = new O2JamLibraryApplication(backend);
+        application.ActivityChanged += () => throw new InvalidOperationException("Injected activity observer failure.");
+        await application.UpdateSettingsAsync("library", false);
+        backend.FailCollections = true;
+        var summary = await application.RefreshAsync();
+        Assert.That(summary.Imported, Is.EqualTo(1));
+        Assert.That(summary.Failed, Is.Zero);
+        Assert.That(summary.PendingNotifications, Is.EqualTo(1));
+        Assert.That(application.IsBusy, Is.False);
+        backend.FailCollections = false;
+        Assert.That((await application.RefreshAsync()).PendingNotifications, Is.Zero);
+    }
     private sealed class FakeBackend : IO2JamLibraryBackend
     {
         public Action<string, CancellationToken>? RefreshAction;
         public bool PathExists = true;
+        public bool FailCollections;
         public int Refreshes;
         public int Clears;
         public string? RefreshedPath;
@@ -222,7 +253,12 @@ public class O2JamLibraryApplicationTest
         }
 
         public void DeleteAll() => Clears++;
-        public void UpdateCollections(string path, bool enabled) => Collections = (path, enabled);
+        public void UpdateCollections(string path, bool enabled)
+        {
+            if (FailCollections)
+                throw new InvalidOperationException("Injected collection failure.");
+            Collections = (path, enabled);
+        }
         public void Dispose()
         {
             ActiveAtDisposal = active;

@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using osu.Framework.Logging;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
 
@@ -58,7 +59,7 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
                 return true;
             });
         }
-        ActivityChanged?.Invoke();
+        notifyActivity();
         return result;
     }
 
@@ -80,13 +81,27 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
                 using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token, cancellationToken);
                 cancellation.Token.ThrowIfCancellationRequested();
                 var summary = backend.Refresh(path, progress, cancellation.Token);
-                cancellation.Token.ThrowIfCancellationRequested();
-                progress?.Invoke(new O2JamLibraryProgress(0, 0, true));
-                updateCollections();
+                try
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    try { progress?.Invoke(new O2JamLibraryProgress(0, 0, true)); }
+                    catch (Exception exception) { Logger.Error(exception, "O2Jam collection progress observer failed."); }
+                    updateCollections();
+                }
+                catch (OperationCanceledException) when (summary.Imported + summary.Updated > 0)
+                {
+                    throw new O2JamImportCancelledException(summary, cancellation.Token);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception exception)
+                {
+                    Logger.Error(exception, "O2Jam collection synchronisation failed after refreshing the library; retry on the next refresh.");
+                    summary = summary with { PendingNotifications = summary.PendingNotifications + 1 };
+                }
                 return summary;
             });
         }
-        ActivityChanged?.Invoke();
+        notifyActivity();
         return result;
     }
 
@@ -103,7 +118,7 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
                 return true;
             });
         }
-        ActivityChanged?.Invoke();
+        notifyActivity();
         return result;
     }
 
@@ -122,7 +137,7 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
             {
                 lock (operationLock)
                     pending--;
-                ActivityChanged?.Invoke();
+                notifyActivity();
             }
         }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
         queue = task;
@@ -141,6 +156,18 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
         lifetime.Token.ThrowIfCancellationRequested();
         // Read the latest preference when work runs; an old refresh must not re-enable collections.
         backend.UpdateCollections(path, enabled);
+    }
+
+    private void notifyActivity()
+    {
+        var recipients = ActivityChanged;
+        if (recipients == null)
+            return;
+        foreach (Action recipient in recipients.GetInvocationList())
+        {
+            try { recipient(); }
+            catch (Exception exception) { Logger.Error(exception, "O2Jam library activity observer failed."); }
+        }
     }
 
     public void Dispose()

@@ -46,7 +46,7 @@ Composition 组装各模块；Persistence 接入具体存储后端
 
 `Host/Localisation` 是服务 UI 的本地化设施，不拥有玩法规则。补丁仍归服务的功能模块，总安装器只负责组装和失败策略。
 
-A04-1/2 的导入计划使用字节内容、全部三槽位身份/可玩性、原 Lv、源时间及独立缓存版本，不包含 Realm 对象或第二份音符模型。Host/Library 负责身份公式、源快照与缺失证明，并编解码原生 Tags 载体；该载体属于宿主桥，不是独立格式或未来数据库 schema。Realm 适配器共用新增/刷新赋值，三难度迁移及唯一正式 v5 匹配留在此处；明确集合迁移和对象移除复用原生 TransferCollectionReferences/模型清理，继续复用 CopyTo、DeepClone、RealmFileStore。已知身份/旧成绩及正式 v5 不因元数据版本变化重生成；去重/通知、文件恢复与实机验收仍按[存储矩阵](library-persistence-contract.md#实施顺序与验收矩阵)后续步骤处理。
+A04-1/2 的导入计划使用字节内容、全部三槽位身份/可玩性、原 Lv、源时间及独立缓存版本，不包含 Realm 对象或第二份音符模型。Host/Library 负责身份公式、源快照与缺失证明，并编解码原生 Tags 载体；该载体属于宿主桥，不是独立格式或未来数据库 schema。Realm 适配器共用新增/刷新赋值，三难度迁移及唯一正式 v5 匹配留在此处；明确集合迁移和对象移除复用原生 TransferCollectionReferences/模型清理，继续复用 CopyTo、DeepClone、RealmFileStore。已知身份/旧成绩及正式 v5 不因元数据版本变化重生成；A04-3 的源内容归组、稳定路径与通知/取消结果归 Host/Library，事务内 Realm 集合索引留在适配器。原生缓存通知独立重试，不引入永久 outbox。文件恢复与实机验收仍按[存储矩阵](library-persistence-contract.md#实施顺序与验收矩阵)后续步骤处理。
 
 ### 允许依赖矩阵与例外
 

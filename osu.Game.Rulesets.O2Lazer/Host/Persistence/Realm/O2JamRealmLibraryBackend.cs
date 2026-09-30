@@ -24,7 +24,8 @@ internal sealed class O2JamRealmLibraryBackend : IO2JamLibraryBackend
         this.workingBeatmaps = workingBeatmaps;
         this.difficultyCache = difficultyCache;
         writer = new O2JamLibraryWriter(realm, storage);
-        writer.BeatmapUpdated += invalidate;
+        writer.BeatmapUpdated += invalidateWorkingBeatmap;
+        writer.BeatmapUpdated += invalidateDifficulty;
         importer = new O2JamImportService(new O2JamImportPlanner(), writer);
         collections = new O2JamSourceFolderCollectionService(realm);
     }
@@ -50,11 +51,12 @@ internal sealed class O2JamRealmLibraryBackend : IO2JamLibraryBackend
             collections.DeleteFeatureCollections();
     }
 
-    private void invalidate(BeatmapInfo beatmap)
-    {
-        workingBeatmaps?.Invalidate(beatmap);
-        difficultyCache?.Invalidate(beatmap, beatmap);
-    }
+    private void invalidateWorkingBeatmap(BeatmapInfo beatmap) => workingBeatmaps?.Invalidate(beatmap);
+    private void invalidateDifficulty(BeatmapInfo beatmap) => difficultyCache?.Invalidate(beatmap, beatmap);
 
-    public void Dispose() => writer.BeatmapUpdated -= invalidate;
+    public void Dispose()
+    {
+        writer.BeatmapUpdated -= invalidateWorkingBeatmap;
+        writer.BeatmapUpdated -= invalidateDifficulty;
+    }
 }

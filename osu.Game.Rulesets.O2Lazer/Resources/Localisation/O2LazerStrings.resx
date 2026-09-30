@@ -348,4 +348,13 @@
   <data name="library_operation_failed" xml:space="preserve">
     <value>The library operation failed.</value>
   </data>
+  <data name="refresh_stopped" xml:space="preserve">
+    <value>Refresh stopped. {0} imported, {1} updated.</value>
+  </data>
+  <data name="refresh_updates_pending" xml:space="preserve">
+    <value>Beatmaps saved. Some display or audio updates are pending; refresh again to retry.</value>
+  </data>
+  <data name="refresh_with_failures" xml:space="preserve">
+    <value>Refresh finished: {0} imported, {1} updated, {2} failed.</value>
+  </data>
 </root>

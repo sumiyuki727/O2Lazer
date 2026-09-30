@@ -26,7 +26,7 @@ internal static class O2JamChartSourceScanner
                 charts.Add(file);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return charts.ToArray();
+        return charts.Order(StringComparer.OrdinalIgnoreCase).ThenBy(path => path, StringComparer.Ordinal).ToArray();
     }
 
 }

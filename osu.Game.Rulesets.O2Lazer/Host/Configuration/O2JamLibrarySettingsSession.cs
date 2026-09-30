@@ -77,8 +77,17 @@ internal sealed class O2JamLibrarySettingsSession : IDisposable
                     : O2LazerStrings.RefreshingProgress(progress.Processed, progress.Total);
                 notification.Progress = progress.Total == 0 ? 1 : (float)progress.Processed / progress.Total;
             }, notification.CancellationToken).ConfigureAwait(false);
-            notification.CompletionText = summary.RulesetUnavailable ? O2LazerStrings.RulesetUnavailable : O2LazerStrings.RefreshComplete;
+            notification.CompletionText = summary.RulesetUnavailable ? O2LazerStrings.RulesetUnavailable
+                : summary.Failed > 0 ? O2LazerStrings.RefreshWithFailures(summary.Imported, summary.Updated, summary.Failed)
+                : summary.PendingNotifications > 0 ? O2LazerStrings.RefreshUpdatesPending : O2LazerStrings.RefreshComplete;
             notification.State = summary.RulesetUnavailable ? ProgressNotificationState.Cancelled : ProgressNotificationState.Completed;
+        }
+        catch (O2JamImportCancelledException exception)
+        {
+            // Native cancelled notifications do not post CompletionText. Keep partial results
+            // on the existing notification instead of suggesting the committed batch vanished.
+            notification.Text = O2LazerStrings.RefreshStopped(exception.Summary.Imported, exception.Summary.Updated);
+            notification.State = ProgressNotificationState.Cancelled;
         }
         catch (OperationCanceledException)
         {

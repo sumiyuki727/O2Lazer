@@ -348,4 +348,13 @@
   <data name="library_operation_failed" xml:space="preserve">
     <value>曲库操作失败。</value>
   </data>
+  <data name="refresh_stopped" xml:space="preserve">
+    <value>刷新已停止，已导入 {0} 个、更新 {1} 个。</value>
+  </data>
+  <data name="refresh_updates_pending" xml:space="preserve">
+    <value>谱面已保存；部分界面或音频尚未更新，再次刷新可重试。</value>
+  </data>
+  <data name="refresh_with_failures" xml:space="preserve">
+    <value>刷新完成：导入 {0} 个，更新 {1} 个，失败 {2} 个。</value>
+  </data>
 </root>
