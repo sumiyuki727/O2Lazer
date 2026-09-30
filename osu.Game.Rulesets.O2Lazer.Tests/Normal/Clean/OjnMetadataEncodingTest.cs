@@ -8,6 +8,7 @@ using NUnit.Framework;
 using O2Jam.Core;
 using O2Jam.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Import;
+using osu.Game.Rulesets.O2Lazer.Difficulty;
 using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
@@ -162,6 +163,44 @@ public class OjnMetadataEncodingTest
             directory.Write($"context{index}.ojn", chart(encoded("[国服]莎娜塔", 936)));
         resolver.Clear();
         Assert.That(resolver.GetForFile(path), Is.EqualTo(OjnMetadataEncoding.Gbk));
+    }
+
+
+    [Test]
+    public void ExplicitRefreshRechecksDirectoryContextWithoutRecalculatingValidManiaAttributes()
+    {
+        using var directory = new TemporaryCatalogue();
+        for (var index = 0; index < 4; index++)
+            directory.Write($"context{index}.ojn", chart(encoded("あなた", 949)));
+        var path = directory.Write("ambiguous.ojn", chart(Convert.FromHexString("DEEFE3EA")));
+        OjnDirectoryEncoding.Shared.Clear();
+        var planner = new O2JamImportPlanner();
+        var first = planner.Create(path);
+        var source = new O2JamImportedSource(Guid.NewGuid(), first.SourceTimestamp, first.SourceData.LongLength,
+            true, true, first.SourceHash, first.EncodingFallback,
+            [new O2JamImportDifficultyCache(O2JamDifficulty.EX, 3.25, 42, O2JamManiaStarRating.CacheVersion)]);
+        Assert.That(first.EncodingFallback, Is.EqualTo(OjnMetadataEncoding.Cp949));
+        Assert.That(O2JamImportService.isUnchanged(path, source), Is.True);
+
+        for (var index = 0; index < 4; index++)
+            directory.Write($"context{index}.ojn", chart(encoded("[国服]莎娜塔", 936)));
+        OjnDirectoryEncoding.Shared.Clear();
+        Assert.That(O2JamImportService.isUnchanged(path, source), Is.False);
+        var next = planner.Create(path, source);
+        Assert.Multiple(() =>
+        {
+            Assert.That(next.SourceHash, Is.EqualTo(first.SourceHash));
+            Assert.That(next.Title, Is.Not.EqualTo(first.Title));
+            Assert.That(next.EncodingFallback, Is.EqualTo(OjnMetadataEncoding.Gbk));
+            Assert.That(next.Charts[0].ManiaStarRating, Is.EqualTo(3.25));
+            Assert.That(next.Charts[0].ManiaMaxCombo, Is.EqualTo(42));
+            Assert.That(O2JamImportService.isUnchanged(path, source with { EncodingFallback = next.EncodingFallback }), Is.True);
+            Assert.That(planner.Create(path, source with { SourceHash = "different" }).Charts[0].ManiaStarRating, Is.Not.EqualTo(3.25));
+            Assert.That(planner.Create(path, source with
+            {
+                ManiaCache = [new O2JamImportDifficultyCache(O2JamDifficulty.EX, 3.25, 42, 0)],
+            }).Charts[0].ManiaStarRating, Is.Not.EqualTo(3.25));
+        });
     }
 
     [Test]

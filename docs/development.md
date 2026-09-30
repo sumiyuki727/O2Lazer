@@ -44,7 +44,9 @@ dotnet test osu.Game.Rulesets.O2Lazer.Tests/osu.Game.Rulesets.O2Lazer.Tests.cspr
 
 所有测试命令必须带 `--filter`。Benchmark 与全曲库扫描不属于常规验证，执行前需明确决定。真实谱面兼容测试应从 `E:/o2jam` 选有限、可复现的代表样本，不复制私有谱面入仓库。边界测试可证明状态/对象行为，但无法替代客户端里的皮肤、动画、音量、暂停或多 ruleset 载入验收。
 
-本地化修改使用 `--filter 'FullyQualifiedName~O2JamLocalisation'`，同时覆盖资源规则及原生语言绑定。A13 定向验证为 26 项本地化和 66 项相关契约，共 92 项；当前完整脚本基线仍是上方 A12。新增 16 项测试会由原有 `.Normal.` 过滤器自动纳入后续常规验证。动态文本与固定名称的区分见[本地化指南](localisation.md#文本所有者与固定字符串)。
+本地化修改使用 `--filter 'FullyQualifiedName~O2JamLocalisation'`，同时覆盖资源规则及原生语言绑定。A13 定向验证为 26 项本地化和 66 项相关契约，共 92 项；新增 16 项测试已由原有 `.Normal.` 过滤器纳入下方 A04-1 基线。动态文本与固定名称的区分见[本地化指南](localisation.md#文本所有者与固定字符串)。
+
+2026-10-01 A04-1 更新完整脚本基线：Formats 41、Core 55、检查器 15、宿主常规 795、旧库迁移 8、正式 replay 导入 8，合计 922 项通过；全部源码/语义分层检查通过。A13 新测试已纳入，本次临时库新增投影/媒体恢复、未来/冲突数据拒绝及源快照变化保护；详细边界见[存储设计与验收](library-persistence-contract.md#实施顺序与验收矩阵)。当前 AutoMapper 告警保留；不把本轮自动化当成客户端或两事务文件恢复验收。
 
 ## 可选本地诊断
 

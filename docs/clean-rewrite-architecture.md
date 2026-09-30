@@ -36,7 +36,7 @@ Composition 组装各模块；Persistence 接入具体存储后端
 | `Integration/Objects`、`Integration/Scoring` | 时间和判定转译、核心结果与原生结果关联；向宿主提供判定解析契约 | `O2JamJudgementBridge`、`IO2JamJudgementResolver`、`O2JamJudgementHistory` |
 | `Host/Beatmaps` | 原生工作谱面、Skin/Track 构造、缓存与资源转移生命周期 | `O2JamWorkingBeatmap`、`O2JamWorkingBeatmapCache`、`O2JamWorkingBeatmapHook` |
 | `Host/Library/Filtering`、`Host/Performance/Eligibility` | 原生曲库查询入口和 O2Jam PP 资格，读取难度/Mod 策略，不决定绘制 | `O2JamFilterCriteria`、`O2JamPerformanceEligibility` |
-| `Host/Library`、`Host/Configuration` | 导入应用流程、写入契约、操作会话、配置 | `O2JamImportService`、`IO2JamLibraryWriter`、`O2JamLibrarySettingsSession` |
+| `Host/Library`、`Host/Configuration` | 源快照、导入投影/版本与原生元数据载体、写入契约、操作会话、配置 | `O2JamSourceSnapshot`、`O2JamImportMetadata`、`O2JamImportService`、`IO2JamLibraryWriter`、`O2JamLibrarySettingsSession` |
 | `Host/Audio`、`Host/Gameplay`、`Host/Replays`、`Host/Mods`、`Host/Difficulty` | 原生轨道、Drawable/对象池、计分协调、输入回放、Mod、难度缓存与计算 | `O2JamPreviewTrack`、`O2JamDrawableRuleset`、`O2JamScoreProcessor`、`O2JamDifficultyCalculator` |
 | `Host/Persistence/Realm` | 当前 Realm 实现及原生存储接入 | `O2JamLibraryWriter`、`O2JamReplayPersistencePatch` |
 | `ManiaScore/` | 与 O2Jam 核心并列的 Mania 玩法路线及其展示联动 | `O2JamManiaScoreBeatmapAdapter`、`ManiaScoreProcessorAdapter` |
@@ -45,6 +45,8 @@ Composition 组装各模块；Persistence 接入具体存储后端
 | `Resources/` | 本地化、音效、图标 | `Localisation/O2LazerStrings*.resx` |
 
 `Host/Localisation` 是服务 UI 的本地化设施，不拥有玩法规则。补丁仍归服务的功能模块，总安装器只负责组装和失败策略。
+
+A04-1 的导入计划使用字节内容、难度编号、原 Lv、源时间及独立缓存版本，不包含 Realm 对象。Host/Library 编解码原生 Tags 载体供字段写入与显示读端共用；该载体属于宿主桥，不是独立格式或未来数据库 schema。Realm 适配器共用新增/刷新赋值并复用原生 CopyTo、DeepClone、RealmFileStore。已知身份/旧成绩及正式 v5 不因元数据版本变化重生成；完整迁移和文件恢复仍按[存储矩阵](library-persistence-contract.md#实施顺序与验收矩阵)后续步骤处理。
 
 ### 允许依赖矩阵与例外
 

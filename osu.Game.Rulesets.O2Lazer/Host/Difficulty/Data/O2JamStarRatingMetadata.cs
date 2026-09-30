@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using osu.Game.Beatmaps;
+using osu.Game.Rulesets.O2Lazer.Import;
 using osu.Game.Rulesets.O2Lazer.Presentation.DifficultyLevels.Policy;
 
 namespace osu.Game.Rulesets.O2Lazer.Difficulty;
@@ -32,22 +33,21 @@ internal static class O2JamStarRatingMetadata
         return null;
     }
 
-    public static bool HasCurrentManiaVersion(string tags) => Array.IndexOf(splitTags(tags), ManiaVersionTag) >= 0;
+    public static bool HasCurrentManiaVersion(string tags)
+    {
+        var tokens = Array.FindAll(splitTags(tags), tag => tag.StartsWith(ManiaVersionPrefix, StringComparison.Ordinal));
+        return tokens.Length == 1 && tokens[0] == ManiaVersionTag;
+    }
 
     public static string CreateManiaMaxComboTag(int maxCombo) =>
         maniaMaxComboCurrentPrefix + Math.Max(0, maxCombo).ToString(CultureInfo.InvariantCulture);
 
     public static int? ReadManiaMaxCombo(string tags)
     {
-        foreach (var tag in splitTags(tags))
-        {
-            if (tag.StartsWith(maniaMaxComboCurrentPrefix, StringComparison.Ordinal)
-                && int.TryParse(tag.AsSpan(maniaMaxComboCurrentPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var maxCombo)
-                && maxCombo >= 0)
-                return maxCombo;
-        }
-
-        return null;
+        var tokens = Array.FindAll(splitTags(tags), tag => tag.StartsWith(ManiaMaxComboPrefix, StringComparison.Ordinal));
+        return tokens.Length == 1 && tokens[0].StartsWith(maniaMaxComboCurrentPrefix, StringComparison.Ordinal)
+               && int.TryParse(tokens[0].AsSpan(maniaMaxComboCurrentPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var maxCombo)
+            ? maxCombo : null;
     }
 
     public static int ResolveManiaMaxCombo(IBeatmapInfo beatmap) =>
@@ -64,9 +64,15 @@ internal static class O2JamStarRatingMetadata
             : null;
 
     public static double GetO2JamStars(IBeatmapInfo beatmap) =>
-        ReadO2Jam(beatmap.Metadata.Tags) ?? O2JamDifficultyRating.FromLevel(ResolveLevel(beatmap));
+        O2JamImportMetadata.Read(beatmap.Metadata.Tags, out var metadata) == O2JamImportMetadataStatus.Valid
+            ? O2JamDifficultyRating.FromLevel(metadata!.Level)
+            : ReadO2Jam(beatmap.Metadata.Tags) ?? O2JamDifficultyRating.FromLevel(resolveLegacyLevel(beatmap));
 
-    public static ushort ResolveLevel(IBeatmapInfo beatmap)
+    public static ushort ResolveLevel(IBeatmapInfo beatmap) =>
+        O2JamImportMetadata.Read(beatmap.Metadata.Tags, out var metadata) == O2JamImportMetadataStatus.Valid
+            ? metadata!.Level : resolveLegacyLevel(beatmap);
+
+    private static ushort resolveLegacyLevel(IBeatmapInfo beatmap)
     {
         // Only pre-migration entries used native StarRating for level / 10. Never infer an
         // O2Jam level from a mania rating if the difficulty name is absent or has been edited.
@@ -78,6 +84,9 @@ internal static class O2JamStarRatingMetadata
 
     public static int ResolveChartOrder(IBeatmapInfo beatmap)
     {
+        if (O2JamImportMetadata.Read(beatmap.Metadata.Tags, out var metadata) == O2JamImportMetadataStatus.Valid)
+            return (int)metadata!.Difficulty;
+
         var name = beatmap.DifficultyName.TrimStart();
         if (name.StartsWith("EX", StringComparison.OrdinalIgnoreCase))
             return 0;

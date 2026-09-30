@@ -15,11 +15,19 @@ namespace osu.Game.Rulesets.O2Lazer.Import;
 /// </summary>
 public sealed class O2JamImportPlanner
 {
-    public O2JamImportPlan Create(string sourcePath)
+    public O2JamImportPlan Create(string sourcePath, O2JamImportedSource? importedSource = null)
     {
         var fullPath = Path.GetFullPath(sourcePath);
-        var sourceData = File.ReadAllBytes(fullPath);
-        var document = new OjnReader(OjnMetadataEncoding.Automatic, () => OjnDirectoryEncoding.Shared.GetForFile(fullPath)).Read(sourceData);
+        var snapshot = O2JamSourceSnapshot.Read(fullPath);
+        var sourceData = snapshot.Data;
+        var sourceHash = snapshot.Hash;
+        OjnMetadataEncoding? encodingFallback = null;
+        var document = new OjnReader(OjnMetadataEncoding.Automatic, () =>
+        {
+            var encoding = OjnDirectoryEncoding.Shared.GetForFile(fullPath);
+            encodingFallback = encoding;
+            return encoding;
+        }).Read(sourceData);
 
         var charts = document.Charts
                              .Where(chart => chart.Notes.Any(note => note.IsPlayable))
@@ -30,8 +38,20 @@ public sealed class O2JamImportPlanner
                                  var objectLength = timingMap.TimeAt(finalPosition) + 5000;
                                  var declaredLength = document.Metadata.Durations[(int)chart.Difficulty] * 1000d;
                                  var playable = chart.Notes.Where(note => note.IsPlayable).ToArray();
-                                 var beatmap = new OjnBeatmapFactory().Create(document, chart.Difficulty);
-                                 var maniaAttributes = O2JamManiaStarRating.CalculateAttributes(beatmap, [], false);
+                                 // Text context and import projection revisions do not change the
+                                 // native no-mod attributes of identical source bytes.
+                                 var cache = string.Equals(importedSource?.SourceHash, sourceHash, StringComparison.OrdinalIgnoreCase)
+                                     ? importedSource?.ManiaCache?.SingleOrDefault(candidate => candidate.Difficulty == chart.Difficulty.ToGameplay())
+                                     : null;
+                                 if (cache != null && (cache.Version != O2JamManiaStarRating.CacheVersion
+                                                       || !double.IsFinite(cache.StarRating) || cache.StarRating < 0 || cache.MaxCombo < 0))
+                                     cache = null;
+                                 if (cache == null)
+                                 {
+                                     var beatmap = new OjnBeatmapFactory().Create(document, chart.Difficulty);
+                                     var attributes = O2JamManiaStarRating.CalculateAttributes(beatmap, [], false);
+                                     cache = new O2JamImportDifficultyCache(chart.Difficulty.ToGameplay(), attributes.StarRating, attributes.MaxCombo, O2JamManiaStarRating.CacheVersion);
+                                 }
 
                                  return new O2JamImportChart(
                                      chart.Difficulty.ToGameplay(),
@@ -40,8 +60,8 @@ public sealed class O2JamImportPlanner
                                      Math.Max(objectLength, declaredLength),
                                      playable.Length,
                                      playable.Count(note => note.EndPosition != null),
-                                     maniaAttributes.StarRating,
-                                     maniaAttributes.MaxCombo);
+                                     cache.StarRating,
+                                     cache.MaxCombo);
                              })
                              .ToArray();
 
@@ -62,7 +82,7 @@ public sealed class O2JamImportPlanner
             Path.GetDirectoryName(fullPath)!,
             Path.GetFileName(fullPath),
             sourceData,
-            Convert.ToHexString(SHA256.HashData(sourceData)).ToLowerInvariant(),
+            sourceHash,
             setHash,
             document.Metadata.SongId,
             title,
@@ -70,7 +90,11 @@ public sealed class O2JamImportPlanner
             document.Metadata.NoteArranger,
             document.Metadata.InitialBpm,
             background,
-            charts);
+            charts)
+        {
+            SourceTimestamp = snapshot.Timestamp,
+            EncodingFallback = encodingFallback,
+        };
     }
 
     private static string calculateDifficultyMd5(byte[] source, O2JamDifficulty difficulty)

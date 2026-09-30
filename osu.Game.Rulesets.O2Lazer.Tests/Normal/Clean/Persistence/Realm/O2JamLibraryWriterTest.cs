@@ -91,17 +91,7 @@ public class O2JamLibraryWriterTest
     {
         var set = createSet("source", "chart.ojn");
         var plan = createPlan("Title", "Artist", "Charter");
-        var beatmap = set.Beatmaps.Single();
-        beatmap.Metadata.Title = plan.Title;
-        beatmap.Metadata.Artist = plan.Artist;
-        beatmap.Metadata.Author.Username = plan.Author;
-        beatmap.Metadata.AudioFile = plan.FileName;
-        beatmap.Metadata.Tags = $"{O2JamLibraryWriter.MetadataMarker} {O2JamLibraryWriter.EncodingMarker} o2lazer-source-size:{plan.SourceData.LongLength} "
-                                + $"{O2JamStarRatingMetadata.ManiaVersionTag} {O2JamStarRatingMetadata.CreateManiaMaxComboTag(plan.Charts.Single().ManiaMaxCombo)}";
-        beatmap.LastLocalUpdate = O2JamSourceTimestamp.Read(plan.SourcePath);
-        beatmap.StarRating = plan.Charts.Single().ManiaStarRating;
-        beatmap.Hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, plan.Charts.Single().Difficulty);
-        set.Hash = plan.SetHash;
+        Assert.That(O2JamLibraryWriter.refreshMetadata(set, plan), Is.True);
 
         Assert.That(O2JamLibraryWriter.refreshMetadata(set, plan), Is.False);
     }
@@ -286,6 +276,67 @@ public class O2JamLibraryWriterTest
         {
             File.Delete(path);
         }
+    }
+
+
+    [Test]
+    public void ProjectionUpdatesStatisticsAndIsolatesADetachedAuthorReference()
+    {
+        var set = createSet("source", "chart.ojn");
+        var beatmap = set.Beatmaps.Single();
+        var other = new BeatmapInfo(metadata: new BeatmapMetadata { Author = beatmap.Metadata.Author });
+        var originalSettings = beatmap.UserSettings;
+        beatmap.UserSettings.Offset = 12.5;
+        beatmap.Hidden = true;
+        beatmap.BeatDivisor = 8;
+        beatmap.Metadata.TitleUnicode = "User Unicode";
+        var plan = createPlan("Title", "Artist", "Charter");
+        O2JamLibraryWriter.refreshMetadata(set, plan);
+        Assert.Multiple(() =>
+        {
+            Assert.That(beatmap.DifficultyName, Is.EqualTo("EX Lv.41"));
+            Assert.That(beatmap.Difficulty.CircleSize, Is.EqualTo(7));
+            Assert.That(beatmap.Difficulty.OverallDifficulty, Is.EqualTo(10));
+            Assert.That(beatmap.BPM, Is.EqualTo(120));
+            Assert.That(beatmap.Length, Is.EqualTo(1000));
+            Assert.That(beatmap.TotalObjectCount, Is.EqualTo(1));
+            Assert.That(beatmap.EndTimeObjectCount, Is.Zero);
+            Assert.That(beatmap.UserSettings, Is.SameAs(originalSettings));
+            Assert.That(beatmap.UserSettings.Offset, Is.EqualTo(12.5));
+            Assert.That(beatmap.Hidden, Is.True);
+            Assert.That(beatmap.BeatDivisor, Is.EqualTo(8));
+            Assert.That(beatmap.Metadata.TitleUnicode, Is.EqualTo("User Unicode"));
+            Assert.That(other.Metadata.Author.Username, Is.Not.EqualTo("Charter"));
+            Assert.That(O2JamImportMetadata.Read(beatmap.Metadata.Tags, out _), Is.EqualTo(O2JamImportMetadataStatus.Valid));
+        });
+    }
+
+    [Test]
+    public void AConflictingSlotStopsTheEntireRefreshBeforeAnyMutation()
+    {
+        var set = createSet("source", "chart.ojn");
+        var original = set.Beatmaps.Single();
+        var second = new BeatmapInfo(original.Ruleset) { DifficultyName = original.DifficultyName, BeatmapSet = set };
+        set.Beatmaps.Add(second);
+        Assert.Throws<InvalidDataException>(() => O2JamLibraryWriter.refreshMetadata(set, createPlan("Changed", "Artist", "Charter")));
+        Assert.Multiple(() =>
+        {
+            Assert.That(original.Metadata.Title, Is.Empty);
+            Assert.That(original.Metadata.Tags, Is.Empty);
+            Assert.That(set.Hash, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void MixedRulesetSetsCannotBeUpdatedAsAWhole()
+    {
+        var set = createSet("source", "chart.ojn");
+        set.Beatmaps.Add(new BeatmapInfo(new RulesetInfo { ShortName = "mania" }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(O2JamLibraryWriter.isOwnedByO2Lazer(set), Is.False);
+            Assert.Throws<InvalidDataException>(() => O2JamLibraryWriter.refreshMetadata(set, createPlan("Changed", "Artist", "Charter")));
+        });
     }
 
     private static BeatmapSetInfo createSet(string source, string fileName, string shortName = O2LazerIdentity.ShortName)

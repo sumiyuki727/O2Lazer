@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using O2Jam.Core;
+using O2Jam.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
 
@@ -17,7 +19,11 @@ public sealed record O2JamImportedSource(
     long? SourceLength,
     bool HasCurrentMetadata,
     bool HasCurrentEncoding,
-    string? SourceHash = null);
+    string? SourceHash = null,
+    OjnMetadataEncoding? EncodingFallback = null,
+    IReadOnlyList<O2JamImportDifficultyCache>? ManiaCache = null);
+
+public sealed record O2JamImportDifficultyCache(O2JamDifficulty Difficulty, double StarRating, int MaxCombo, int Version);
 
 public sealed record O2JamLibraryWriteRequest(
     O2JamImportPlan Plan,

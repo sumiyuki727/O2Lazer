@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using osu.Framework.Platform;
@@ -49,15 +50,27 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         var results = Enumerable.Repeat(O2JamLibraryWriteResult.RulesetUnavailable, requests.Count).ToArray();
         var updatedBeatmaps = new List<BeatmapInfo>();
 
-        realm.Write(database =>
+        var sourceGuards = new List<FileStream>();
+        try
         {
-            var ruleset = database.Find<RulesetInfo>(O2LazerIdentity.ShortName);
-            if (ruleset?.Available != true)
-                return;
+            foreach (var request in requests)
+                sourceGuards.Add(O2JamSourceSnapshot.AcquireGuard(request.Plan));
 
-            for (var index = 0; index < requests.Count; index++)
-                results[index] = write(database, ruleset, requests[index], updatedBeatmaps);
-        });
+            realm.Write(database =>
+            {
+                var ruleset = database.Find<RulesetInfo>(O2LazerIdentity.ShortName);
+                if (ruleset?.Available != true)
+                    return;
+
+                for (var index = 0; index < requests.Count; index++)
+                    results[index] = write(database, ruleset, requests[index], updatedBeatmaps);
+            });
+        }
+        finally
+        {
+            foreach (var guard in sourceGuards)
+                guard.Dispose();
+        }
 
         foreach (var beatmap in updatedBeatmaps.DistinctBy(beatmap => beatmap.ID))
             BeatmapUpdated?.Invoke(beatmap);
@@ -84,19 +97,35 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
             if (sourceBeatmap == null || !tryGetSourcePath(sourceBeatmap, out var sourcePath))
                 continue;
 
-            var tags = sourceBeatmap.Metadata.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var sourceLength = parseSourceLength(tags);
+            var sourceHash = findSourceHash(sourceBeatmap.BeatmapSet!, Path.GetFileName(sourcePath));
+            var metadata = ownedBeatmaps.Select(candidate =>
+                O2JamImportMetadata.Read(candidate.Metadata.Tags, out var projection) == O2JamImportMetadataStatus.Valid
+                    ? projection : null).ToArray();
+            var sourceLength = parseSourceLength(sourceBeatmap.Metadata.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            var validCharts = sourceHash != null && isOwnedByO2Lazer(sourceBeatmap.BeatmapSet!)
+                              && metadata.All(projection => projection != null)
+                              && metadata.Select(projection => projection!.Difficulty).Distinct().Count() == ownedBeatmaps.Length
+                              && ownedBeatmaps.Select((candidate, index) => string.Equals(candidate.Hash,
+                                  O2JamBeatmapIdentity.FromSource(sourceHash, metadata[index]!.Difficulty), StringComparison.OrdinalIgnoreCase)).All(value => value);
+            var hasManiaCache = ownedBeatmaps.All(candidate => O2JamStarRatingMetadata.HasCurrentManiaVersion(candidate.Metadata.Tags)
+                                                             && O2JamStarRatingMetadata.ReadMania(candidate).HasValue
+                                                             && O2JamStarRatingMetadata.ReadManiaMaxCombo(candidate.Metadata.Tags).HasValue);
+            var current = validCharts && sourceLength != null && hasManiaCache
+                          && metadata.All(projection => projection!.ProjectionVersion == O2JamImportMetadata.ProjectionVersion)
+                          && ownedBeatmaps.All(candidate => !candidate.Metadata.Tags.Contains(O2JamStarRatingMetadata.O2JamTagPrefix, StringComparison.Ordinal))
+                          && ownedBeatmaps.All(candidate => parseSourceLength(candidate.Metadata.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries)) == sourceLength
+                                                           && candidate.LastLocalUpdate == sourceBeatmap.LastLocalUpdate
+                                                           && candidate.Metadata.Source == sourceBeatmap.Metadata.Source
+                                                           && candidate.Metadata.AudioFile == sourceBeatmap.Metadata.AudioFile);
+            var encodingCurrent = ownedBeatmaps.All(candidate => candidate.Metadata.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                                                                           .Count(tag => tag.StartsWith(encoding_marker_prefix, StringComparison.Ordinal)) == 1
+                                                                 && candidate.Metadata.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(EncodingMarker))
+                                  && metadata.All(projection => projection != null && projection.EncodingFallback == metadata[0]!.EncodingFallback);
+            var maniaCache = validCharts && hasManiaCache ? ownedBeatmaps.Select((candidate, index) => new O2JamImportDifficultyCache(
+                metadata[index]!.Difficulty, candidate.StarRating, O2JamStarRatingMetadata.ReadManiaMaxCombo(candidate.Metadata.Tags)!.Value, O2JamManiaStarRating.CacheVersion)).ToArray() : null;
             sources[sourcePath] = new O2JamImportedSource(
-                setBeatmaps.Key,
-                sourceBeatmap.LastLocalUpdate,
-                sourceLength,
-                tags.Contains(MetadataMarker, StringComparer.Ordinal)
-                && ownedBeatmaps.All(candidate => O2JamStarRatingMetadata.HasCurrentManiaVersion(candidate.Metadata.Tags)
-                                                   && O2JamStarRatingMetadata.ReadMania(candidate).HasValue
-                                                   && O2JamStarRatingMetadata.ReadManiaMaxCombo(candidate.Metadata.Tags).HasValue
-                                                   && !candidate.Metadata.Tags.Contains(O2JamStarRatingMetadata.O2JamTagPrefix, StringComparison.Ordinal)),
-                tags.Contains(EncodingMarker, StringComparer.Ordinal),
-                findSourceHash(sourceBeatmap.BeatmapSet!, Path.GetFileName(sourcePath)));
+                setBeatmaps.Key, sourceBeatmap.LastLocalUpdate, sourceLength, current, encodingCurrent, sourceHash,
+                encodingCurrent ? metadata[0]!.EncodingFallback : null, maniaCache);
         }
 
         return sources;
@@ -158,7 +187,10 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
 
         O2JamLibraryWriteResult updateMetadata(BeatmapSetInfo set)
         {
-            if (!refreshMetadata(set, plan))
+            var charts = validateMetadata(set, plan);
+            var changed = synchroniseFiles(database, set, plan);
+            changed |= refreshMetadata(set, plan, charts);
+            if (!changed)
                 return O2JamLibraryWriteResult.AlreadyPresent;
 
             updatedBeatmaps.AddRange(set.Beatmaps.Where(beatmap => beatmap.Ruleset.ShortName == O2LazerIdentity.ShortName)
@@ -184,6 +216,9 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         // Older releases can produce a different set hash when an OJN difficulty contains
         // blocks but no playable notes. The unchanged source file is the stronger identity;
         // migrate its metadata in place so Beatmap IDs and attached scores remain intact.
+        if (sourceSet != null)
+            ensureSupportedProjection(sourceSet);
+
         if (sourceSet != null && containsSourceContent(sourceSet, plan))
         {
             return updateMetadata(sourceSet);
@@ -195,6 +230,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
                                   .FirstOrDefault(isOwnedByO2Lazer);
         if (matchingSet != null)
         {
+            ensureSupportedProjection(matchingSet);
             var result = sourceSet?.ID == matchingSet.ID || containsSourceChart(matchingSet, plan.SourcePath)
                 ? updateMetadata(matchingSet)
                 : O2JamLibraryWriteResult.AlreadyPresent;
@@ -207,68 +243,25 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
 
         var replacedSet = sourceSet;
 
-        using var sourceStream = new MemoryStream(plan.SourceData, writable: false);
-        var sourceFile = files.Add(sourceStream, database, preferHardLinks: false);
         var beatmapSet = new BeatmapSetInfo
         {
             OnlineID = -1,
             DateAdded = DateTimeOffset.UtcNow,
             Hash = plan.SetHash,
         };
-
-        beatmapSet.Files.Add(new RealmNamedFileUsage(sourceFile, plan.FileName));
-
-        var backgroundFileName = string.Empty;
-        if (plan.Background.Length > 0)
-        {
-            using var backgroundStream = new MemoryStream(plan.Background, writable: false);
-            var backgroundFile = files.Add(backgroundStream, database, preferHardLinks: false);
-            backgroundFileName = $"o2jam-background{detectImageExtension(plan.Background)}";
-            beatmapSet.Files.Add(new RealmNamedFileUsage(backgroundFile, backgroundFileName));
-        }
+        synchroniseFiles(database, beatmapSet, plan);
 
         foreach (var chart in plan.Charts)
         {
-            var beatmapInfo = new BeatmapInfo
+            var beatmapInfo = new BeatmapInfo(ruleset)
             {
-                DifficultyName = O2LazerStrings.DifficultyName(chart.Difficulty, chart.Level).ToString(),
-                Ruleset = ruleset,
-                Difficulty = new BeatmapDifficulty
-                {
-                    CircleSize = Beatmaps.O2JamBeatmap.ColumnCount,
-                    OverallDifficulty = Math.Clamp((int)chart.Level, 0, 10),
-                },
-                Metadata = new BeatmapMetadata
-                {
-                    Title = plan.Title,
-                    Artist = plan.Artist,
-                    Author = new RealmUser
-                    {
-                        Username = string.IsNullOrWhiteSpace(plan.Author) ? "O2Jam" : plan.Author,
-                    },
-                    Source = plan.SourceDirectory,
-                    Tags = $"o2jam o2ma{plan.SongId} {MetadataMarker} {EncodingMarker} {source_length_prefix}{plan.SourceData.LongLength} "
-                           + $"{O2JamStarRatingMetadata.ManiaVersionTag} {O2JamStarRatingMetadata.CreateManiaMaxComboTag(chart.ManiaMaxCombo)}",
-                    BackgroundFile = backgroundFileName,
-                    // A real set file gives osu! a stable audio identity across difficulties even though
-                    // the OJM event stream itself remains external to the managed beatmap store.
-                    AudioFile = plan.FileName,
-                    PreviewTime = 0,
-                },
-                // Each OJN contains three independently-scored difficulties. Sharing the
-                // source-file hash makes osu! attach one difficulty's grades to all three.
+                // Difficulty identities remain independent of projection revisions.
                 Hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty),
                 MD5Hash = chart.Md5Hash,
-                StarRating = chart.ManiaStarRating,
-                BPM = plan.InitialBpm,
-                Length = chart.Length,
-                TotalObjectCount = chart.TotalObjectCount,
-                EndTimeObjectCount = chart.HoldObjectCount,
-                LastLocalUpdate = O2JamSourceTimestamp.Read(plan.SourcePath),
+                BeatmapSet = beatmapSet,
             };
-
+            applyProjection(beatmapInfo, plan, chart);
             beatmapSet.Beatmaps.Add(beatmapInfo);
-            beatmapInfo.BeatmapSet = beatmapSet;
         }
 
         database.Add(beatmapSet);
@@ -315,136 +308,186 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
     }
 
     internal static bool refreshMetadata(BeatmapSetInfo set, O2JamImportPlan plan)
+        => refreshMetadata(set, plan, validateMetadata(set, plan));
+
+    private static bool refreshMetadata(BeatmapSetInfo set, O2JamImportPlan plan, (BeatmapInfo Beatmap, O2JamImportChart Chart)[] charts)
     {
-        var author = string.IsNullOrWhiteSpace(plan.Author) ? "O2Jam" : plan.Author;
-        var sourceTimestamp = O2JamSourceTimestamp.Read(plan.SourcePath);
-        var changed = false;
+        var changed = update(set.Hash, plan.SetHash, value => set.Hash = value);
+        foreach (var file in set.Files.Where(file => string.Equals(file.File.Hash, plan.SourceHash, StringComparison.OrdinalIgnoreCase)))
+            changed |= update(file.Filename, plan.FileName, value => file.Filename = value);
 
-        // BeatmapSetInfo.Hash is global across the Realm library. Namespacing it prevents another
-        // keysound ruleset importing the same chart MD5s from becoming the owner of this set.
-        if (!string.Equals(set.Hash, plan.SetHash, StringComparison.OrdinalIgnoreCase))
+        foreach (var (beatmap, chart) in charts)
         {
-            set.Hash = plan.SetHash;
-            changed = true;
-        }
-
-        var sourceFile = set.Files.FirstOrDefault(file => string.Equals(file.File.Hash, plan.SourceHash, StringComparison.OrdinalIgnoreCase));
-        if (sourceFile != null && !string.Equals(sourceFile.Filename, plan.FileName, StringComparison.Ordinal))
-        {
-            sourceFile.Filename = plan.FileName;
-            changed = true;
-        }
-
-        foreach (var beatmap in set.Beatmaps)
-        {
-            if (!string.Equals(beatmap.Ruleset.ShortName, O2LazerIdentity.ShortName, StringComparison.Ordinal))
-                continue;
-
-            var chart = plan.Charts.FirstOrDefault(candidate =>
-                beatmap.DifficultyName.StartsWith(candidate.Difficulty.ToString(), StringComparison.OrdinalIgnoreCase));
-
-            if (chart != null)
+            var hash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty);
+            if (!string.Equals(beatmap.Hash, hash, StringComparison.OrdinalIgnoreCase))
             {
-                var starRating = chart.ManiaStarRating;
-                if (beatmap.StarRating != starRating)
+                // Only already attached scores can identify a legacy shared-hash difficulty.
+                var scores = beatmap.IsManaged ? beatmap.Scores.ToArray() : [];
+                beatmap.Hash = hash;
+                foreach (var score in scores)
                 {
-                    beatmap.StarRating = starRating;
-                    changed = true;
+                    score.BeatmapHash = hash;
+                    score.BeatmapInfo = beatmap;
                 }
-
-                var beatmapHash = O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty);
-                if (!string.Equals(beatmap.Hash, beatmapHash, StringComparison.OrdinalIgnoreCase))
-                {
-                    // Scores already linked to a legacy shared hash retain their difficulty
-                    // association while the three beatmaps are separated in place.
-                    var attachedScores = beatmap.IsManaged ? beatmap.Scores.ToArray() : [];
-                    beatmap.Hash = beatmapHash;
-
-                    foreach (var score in attachedScores)
-                    {
-                        score.BeatmapHash = beatmapHash;
-                        score.BeatmapInfo = beatmap;
-                    }
-
-                    changed = true;
-                }
-            }
-
-            if (!string.Equals(beatmap.Metadata.Title, plan.Title, StringComparison.Ordinal))
-            {
-                beatmap.Metadata.Title = plan.Title;
                 changed = true;
             }
-
-            if (!string.Equals(beatmap.Metadata.Artist, plan.Artist, StringComparison.Ordinal))
-            {
-                beatmap.Metadata.Artist = plan.Artist;
-                changed = true;
-            }
-
-            if (!string.Equals(beatmap.Metadata.Author.Username, author, StringComparison.Ordinal))
-            {
-                beatmap.Metadata.Author.Username = author;
-                changed = true;
-            }
-
-            if (!string.Equals(beatmap.Metadata.AudioFile, plan.FileName, StringComparison.Ordinal))
-            {
-                beatmap.Metadata.AudioFile = plan.FileName;
-                changed = true;
-            }
-
-            if (!string.Equals(beatmap.Metadata.Source, plan.SourceDirectory, StringComparison.OrdinalIgnoreCase))
-            {
-                beatmap.Metadata.Source = plan.SourceDirectory;
-                changed = true;
-            }
-
-            var tags = beatmap.Metadata.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                              .Where(tag => !tag.StartsWith(source_length_prefix, StringComparison.Ordinal)
-                                            && !tag.StartsWith(O2JamStarRatingMetadata.O2JamTagPrefix, StringComparison.Ordinal)
-                                            && (chart == null || !tag.StartsWith(O2JamStarRatingMetadata.ManiaVersionPrefix, StringComparison.Ordinal))
-                                            && (chart == null || !tag.StartsWith(O2JamStarRatingMetadata.ManiaMaxComboPrefix, StringComparison.Ordinal))
-                                            && (!tag.StartsWith(encoding_marker_prefix, StringComparison.Ordinal) || tag == EncodingMarker))
-                              .ToList();
-            if (!tags.Contains(MetadataMarker, StringComparer.Ordinal))
-            {
-                tags.Add(MetadataMarker);
-                changed = true;
-            }
-
-            if (!tags.Contains(EncodingMarker, StringComparer.Ordinal))
-            {
-                tags.Add(EncodingMarker);
-                changed = true;
-            }
-
-            tags.Add($"{source_length_prefix}{plan.SourceData.LongLength}");
-            if (chart != null)
-            {
-                tags.Add(O2JamStarRatingMetadata.ManiaVersionTag);
-                tags.Add(O2JamStarRatingMetadata.CreateManiaMaxComboTag(chart.ManiaMaxCombo));
-            }
-
-            var updatedTags = string.Join(' ', tags);
-            if (!string.Equals(beatmap.Metadata.Tags, updatedTags, StringComparison.Ordinal))
-            {
-                beatmap.Metadata.Tags = updatedTags;
-                changed = true;
-            }
-
-            if (beatmap.LastLocalUpdate != sourceTimestamp)
-            {
-                beatmap.LastLocalUpdate = sourceTimestamp;
-                changed = true;
-            }
+            changed |= applyProjection(beatmap, plan, chart);
         }
-
         return changed;
     }
 
+    private static (BeatmapInfo Beatmap, O2JamImportChart Chart)[] validateMetadata(BeatmapSetInfo set, O2JamImportPlan plan)
+    {
+        ensureSupportedProjection(set);
+
+        var result = new List<(BeatmapInfo, O2JamImportChart)>();
+        foreach (var beatmap in set.Beatmaps)
+        {
+            var status = O2JamImportMetadata.Read(beatmap.Metadata.Tags, out var projection);
+            if (status is O2JamImportMetadataStatus.Invalid or O2JamImportMetadataStatus.Unsupported)
+                throw new InvalidDataException("The stored O2Lazer projection is conflicting or newer than this ruleset.");
+
+            var matches = plan.Charts.Where(chart => projection != null
+                ? projection.Difficulty == chart.Difficulty
+                : string.Equals(beatmap.Hash, O2JamBeatmapIdentity.FromSource(plan.SourceHash, chart.Difficulty), StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(beatmap.MD5Hash, chart.Md5Hash, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches.Length == 0 && status == O2JamImportMetadataStatus.Legacy)
+            {
+                // Keep the known legacy storage format as a bounded migration fallback.
+                // Arbitrary display-name prefixes cannot identify a difficulty.
+                matches = plan.Charts.Where(chart =>
+                    beatmap.DifficultyName.StartsWith(chart.Difficulty + " Lv.", StringComparison.OrdinalIgnoreCase)
+                    && ushort.TryParse(beatmap.DifficultyName.AsSpan(6), NumberStyles.None, CultureInfo.InvariantCulture, out _)).ToArray();
+            }
+
+            if (matches.Length != 1 || result.Any(candidate => candidate.Item2.Difficulty == matches[0].Difficulty))
+                throw new InvalidDataException("The stored OJN difficulty cannot be uniquely matched.");
+            if (projection != null && !string.Equals(beatmap.Hash,
+                    O2JamBeatmapIdentity.FromSource(plan.SourceHash, projection.Difficulty), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The stored chart slot conflicts with its content identity.");
+            result.Add((beatmap, matches[0]));
+        }
+        return result.ToArray();
+    }
+
+    private static void ensureSupportedProjection(BeatmapSetInfo set)
+    {
+        if (!isOwnedByO2Lazer(set))
+            throw new InvalidDataException("The source set is not exclusively owned by O2Lazer.");
+        foreach (var beatmap in set.Beatmaps)
+        {
+            if (O2JamImportMetadata.Read(beatmap.Metadata.Tags, out _) is O2JamImportMetadataStatus.Invalid or O2JamImportMetadataStatus.Unsupported)
+                throw new InvalidDataException("The stored O2Lazer projection is conflicting or newer than this ruleset.");
+        }
+    }
+
+    private static bool applyProjection(BeatmapInfo beatmap, O2JamImportPlan plan, O2JamImportChart chart)
+    {
+        var metadata = beatmap.Metadata;
+        var changed = update(beatmap.DifficultyName, O2LazerStrings.DifficultyName(chart.Difficulty, chart.Level).ToString(), value => beatmap.DifficultyName = value);
+        changed |= update(metadata.Title, plan.Title, value => metadata.Title = value);
+        changed |= update(metadata.Artist, plan.Artist, value => metadata.Artist = value);
+        var author = string.IsNullOrWhiteSpace(plan.Author) ? "O2Jam" : plan.Author;
+        if (metadata.Author.Username != author)
+        {
+            // Native authors are embedded in managed metadata. Clone via the native API as
+            // detached callers can still share a reference; do not mutate that other snapshot.
+            var replacement = metadata.Author.DeepClone();
+            replacement.Username = author;
+            metadata.Author = replacement;
+            changed = true;
+        }
+        changed |= update(metadata.Source, plan.SourceDirectory, value => metadata.Source = value);
+        changed |= update(metadata.AudioFile, plan.FileName, value => metadata.AudioFile = value);
+        changed |= update(metadata.BackgroundFile, backgroundFileName(plan), value => metadata.BackgroundFile = value);
+        changed |= update(metadata.PreviewTime, 0, value => metadata.PreviewTime = value);
+        var difficulty = new BeatmapDifficulty
+        {
+            CircleSize = Beatmaps.O2JamBeatmap.ColumnCount,
+            OverallDifficulty = Math.Clamp((int)chart.Level, 0, 10),
+        };
+        if (beatmap.Difficulty.CircleSize != difficulty.CircleSize
+            || beatmap.Difficulty.OverallDifficulty != difficulty.OverallDifficulty
+            || beatmap.Difficulty.DrainRate != difficulty.DrainRate
+            || beatmap.Difficulty.ApproachRate != difficulty.ApproachRate
+            || beatmap.Difficulty.SliderMultiplier != difficulty.SliderMultiplier
+            || beatmap.Difficulty.SliderTickRate != difficulty.SliderTickRate)
+        {
+            difficulty.CopyTo(beatmap.Difficulty);
+            changed = true;
+        }
+        changed |= update(beatmap.BPM, plan.InitialBpm, value => beatmap.BPM = value);
+        changed |= update(beatmap.Length, chart.Length, value => beatmap.Length = value);
+        changed |= update(beatmap.TotalObjectCount, chart.TotalObjectCount, value => beatmap.TotalObjectCount = value);
+        changed |= update(beatmap.EndTimeObjectCount, chart.HoldObjectCount, value => beatmap.EndTimeObjectCount = value);
+        changed |= update(beatmap.StarRating, chart.ManiaStarRating, value => beatmap.StarRating = value);
+        changed |= update(beatmap.LastLocalUpdate, plan.SourceTimestamp, value => beatmap.LastLocalUpdate = value);
+
+        var songTag = string.Create(CultureInfo.InvariantCulture, $"o2ma{plan.SongId}");
+        var tags = metadata.Tags.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                           .Where(tag => !O2JamImportMetadata.OwnsToken(tag)
+                                         && !tag.StartsWith("o2lazer-clean:", StringComparison.Ordinal)
+                                         && !tag.StartsWith(encoding_marker_prefix, StringComparison.Ordinal)
+                                         && !tag.StartsWith(source_length_prefix, StringComparison.Ordinal)
+                                         && !tag.StartsWith(O2JamStarRatingMetadata.O2JamTagPrefix, StringComparison.Ordinal)
+                                         && !tag.StartsWith(O2JamStarRatingMetadata.ManiaVersionPrefix, StringComparison.Ordinal)
+                                         && !tag.StartsWith(O2JamStarRatingMetadata.ManiaMaxComboPrefix, StringComparison.Ordinal)
+                                         && tag != "o2jam" && tag != songTag);
+        var projectedTags = string.Join(' ', tags.Append(string.Create(CultureInfo.InvariantCulture,
+            $"o2jam {songTag} {MetadataMarker} {EncodingMarker} {source_length_prefix}{plan.SourceData.LongLength} {O2JamImportMetadata.Create(plan, chart)} {O2JamStarRatingMetadata.ManiaVersionTag} {O2JamStarRatingMetadata.CreateManiaMaxComboTag(chart.ManiaMaxCombo)}")));
+        changed |= update(metadata.Tags, projectedTags, value => metadata.Tags = value);
+        return changed;
+    }
+
+    private bool synchroniseFiles(Realm database, BeatmapSetInfo set, O2JamImportPlan plan)
+    {
+        var changed = false;
+        using var sourceStream = new MemoryStream(plan.SourceData, writable: false);
+        var source = files.Add(sourceStream, database, preferHardLinks: false);
+        var usage = set.Files.FirstOrDefault(file => file.File.Hash == source.Hash);
+        if (usage == null)
+        {
+            set.Files.Add(new RealmNamedFileUsage(source, plan.FileName));
+            changed = true;
+        }
+        else
+            changed |= update(usage.Filename, plan.FileName, value => usage.Filename = value);
+
+        var backgroundName = backgroundFileName(plan);
+        RealmFile? background = null;
+        if (plan.Background.Length > 0)
+        {
+            using var stream = new MemoryStream(plan.Background, writable: false);
+            background = files.Add(stream, database, preferHardLinks: false);
+        }
+        foreach (var old in set.Files.Where(file => file.Filename is "o2jam-background.png" or "o2jam-background.jpg" or "o2jam-background.bmp").ToArray())
+        {
+            if (background != null && old.Filename == backgroundName && old.File.Hash == background.Hash)
+                continue;
+            set.Files.Remove(old);
+            changed = true;
+        }
+        if (background != null && !set.Files.Any(file => file.Filename == backgroundName && file.File.Hash == background.Hash))
+        {
+            set.Files.Add(new RealmNamedFileUsage(background, backgroundName));
+            changed = true;
+        }
+        return changed;
+    }
+
+    private static string backgroundFileName(O2JamImportPlan plan) =>
+        plan.Background.Length == 0 ? string.Empty : $"o2jam-background{detectImageExtension(plan.Background)}";
+
+    private static bool update<T>(T current, T projected, Action<T> assign)
+    {
+        if (EqualityComparer<T>.Default.Equals(current, projected))
+            return false;
+        assign(projected);
+        return true;
+    }
+
     internal static bool isOwnedByO2Lazer(BeatmapSetInfo set) =>
-        set.Beatmaps.Any(beatmap => string.Equals(
+        set.Beatmaps.Count > 0 && set.Beatmaps.All(beatmap => string.Equals(
             beatmap.Ruleset.ShortName,
             O2LazerIdentity.ShortName,
             StringComparison.Ordinal));
@@ -496,14 +539,10 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
 
     private static long? parseSourceLength(IEnumerable<string> tags)
     {
-        foreach (var tag in tags)
-        {
-            if (tag.StartsWith(source_length_prefix, StringComparison.Ordinal)
-                && long.TryParse(tag.AsSpan(source_length_prefix.Length), out var length))
-                return length;
-        }
-
-        return null;
+        var tokens = tags.Where(tag => tag.StartsWith(source_length_prefix, StringComparison.Ordinal)).ToArray();
+        return tokens.Length == 1
+               && long.TryParse(tokens[0].AsSpan(source_length_prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var length)
+            ? length : null;
     }
 
     private static string? findSourceHash(BeatmapSetInfo set, string sourceFileName) =>

@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using O2Jam.Core;
+using O2Jam.Formats.Ojn;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
 
@@ -16,7 +18,11 @@ public sealed record O2JamImportPlan(
     string Author,
     double InitialBpm,
     byte[] Background,
-    IReadOnlyList<O2JamImportChart> Charts);
+    IReadOnlyList<O2JamImportChart> Charts)
+{
+    public DateTimeOffset? SourceTimestamp { get; init; }
+    public OjnMetadataEncoding? EncodingFallback { get; init; }
+}
 
 public sealed record O2JamImportChart(
     O2JamDifficulty Difficulty,

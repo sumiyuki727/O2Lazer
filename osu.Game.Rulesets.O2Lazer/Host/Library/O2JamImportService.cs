@@ -196,7 +196,7 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
                 try
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    prepared[index] = new PreparedImport(item.Path, item.Source, planner.Create(item.Path), null);
+                    prepared[index] = new PreparedImport(item.Path, item.Source, planner.Create(item.Path, item.Source), null);
                 }
                 catch (OperationCanceledException)
                 {
@@ -289,6 +289,9 @@ public sealed class O2JamImportService(O2JamImportPlanner planner, IO2JamLibrary
 
         using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         if (!string.Equals(Convert.ToHexString(SHA256.HashData(stream)), source.SourceHash, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (source.EncodingFallback is { } encoding && OjnDirectoryEncoding.Shared.GetForFile(path) != encoding)
             return false;
 
         return source.HasCurrentEncoding || !OjnReader.RequiresLegacyEncodingMigration(path);
