@@ -1,6 +1,6 @@
 # 构建、验证与维护
 
-更新：2026-09-30。当前 `master` 以 osu!lazer **2026.921.0** 的 Game 与 Mania 二进制为目标，宿主项目 `net10.0`，独立 Core/Formats 项目 `net8.0`；需要 .NET 10 SDK，以及运行独立测试所需的 .NET 8 runtime。`D:/osu`、`D:/osu-framework`、`D:/rulesets` 与 `D:/o2lazer-clean-rewrite` 仅作只读参考。不要混用不同发行版本的 Game/Mania DLL。
+更新：2026-10-01。当前 `master` 以 osu!lazer **2026.921.0** 的 Game 与 Mania 二进制为目标，宿主项目 `net10.0`，独立 Core/Formats 项目 `net8.0`；需要 .NET 10 SDK，以及运行独立测试所需的 .NET 8 runtime。`D:/osu`、`D:/osu-framework`、`D:/rulesets` 与 `D:/o2lazer-clean-rewrite` 仅作只读参考。不要混用不同发行版本的 Game/Mania DLL。
 
 ## 构建
 
@@ -43,6 +43,8 @@ dotnet test osu.Game.Rulesets.O2Lazer.Tests/osu.Game.Rulesets.O2Lazer.Tests.cspr
 ```
 
 所有测试命令必须带 `--filter`。Benchmark 与全曲库扫描不属于常规验证，执行前需明确决定。真实谱面兼容测试应从 `E:/o2jam` 选有限、可复现的代表样本，不复制私有谱面入仓库。边界测试可证明状态/对象行为，但无法替代客户端里的皮肤、动画、音量、暂停或多 ruleset 载入验收。
+
+本地化修改使用 `--filter 'FullyQualifiedName~O2JamLocalisation'`，同时覆盖资源规则及原生语言绑定。A13 定向验证为 26 项本地化和 66 项相关契约，共 92 项；当前完整脚本基线仍是上方 A12。新增 16 项测试会由原有 `.Normal.` 过滤器自动纳入后续常规验证。动态文本与固定名称的区分见[本地化指南](localisation.md#文本所有者与固定字符串)。
 
 ## 可选本地诊断
 
