@@ -203,7 +203,8 @@ public sealed class O2JamImportService
                 cancellationToken.ThrowIfCancellationRequested();
                 IReadOnlyList<O2JamLibraryWriteResult> results = [];
                 Exception? writeFailure = null;
-                try { results = writer.WriteBatch(requests); }
+                try { results = writer.WriteBatch(requests, cancellationToken); }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                 catch (Exception exception) { writeFailure = exception; }
                 var writeIndex = 0;
                 foreach (var item in prepared)

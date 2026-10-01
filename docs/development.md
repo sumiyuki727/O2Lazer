@@ -49,6 +49,7 @@ dotnet test osu.Game.Rulesets.O2Lazer.Tests/osu.Game.Rulesets.O2Lazer.Tests.cspr
 2026-10-01 A04-2 更新完整脚本基线：Formats 41、Core 55、检查器 15、宿主常规 797、旧库迁移 20、正式 replay 导入 21，合计 949 项通过；全部源码/语义分层检查通过。临时库覆盖投影/媒体、版本和源快照保护，以及三难度/旧 set Hash/搬家、成绩与文件、空槽位、MD5 集合和缺失/歧义保护；正式 v5 通过原生导入器验证唯一一致身份及其他 ruleset 同哈希保护。详细边界见[存储设计与验收](library-persistence-contract.md#实施顺序与验收矩阵)。当前 AutoMapper 告警保留；不把本轮自动化当成客户端或两事务文件恢复验收。
 
 2026-10-01 A04-3 更新过滤回归基线：Formats 41、Core 55、检查器 15、宿主常规 804、旧库迁移 32、正式 replay 导入 21，合计 968 项通过；全部分层检查通过且没有新增例外。新增去重/路径、通知异常独立重试、已提交批次取消快照和应用会话结果测试。先执行完整验证脚本，再对最后补充的三个临时库场景单独重跑迁移夹具；两个 Realm 夹具继续分进程。没有客户端部署或真实库写入，A04-4 文件恢复及 A04-5 实机仍待验收。
+2026-10-01 A04-4 完整脚本基线：Formats 41、Core 55、检查器 15、宿主常规 804、旧库迁移/恢复 50、正式 replay 导入 21，合计 986 项通过；全部源码/语义分层检查通过，无新增例外。18 项新增恢复场景包含预留/模型事务失败或取消、真实安全写入后异常、正确文件复用/损坏修复、重启原生回收、其他 ruleset 共享引用、预留丢失和跨批次提交结果；仅使用临时库。A04-5 的有限真实样本和客户端端到端仍待验收，没有部署客户端或运行 benchmark；AutoMapper 既有告警保持可见。
 ## 可选本地诊断
 
 生产音频追踪默认关闭；仅为诊断构建时设置 `-p:O2JamSyncDiagnostics=true`，参见[音频诊断指南](audio-sync-diagnostics.md)。对应测试属于 `LocalDiagnostics`/`[Explicit]`，只用精确方法名与本机输入运行。相关环境变量：`O2JAM_CORPUS_PATH`（外部曲库）、`O2JAM_REPLAY_DIAGNOSTIC_PATH`（已有 v5 replay）、`O2JAM_DIAGNOSTIC_REALM`（只读诊断库）、`O2JAM_DIAGNOSTIC_SKIN`（皮肤 GUID）、`O2JAM_ENCODING_AUDIT_PATH`（可选审计输出）。不上传私人数据库、回放或受版权保护的谱面。

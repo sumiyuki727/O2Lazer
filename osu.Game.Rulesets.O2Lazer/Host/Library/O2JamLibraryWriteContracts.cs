@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using O2Jam.Core;
 using O2Jam.Formats.Ojn;
 
@@ -37,6 +38,6 @@ public interface IO2JamLibraryWriter
     int PendingNotifications { get; }
     void RetryNotifications();
     O2JamLibraryWriteResult Write(O2JamImportPlan plan);
-    IReadOnlyList<O2JamLibraryWriteResult> WriteBatch(IReadOnlyList<O2JamLibraryWriteRequest> requests);
+    IReadOnlyList<O2JamLibraryWriteResult> WriteBatch(IReadOnlyList<O2JamLibraryWriteRequest> requests, CancellationToken cancellationToken = default);
     int MarkDeleted(IEnumerable<Guid> setIds);
 }

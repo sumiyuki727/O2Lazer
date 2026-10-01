@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using NUnit.Framework;
 using osu.Game.Rulesets.O2Lazer.Import;
 
@@ -133,7 +134,7 @@ public class O2JamImportServiceTest
         public int PendingNotifications => 0;
         public void RetryNotifications() { }
         public O2JamLibraryWriteResult Write(O2JamImportPlan plan) => WriteBatch([new O2JamLibraryWriteRequest(plan)])[0];
-        public IReadOnlyList<O2JamLibraryWriteResult> WriteBatch(IReadOnlyList<O2JamLibraryWriteRequest> requests)
+        public IReadOnlyList<O2JamLibraryWriteResult> WriteBatch(IReadOnlyList<O2JamLibraryWriteRequest> requests, CancellationToken cancellationToken = default)
         {
             if (FailFirstBatch)
             {

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using osu.Framework.Extensions;
 using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Game.Beatmaps;
@@ -18,8 +20,15 @@ using Realms;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
 
+internal enum O2JamLibraryWriteStage
+{
+    FilesReserved,
+    RequestWritten,
+    BeforeCommit,
+}
+
 /// <summary>
-/// The only import component allowed to know about Realm and osu!'s permanent file store.
+/// Reserves native files before publishing models so a failed transaction remains recoverable by native cleanup.
 /// </summary>
 public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
 {
@@ -30,6 +39,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
 
     private readonly RealmAccess realm;
     private readonly RealmFileStore files;
+    private readonly Action<O2JamLibraryWriteStage, int>? checkpoint;
     private readonly O2JamLibraryNotificationQueue<Guid, BeatmapInfo> notifications = new();
 
     public int PendingNotifications => notifications.Count;
@@ -43,19 +53,38 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
     public event Action<BeatmapInfo>? BeatmapUpdated;
 
     public O2JamLibraryWriter(RealmAccess realm, Storage storage)
+        : this(realm, storage, null)
+    {
+    }
+
+    internal O2JamLibraryWriter(RealmAccess realm, Storage storage, Action<O2JamLibraryWriteStage, int>? checkpoint)
     {
         this.realm = realm;
         files = new RealmFileStore(realm, storage);
+        this.checkpoint = checkpoint;
     }
 
     public O2JamLibraryWriteResult Write(O2JamImportPlan plan) =>
         WriteBatch([new O2JamLibraryWriteRequest(plan)])[0];
 
-    public IReadOnlyList<O2JamLibraryWriteResult> WriteBatch(IReadOnlyList<O2JamLibraryWriteRequest> requests)
+    public IReadOnlyList<O2JamLibraryWriteResult> WriteBatch(IReadOnlyList<O2JamLibraryWriteRequest> requests, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (requests.Count == 0)
             return [];
 
+        // The reservation and model transactions must consume the same bytes even if a
+        // caller retains mutable arrays from its plan. Only this bounded batch is copied.
+        requests = requests.Select(request => request with
+        {
+            Plan = request.Plan with
+            {
+                SourceData = request.Plan.SourceData.ToArray(),
+                Background = request.Plan.Background.ToArray(),
+                Charts = request.Plan.Charts.ToArray(),
+                Slots = request.Plan.Slots.ToArray(),
+            },
+        }).ToArray();
         var results = Enumerable.Repeat(O2JamLibraryWriteResult.RulesetUnavailable, requests.Count).ToArray();
         var updatedBeatmaps = new List<BeatmapInfo>();
 
@@ -63,17 +92,53 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
         try
         {
             foreach (var request in requests)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 sourceGuards.Add(O2JamSourceSnapshot.AcquireGuard(request.Plan));
+            }
+
+            var requiredHashes = requests.SelectMany(request => fileHashes(request.Plan)).Distinct(StringComparer.Ordinal).ToArray();
+            var reserved = realm.Write(database =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (database.Find<RulesetInfo>(O2LazerIdentity.ShortName)?.Available != true)
+                    return false;
+                // A committed zero-reference row makes a later failed disk write discoverable
+                // by native startup cleanup. No beatmap or score changes belong in this phase.
+                foreach (var hash in requiredHashes)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (database.Find<RealmFile>(hash) == null)
+                        database.Add(new RealmFile { Hash = hash });
+                }
+                return true;
+            });
+            if (!reserved)
+                return results;
+
+            checkpoint?.Invoke(O2JamLibraryWriteStage.FilesReserved, -1);
+            cancellationToken.ThrowIfCancellationRequested();
 
             realm.Write(database =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var ruleset = database.Find<RulesetInfo>(O2LazerIdentity.ShortName);
                 if (ruleset?.Available != true)
                     return;
 
+                // Cleanup may run between the two transactions. Never fall back to creating
+                // an unreserved row while writing bytes inside the model transaction.
+                if (requiredHashes.Any(hash => database.Find<RealmFile>(hash) == null))
+                    throw new IOException("An OJN file reservation was removed before its model transaction; prepare and retry the batch.");
                 var writeIndex = new O2JamLibraryWriteIndex(database);
                 for (var index = 0; index < requests.Count; index++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
                     results[index] = write(database, ruleset, requests[index], updatedBeatmaps, writeIndex, sourceGuards);
+                    checkpoint?.Invoke(O2JamLibraryWriteStage.RequestWritten, index);
+                }
+                checkpoint?.Invoke(O2JamLibraryWriteStage.BeforeCommit, -1);
+                cancellationToken.ThrowIfCancellationRequested();
             });
         }
         finally
@@ -86,6 +151,16 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter
             notifications.Publish(beatmap.ID, beatmap, recipients);
 
         return results;
+    }
+
+    private static IEnumerable<string> fileHashes(O2JamImportPlan plan)
+    {
+        yield return plan.SourceHash.ToLowerInvariant();
+        if (plan.Background.Length > 0)
+        {
+            using var stream = new MemoryStream(plan.Background, writable: false);
+            yield return stream.ComputeSHA2Hash();
+        }
     }
 
     public IReadOnlyDictionary<string, O2JamImportedSource> GetImportedSources() => realm.Run(database =>
