@@ -28,5 +28,7 @@ public sealed partial class O2JamHealthProcessor : HealthProcessor
     }
 
     protected override bool CheckDefaultFailCondition(JudgementResult result) =>
-        difficulty != O2JamDifficulty.EX && base.CheckDefaultFailCondition(result);
+        result is O2JamJudgementResult { ResolutionApplied: true } o2JamResult
+            ? o2JamResult.Resolution.State.HasFailed
+            : difficulty != O2JamDifficulty.EX && base.CheckDefaultFailCondition(result);
 }

@@ -182,12 +182,13 @@ public class O2JamLibraryWriterTest
                 3,
                 true,
                 true,
-                Convert.ToHexString(SHA256.HashData(original)));
+                Convert.ToHexString(SHA256.HashData(original)), CanReuseFiles: true);
 
             Assert.Multiple(() =>
             {
                 Assert.That(O2JamImportService.isUnchanged(path, matching), Is.True);
                 Assert.That(O2JamImportService.isUnchanged(path, matching with { HasCurrentMetadata = false }), Is.False);
+                Assert.That(O2JamImportService.isUnchanged(path, matching with { CanReuseFiles = false }), Is.False);
                 Assert.That(O2JamImportService.isUnchanged(path, matching with { SourceLength = 2 }), Is.False);
                 Assert.That(O2JamImportService.isUnchanged(path, matching with { SourceHash = null }), Is.False);
             });
@@ -198,7 +199,7 @@ public class O2JamLibraryWriterTest
             {
                 Assert.That(O2JamSourceTimestamp.Read(path), Is.EqualTo(matching.LastLocalUpdate));
                 Assert.That(new FileInfo(path).Length, Is.EqualTo(matching.SourceLength));
-                Assert.That(O2JamImportService.isUnchanged(path, matching), Is.False);
+                Assert.That(O2JamImportService.isUnchanged(path, matching, verifyContent: true), Is.False);
             });
         }
         finally
@@ -227,7 +228,7 @@ public class O2JamLibraryWriterTest
                 bytes.LongLength,
                 true,
                 false,
-                Convert.ToHexString(SHA256.HashData(bytes)));
+                Convert.ToHexString(SHA256.HashData(bytes)), CanReuseFiles: true);
 
             Assert.Multiple(() =>
             {
@@ -261,7 +262,7 @@ public class O2JamLibraryWriterTest
     }
 
     [Test]
-    public void EncodingMigrationDoesNotReparseUnchangedAsciiMetadata()
+    public void OutdatedEncodingMarkerRequiresMigrationEvenForAsciiMetadata()
     {
         var path = Path.GetTempFileName();
         try
@@ -269,8 +270,8 @@ public class O2JamLibraryWriterTest
             var bytes = OjnTestData.CreateChart();
             File.WriteAllBytes(path, bytes);
             var source = new O2JamImportedSource(Guid.NewGuid(), O2JamSourceTimestamp.Read(path), bytes.LongLength, true, false,
-                Convert.ToHexString(SHA256.HashData(bytes)));
-            Assert.That(O2JamImportService.isUnchanged(path, source), Is.True);
+                Convert.ToHexString(SHA256.HashData(bytes)), CanReuseFiles: true);
+            Assert.That(O2JamImportService.isUnchanged(path, source), Is.False);
         }
         finally
         {

@@ -178,7 +178,7 @@ public class OjnMetadataEncodingTest
         var first = planner.Create(path);
         var source = new O2JamImportedSource(Guid.NewGuid(), first.SourceTimestamp, first.SourceData.LongLength,
             true, true, first.SourceHash, first.EncodingFallback,
-            [new O2JamImportDifficultyCache(O2JamDifficulty.EX, 3.25, 42, O2JamManiaStarRating.CacheVersion)]);
+            [new O2JamImportDifficultyCache(O2JamDifficulty.EX, 3.25, 42, O2JamManiaStarRating.CacheVersion)], CanReuseFiles: true);
         Assert.That(first.EncodingFallback, Is.EqualTo(OjnMetadataEncoding.Cp949));
         Assert.That(O2JamImportService.isUnchanged(path, source), Is.True);
 

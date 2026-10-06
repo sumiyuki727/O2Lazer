@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -19,6 +20,7 @@ internal sealed class O2JamHitSoundRateAdjustments
     private readonly AudioAdjustments adjustments = new();
     private readonly BindableDouble channelPlaybackFrequency = new(1);
     private readonly WeakList<SampleChannel> channels = new();
+    private readonly Dictionary<string, WeakReference<SampleChannel>> latestKeySounds = new(StringComparer.OrdinalIgnoreCase);
     private readonly WeakList<Drawable> soundContainers = new();
     private readonly BindableDouble speed = new(1);
     private readonly BindableBool adjustPitch = new();
@@ -95,21 +97,24 @@ internal sealed class O2JamHitSoundRateAdjustments
     {
         hitSound.BindAdjustments(adjustments);
         if (hitSound is Drawable drawable)
-        {
-            if (owners.TryGetValue(drawable, out var owner) && ReferenceEquals(owner, this))
-                return;
+            RegisterSoundContainer(drawable);
+    }
 
-            owners.Remove(drawable);
-            owners.Add(drawable, this);
-            soundContainers.Add(drawable);
-        }
+    internal void RegisterSoundContainer(Drawable drawable)
+    {
+        if (owners.TryGetValue(drawable, out var owner) && ReferenceEquals(owner, this))
+            return;
+
+        owners.Remove(drawable);
+        owners.Add(drawable, this);
+        soundContainers.Add(drawable);
     }
 
     internal static void BindChannel(DrawableSample sample, SampleChannel channel)
     {
         // Only musical OJM samples inside this gameplay's registered sound containers
-        // need tail suspension. Menu sounds and other rulesets retain native behaviour.
-        if (!channel.Name.StartsWith("o2jam/", System.StringComparison.OrdinalIgnoreCase))
+        // need voice replacement and tail suspension. Other audio retains native behaviour.
+        if (!channel.Name.StartsWith("o2jam/", StringComparison.OrdinalIgnoreCase))
             return;
 
         for (Drawable? ancestor = sample; ancestor != null; ancestor = ancestor.Parent)
@@ -121,6 +126,13 @@ internal sealed class O2JamHitSoundRateAdjustments
             // Keep pause control on the channel itself; do not duplicate its rate/pitch factors.
             channel.AddAdjustment(AdjustableProperty.Frequency, owner.channelPlaybackFrequency);
             owner.channels.Add(channel);
+
+            // Native empty-hit and judgement sounds own different sample instances. Coordinate
+            // their voices by OJM identity without changing eligibility, preview or background audio.
+            if (owner.latestKeySounds.TryGetValue(channel.Name, out var previous)
+                && previous.TryGetTarget(out var oldChannel) && !oldChannel.IsDisposed)
+                oldChannel.Stop();
+            owner.latestKeySounds[channel.Name] = new WeakReference<SampleChannel>(channel);
             return;
         }
     }
@@ -156,6 +168,7 @@ internal sealed class O2JamHitSoundRateAdjustments
         }
 
         channels.Clear();
+        latestKeySounds.Clear();
     }
 
     internal void UnbindAll()

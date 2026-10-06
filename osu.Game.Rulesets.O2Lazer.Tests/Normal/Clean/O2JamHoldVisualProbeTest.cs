@@ -71,6 +71,13 @@ public partial class O2JamHoldVisualProbeTest
         [Values(ScrollingDirection.Down, ScrollingDirection.Up)] ScrollingDirection direction)
         => runVisualProbe(50, true, direction, headAccuracy);
 
+    [Test]
+    public void PillRescuedBadHeadStillForcesTailMiss(
+        [Values(false, true)] bool o2Visual,
+        [Values(ScrollingDirection.Down, ScrollingDirection.Up)] ScrollingDirection direction,
+        [Values(false, true)] bool rewind)
+        => runVisualProbe(50, o2Visual, direction, O2JamAccuracy.Bad, true, rewind);
+
     [TestCase(true, false, 407.617)]
     [TestCase(false, true, 500)]
     public void DrawableUsesInjectedRulesetSettingWhenRuntimeProjectionDiffers(bool configuredVisual, bool projectedVisual, double earlyRelease)
@@ -118,14 +125,15 @@ public partial class O2JamHoldVisualProbeTest
         Assert.That(game.Completed, Is.True);
     }
 
-    private static void runVisualProbe(double earlyRelease, bool o2Visual, ScrollingDirection direction, O2JamAccuracy? rejectedHead = null)
+    private static void runVisualProbe(double earlyRelease, bool o2Visual, ScrollingDirection direction,
+                                       O2JamAccuracy? rejectedHead = null, bool rescueHead = false, bool rewind = false)
     {
         var previousVisual = O2JamRuntimeOptions.UseO2JamLongNoteMissVisual;
         O2JamRuntimeOptions.UseO2JamLongNoteMissVisual = o2Visual;
         try
         {
             using var host = new TestRunHeadlessGameHost($"O2JamHoldClipping-{Guid.NewGuid():N}");
-            var game = new ProbeGame(earlyRelease, o2Visual, direction, rejectedHead);
+            var game = new ProbeGame(earlyRelease, o2Visual, direction, rejectedHead, rewind: rewind, rescueHead: rescueHead);
             host.Run(game);
             foreach (var line in game.Observations)
                 TestContext.Progress.WriteLine(line);
@@ -149,6 +157,7 @@ public partial class O2JamHoldVisualProbeTest
         private readonly O2JamAccuracy expectedAccuracy;
         private readonly O2JamAccuracy? rejectedHead;
         private readonly bool noRelease;
+        private readonly bool rescueHead;
         private readonly bool rewind;
         private readonly O2JamRulesetConfigManager? injectedConfig;
         private readonly O2JamScoreProcessor processor = new(new O2LazerRuleset());
@@ -167,14 +176,22 @@ public partial class O2JamHoldVisualProbeTest
         public bool Completed;
         public List<string> Observations { get; } = [];
 
+        private double headAttemptTime => rejectedHead switch
+        {
+            O2JamAccuracy.Bad => 1400,
+            O2JamAccuracy.Miss => 1500,
+            _ => 999.051,
+        };
+
         public ProbeGame(double earlyRelease, bool? verifyO2Visual = null, ScrollingDirection direction = ScrollingDirection.Down,
                          O2JamAccuracy? rejectedHead = null, bool noRelease = false, bool rewind = false,
-                         O2JamRulesetConfigManager? injectedConfig = null)
+                         O2JamRulesetConfigManager? injectedConfig = null, bool rescueHead = false)
         {
             releaseTime = 1821.917808219 - earlyRelease;
             this.verifyO2Visual = verifyO2Visual;
             this.rejectedHead = rejectedHead;
             this.noRelease = noRelease;
+            this.rescueHead = rescueHead;
             this.rewind = rewind;
             this.injectedConfig = injectedConfig;
             expectedAccuracy = rejectedHead.HasValue ? O2JamAccuracy.Miss : earlyRelease switch
@@ -186,7 +203,7 @@ public partial class O2JamHoldVisualProbeTest
             };
             ((Bindable<ScrollingDirection>)scrolling.Direction).Value = direction;
             frameClock = new FramedClock(sourceClock);
-            seek(999.051);
+            seek(headAttemptTime);
         }
 
         protected override IReadOnlyDependencyContainer CreateChildDependencies(IReadOnlyDependencyContainer parent)
@@ -224,7 +241,6 @@ public partial class O2JamHoldVisualProbeTest
                 var beatmap = new osu.Game.Rulesets.O2Lazer.Beatmaps.O2JamBeatmap(O2JamDifficulty.EX, timing);
                 beatmap.HitObjects.Add(note);
                 processor.ApplyBeatmap(beatmap);
-                initialState = processor.GameplayState.Current;
                 playfield.NewResult += (_, result) => processor.ApplyResult(result);
                 playfield.RevertResult += result =>
                 {
@@ -232,6 +248,13 @@ public partial class O2JamHoldVisualProbeTest
                     processor.RevertResult(result);
                 };
             }
+            if (rescueHead)
+                for (var i = 0; i < O2JamGameplayState.CoolHitsPerPill; i++)
+                {
+                    var preceding = new O2JamNote();
+                    processor.Resolve(new O2JamJudgementResult(preceding, preceding.CreateJudgement()), O2JamAccuracy.Cool);
+                }
+            initialState = processor.GameplayState.Current;
             playfield.Add(note);
             ISkin skin = UseLegacySkin ? createLegacySkin() : new ProbeSkin();
             var realmPath = Environment.GetEnvironmentVariable("O2JAM_DIAGNOSTIC_REALM");
@@ -282,12 +305,7 @@ public partial class O2JamHoldVisualProbeTest
                 switch (phase++)
                 {
                     case 0:
-                        seek(rejectedHead switch
-                        {
-                            O2JamAccuracy.Bad => 1400,
-                            O2JamAccuracy.Miss => 1500,
-                            _ => 999.051,
-                        });
+                        seek(headAttemptTime);
                         break;
                     case 1:
                         ((IKeyBindingHandler<ManiaAction>)hold).OnPressed(new KeyBindingPressEvent<ManiaAction>(new InputState(), ManiaAction.Key1, false));
@@ -370,7 +388,10 @@ public partial class O2JamHoldVisualProbeTest
                     break;
                 case 1:
                 case 7:
-                    Assert.That(hold.GameplayState.IsHolding, Is.True);
+                    if (rejectedHead.HasValue)
+                        verifyRelease();
+                    else
+                        Assert.That(hold.GameplayState.IsHolding, Is.True);
                     seek(releaseTime);
                     break;
                 case 2:
@@ -394,14 +415,15 @@ public partial class O2JamHoldVisualProbeTest
                     Assert.That(hold.Judged, Is.False);
                     Assert.That(hold.GameplayState.IsHolding, Is.False);
                     Assert.That(processor.GameplayState.Current, Is.EqualTo(initialState));
-                    Assert.That(processor.TotalScore.Value, Is.Zero);
-                    Assert.That(processor.Combo.Value, Is.EqualTo(-1));
+                    Assert.That(processor.TotalScore.Value, Is.EqualTo(initialState.Score));
+                    Assert.That(processor.Combo.Value, Is.EqualTo(initialState.Combo));
                     Assert.That(((O2JamJudgementResult)hold.Head.Result).ResolutionApplied, Is.False);
                     Assert.That(((O2JamJudgementResult)hold.Tail.Result).ResolutionApplied, Is.False);
                     seek(999.051);
                     break;
                 case 5:
                     Assert.That(hold.Head.Judged, Is.False);
+                    seek(headAttemptTime);
                     break;
                 case 9:
                     Assert.That(hold.AllJudged, Is.True);
@@ -464,8 +486,13 @@ public partial class O2JamHoldVisualProbeTest
             Assert.That(hold.AllJudged, Is.True, "Keeping a visual alive must not defer judgement.");
             if (rejectedHead.HasValue)
             {
-                Assert.That(((O2JamJudgementResult)hold.Head.Result).Resolution.ResolvedAccuracy, Is.EqualTo(rejectedHead.Value));
-                Assert.That(sizing().Height, Is.EqualTo(1), "A rejected head must not clip an LN that was never held.");
+                var head = (O2JamJudgementResult)hold.Head.Result;
+                Assert.That(head.Resolution.RequestedAccuracy, Is.EqualTo(rejectedHead.Value));
+                Assert.That(head.Resolution.ResolvedAccuracy, Is.EqualTo(rescueHead ? O2JamAccuracy.Cool : rejectedHead.Value));
+                Assert.That(head.Resolution.PillConsumed, Is.EqualTo(rescueHead));
+                Assert.That(hold.GameplayState.CanBeginHold, Is.False);
+                if (verifyO2Visual == true)
+                    Assert.That(sizing().Height, Is.EqualTo(1), "O2Jam visuals must not clip a rejected head that was never held.");
             }
             Assert.That(hold.IsHolding.Value, Is.False, "Retention must not extend the hold light or hold state.");
             Assert.That(hold.Alpha, Is.EqualTo(verifyO2Visual == true || expectedAccuracy == O2JamAccuracy.Miss ? 1 : 0));
@@ -505,7 +532,10 @@ public partial class O2JamHoldVisualProbeTest
             {
                 Assert.That(hold.IsPresent, Is.True);
                 Assert.That(hold.Colour, Is.EqualTo((osu.Framework.Graphics.Colour.ColourInfo)Colour4.DarkGray));
-                Assert.That(sizing().Height, Is.EqualTo(releasedHeight));
+                if (rejectedHead == O2JamAccuracy.Bad)
+                    Assert.That(sizing().Height, Is.LessThan(releasedHeight), "Disabled O2Jam visuals retain mania clipping for an IsHit head.");
+                else
+                    Assert.That(sizing().Height, Is.EqualTo(releasedHeight));
             }
             else
                 Assert.That(playfield.AllHitObjects.OfType<O2JamDrawableHoldNote>(), Is.Empty);

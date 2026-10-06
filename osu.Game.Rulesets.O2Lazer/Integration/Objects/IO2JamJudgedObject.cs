@@ -26,10 +26,16 @@ internal static class O2JamHitObjectTiming
 
     public static double MaximumJudgementOffset(IO2JamJudgedObject hitObject)
     {
-        var badPosition = O2JamTimingMap.TicksToPosition(O2JamJudgementEngine.BadTicksFor(hitObject.EndpointKind));
+        return MaximumOffset(hitObject, O2JamJudgementEngine.WindowFor(O2JamAccuracy.Bad, hitObject.EndpointKind));
+    }
+
+    public static double MaximumOffset(IO2JamJudgedObject hitObject, O2JamJudgementWindow window)
+    {
+        // Native lifetime/input APIs accept one symmetric envelope. The Core still decides
+        // each endpoint against its separate early/late bounds, including BPM changes.
         var targetTime = hitObject.TimingMap.TimeAt(hitObject.ChartPosition);
-        var early = targetTime - hitObject.TimingMap.TimeAt(hitObject.ChartPosition - badPosition);
-        var late = hitObject.TimingMap.TimeAt(hitObject.ChartPosition + badPosition) - targetTime;
+        var early = targetTime - hitObject.TimingMap.TimeAt(hitObject.ChartPosition - O2JamTimingMap.TicksToPosition(window.EarlyTicks));
+        var late = hitObject.TimingMap.TimeAt(hitObject.ChartPosition + O2JamTimingMap.TicksToPosition(window.LateTicks)) - targetTime;
         return Math.Max(early, late);
     }
 }

@@ -24,6 +24,29 @@ public class O2JamJudgementHistoryTest
         Assert.That(history.Resolve(bad, O2JamAccuracy.Bad).PillConsumed, Is.True);
     }
 
+    [Test]
+    public void RewindAcrossJamPromotionRestoresTheBoundaryAndScoreBonus()
+    {
+        var history = new O2JamJudgementHistory(O2JamDifficulty.HX);
+        for (var i = 0; i < 25; i++)
+            history.Resolve(result(), O2JamAccuracy.Cool);
+        var boundary = history.State.Current;
+        Assert.That(boundary.JamCombo, Is.Zero);
+        Assert.That(boundary.JamProgress, Is.EqualTo(100));
+
+        var promotion = result();
+        Assert.That(history.Resolve(promotion, O2JamAccuracy.Cool).ScoreDelta, Is.EqualTo(200));
+        var afterPromotion = history.State.Current;
+        var bonus = result();
+        Assert.That(history.Resolve(bonus, O2JamAccuracy.Cool).ScoreDelta, Is.EqualTo(210));
+        history.Revert(bonus);
+        Assert.That(history.State.Current, Is.EqualTo(afterPromotion));
+        history.Revert(promotion);
+        Assert.That(history.State.Current, Is.EqualTo(boundary));
+        Assert.That(history.Resolve(promotion, O2JamAccuracy.Cool).ScoreDelta, Is.EqualTo(200));
+        Assert.That(history.Resolve(bonus, O2JamAccuracy.Cool).State.Score, Is.EqualTo(5410));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void NativeRollbackRestoresSnapshotsAcrossLifeDepletion(bool noFail)

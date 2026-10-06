@@ -50,6 +50,39 @@ public class O2JamLocalisationTest
         Assert.That(data.GetLocalised(LocalisationParameters.DEFAULT), Is.EqualTo(text.ToString()));
     }
 
+    [TestCase("zh-CN", "300毫秒 (28.0速 · ×3)")]
+    [TestCase("en", "300ms (speed 28.0 · ×3)")]
+    public void ScrollSpeedUsesOneParenthesisGroupAndFollowsLanguageChanges(string locale, string expected)
+    {
+        using var store = new CultureStore(locale);
+        var data = new ResourceLocalisableString(O2LazerStrings.Catalog, "scroll_speed_tooltip_with_o2jam_grade", [300, 28.0, 3.0]);
+        Assert.That(O2LazerStrings.ScrollSpeedTooltipWithO2JamGrade(300, 28, 3), Is.EqualTo(new LocalisableString(data)));
+        var text = data.GetLocalised(LocalisationParameters.DEFAULT.With(store));
+        Assert.That(text, Is.EqualTo(expected));
+        Assert.That(text.Count(character => character == '('), Is.EqualTo(1));
+    }
+
+    [TestCase("en")]
+    [TestCase("zh-CN")]
+    public void RandomAlgorithmNamesAndDescriptionsStayEnglish(string locale)
+    {
+        var culture = CultureInfo.GetCultureInfo(locale);
+        string[] keys = ["random_algorithm", "random_algorithm_description", "random_algorithm_native", "random_algorithm_o2jam",
+                         "random_algorithm_panic", "random_algorithm_r_random", "random_algorithm_s_random"];
+        LocalisableString[] values = [O2LazerStrings.RandomAlgorithm, O2LazerStrings.RandomAlgorithmDescription, O2LazerStrings.RandomAlgorithmNative,
+                                      O2LazerStrings.RandomAlgorithmO2Jam, O2LazerStrings.RandomAlgorithmPanic,
+                                      O2LazerStrings.RandomAlgorithmRRandom, O2LazerStrings.RandomAlgorithmSRandom];
+        for (var index = 0; index < keys.Length; index++)
+        {
+            var english = O2LazerStrings.Catalog.GetEnglish(keys[index]);
+            Assert.That(O2LazerStrings.Catalog.Get(keys[index], culture), Is.EqualTo(english), keys[index]);
+            Assert.That(values[index], Is.EqualTo(new LocalisableString(english)), keys[index]);
+        }
+        Assert.That(O2LazerStrings.Catalog.Get("random_algorithm", culture), Is.EqualTo("Algorithm"));
+        Assert.That(O2LazerStrings.Catalog.Get("random_algorithm_panic", culture), Is.EqualTo("S-Random"));
+        Assert.That(O2LazerStrings.Catalog.Get("random_algorithm_s_random", culture), Is.EqualTo("S-Random (legacy)"));
+    }
+
     [Test]
     public void AllShippedLanguagesMatchEnglishKeysAndPlaceholders()
     {

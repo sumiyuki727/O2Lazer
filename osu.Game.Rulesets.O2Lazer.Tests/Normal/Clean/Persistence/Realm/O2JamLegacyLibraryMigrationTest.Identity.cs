@@ -120,6 +120,8 @@ public partial class O2JamLegacyLibraryMigrationTest
     [TestCase(0)]
     [TestCase(1)]
     [TestCase(2)]
+    [TestCase(3)]
+    [TestCase(4)]
     public void CollectionMd5MigrationRequiresAGloballyUniqueOldOwner(int collision) => runProjectionTest((realm, storage) =>
     {
         var path = storage.GetFullPath("collections.ojn");
@@ -135,10 +137,19 @@ public partial class O2JamLegacyLibraryMigrationTest
             ex.MD5Hash = oldMd5;
             ex.Hash = plan.SourceHash;
             ex.Metadata.Tags = "o2jam";
-            if (collision == 1)
+            if (collision is 1 or 3 or 4)
             {
                 var foreign = database.Add(new RulesetInfo("bms", "BMS", "test", -1));
-                database.Add(new BeatmapInfo(foreign) { MD5Hash = oldMd5, Hash = "foreign" });
+                var beatmap = new BeatmapInfo(foreign) { MD5Hash = collision == 3 ? oldMd5.ToUpperInvariant() : oldMd5, Hash = "foreign" };
+                if (collision == 4)
+                {
+                    var pending = new BeatmapSetInfo { DeletePending = true };
+                    beatmap.BeatmapSet = pending;
+                    pending.Beatmaps.Add(beatmap);
+                    database.Add(pending);
+                }
+                else
+                    database.Add(beatmap);
             }
             if (collision == 2)
             {
@@ -157,7 +168,7 @@ public partial class O2JamLegacyLibraryMigrationTest
         {
             Assert.That(database.All<BeatmapCollection>().Single().BeatmapMD5Hashes,
                 Is.EquivalentTo(new[] { collision == 0 ? plan.Charts[0].Md5Hash : oldMd5, "unrelated" }));
-            Assert.That(database.All<BeatmapInfo>().Count(beatmap => beatmap.MD5Hash == oldMd5), Is.EqualTo(collision == 1 ? 1 : 0));
+            Assert.That(database.All<BeatmapInfo>().AsEnumerable().Count(beatmap => string.Equals(beatmap.MD5Hash, oldMd5, StringComparison.OrdinalIgnoreCase)), Is.EqualTo(collision is 1 or 3 or 4 ? 1 : 0));
         });
     });
 
@@ -273,10 +284,10 @@ public partial class O2JamLegacyLibraryMigrationTest
         var unavailableParent = storage.GetFullPath("parent-file");
         File.WriteAllBytes(unavailableParent, [0]);
         realm.Write(database => database.All<BeatmapInfo>().Single().Metadata.Source = unavailableParent);
-        Assert.That(writer.MarkMissingSources(), Is.Zero, "An existing but untraversable parent cannot prove absence.");
+        Assert.That(writer.MarkDeleted(sources.Values.Select(source => source.SetId)), Is.Zero, "An existing but untraversable parent cannot prove absence.");
         realm.Write(database => database.All<BeatmapInfo>().Single().Metadata.Source = directory);
         Directory.Delete(directory);
-        Assert.That(writer.MarkMissingSources(), Is.EqualTo(1), "A readable ancestor can prove that the whole source directory disappeared.");
+        Assert.That(writer.MarkDeleted(sources.Values.Select(source => source.SetId)), Is.EqualTo(1), "A readable ancestor can prove that the whole source directory disappeared.");
     });
 
     [Test]

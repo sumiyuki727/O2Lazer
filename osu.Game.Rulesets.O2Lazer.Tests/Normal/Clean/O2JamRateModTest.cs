@@ -6,7 +6,11 @@ using osu.Framework.Audio;
 using osu.Framework.Bindables;
 using osu.Game.Beatmaps;
 using osu.Game.Configuration;
+using osu.Game.Rulesets.Mania;
+using osu.Game.Rulesets.Mania.Beatmaps;
 using osu.Game.Rulesets.Mania.Mods;
+using osu.Game.Rulesets.Mania.Scoring;
+using osu.Game.Rulesets.Mania.UI;
 using osu.Game.Rulesets.Mania.Objects;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Audio;
@@ -184,6 +188,76 @@ public class O2JamRateModTest
         });
     }
 
+    [TestCase(typeof(O2JamModHalfTime), typeof(ManiaModHalfTime), 0.75)]
+    [TestCase(typeof(O2JamModHalfTime), typeof(ManiaModHalfTime), 0.8)]
+    [TestCase(typeof(O2JamModDaycore), typeof(ManiaModDaycore), 0.75)]
+    [TestCase(typeof(O2JamModDaycore), typeof(ManiaModDaycore), 0.8)]
+    [TestCase(typeof(O2JamModDoubleTime), typeof(ManiaModDoubleTime), 1.5)]
+    [TestCase(typeof(O2JamModDoubleTime), typeof(ManiaModDoubleTime), 1.8)]
+    [TestCase(typeof(O2JamModNightcore), typeof(ManiaModNightcore), 1.5)]
+    [TestCase(typeof(O2JamModNightcore), typeof(ManiaModNightcore), 1.8)]
+    public void ManiaScoreWindowsMatchNativeRateMods(Type modType, Type nativeModType, double speed)
+    {
+        string[] extras = ["none", "HR", "EZ", "CL"];
+        bool[] orders = [false, true];
+        foreach (var extra in extras)
+        foreach (var rateFirst in orders)
+        {
+            var ruleset = new O2LazerRuleset();
+            var source = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+            source.BeatmapInfo.Ruleset = ruleset.RulesetInfo;
+            source.Difficulty.CircleSize = 7;
+            source.HitObjects.Add(new O2JamNote { StartTime = 1000 });
+            source.HitObjects.Add(new O2JamHoldNote { StartTime = 2000, Duration = 1000 });
+            var rateMod = (ModRateAdjust)Activator.CreateInstance(modType)!;
+            rateMod.SpeedChange.Value = speed;
+            Mod[] mods = [new O2JamModManiaScore(), rateMod];
+            if (extra != "none")
+                mods = [.. mods, extra switch { "HR" => new O2JamModHardRock(), "EZ" => new O2JamModEasy(), _ => new O2JamModClassic() }];
+            if (rateFirst)
+                Array.Reverse(mods);
+            var playable = new FlatWorkingBeatmap(source).GetPlayableBeatmap(ruleset.RulesetInfo, mods, default);
+
+            var mania = new ManiaRuleset();
+            var nativeSource = new ManiaBeatmap(new StageDefinition(7));
+            nativeSource.BeatmapInfo.Ruleset = mania.RulesetInfo;
+            nativeSource.Difficulty.CircleSize = 7;
+            nativeSource.Difficulty.OverallDifficulty = 7;
+            nativeSource.Difficulty.DrainRate = 7;
+            nativeSource.HitObjects.Add(new Note { StartTime = 1000 });
+            nativeSource.HitObjects.Add(new HoldNote { StartTime = 2000, Duration = 1000 });
+            var nativeRateMod = (ModRateAdjust)Activator.CreateInstance(nativeModType)!;
+            nativeRateMod.SpeedChange.Value = speed;
+            Mod[] nativeMods = [nativeRateMod];
+            if (extra != "none")
+                nativeMods = [.. nativeMods, extra switch { "HR" => new ManiaModHardRock(), "EZ" => new ManiaModEasy(), _ => new ManiaModClassic() }];
+            if (rateFirst)
+                Array.Reverse(nativeMods);
+            var expected = new FlatWorkingBeatmap(nativeSource).GetPlayableBeatmap(mania.RulesetInfo, nativeMods, default);
+            if (extra == "CL")
+            {
+                // Native Classic treats the O2Jam source as converted. Preserve that same
+                // policy in the reference, independently of the rate adapter under test.
+                expected.BeatmapInfo.Ruleset = ruleset.RulesetInfo;
+                new ManiaModClassic().ApplyToBeatmap(expected);
+            }
+            var actualHold = (HoldNote)playable.HitObjects[1];
+            var expectedHold = (HoldNote)expected.HitObjects[1];
+            ManiaHitObject[] actualEndpoints = [(Note)playable.HitObjects[0], actualHold.Head, actualHold.Tail];
+            ManiaHitObject[] expectedEndpoints = [(Note)expected.HitObjects[0], expectedHold.Head, expectedHold.Tail];
+
+            for (var i = 0; i < actualEndpoints.Length; i++)
+            {
+                var actualWindows = (ManiaHitWindows)actualEndpoints[i].HitWindows;
+                var expectedWindows = (ManiaHitWindows)expectedEndpoints[i].HitWindows;
+                var context = $"{modType.Name}, {speed}, {extra}, rateFirst={rateFirst}, endpoint={i}";
+                Assert.That(actualWindows.SpeedMultiplier, Is.EqualTo(expectedWindows.SpeedMultiplier), context);
+                Assert.That(actualWindows.GetAllAvailableWindows(), Is.EqualTo(expectedWindows.GetAllAvailableWindows()), context);
+                Assert.That(actualEndpoints[i].StartTime, Is.EqualTo(expectedEndpoints[i].StartTime), context);
+            }
+        }
+    }
+
     [TestCase(typeof(O2JamModHalfTime), 0.8)]
     [TestCase(typeof(O2JamModDaycore), 0.8)]
     [TestCase(typeof(O2JamModDoubleTime), 1.8)]
@@ -195,10 +269,29 @@ public class O2JamRateModTest
         source.BeatmapInfo.Ruleset = ruleset.RulesetInfo;
         source.BeatmapInfo.Hash = "rate-mod-chart";
         source.HitObjects.Add(new O2JamNote { StartTime = 1000, ChartPosition = source.TimingMap.PositionAt(1000) });
+        source.HitObjects.Add(new O2JamHoldNote
+        {
+            StartTime = 2000,
+            Duration = 1000,
+            TimingMap = source.TimingMap,
+            HeadChartPosition = source.TimingMap.PositionAt(2000),
+            TailChartPosition = source.TimingMap.PositionAt(3000),
+        });
         var mod = (ModRateAdjust)Activator.CreateInstance(modType)!;
         mod.SpeedChange.Value = speed;
 
         var playable = new FlatWorkingBeatmap(source).GetPlayableBeatmap(ruleset.RulesetInfo, [mod], default);
+        var baseline = new FlatWorkingBeatmap(source).GetPlayableBeatmap(ruleset.RulesetInfo, [], default);
+        var hold = (O2JamHoldNote)playable.HitObjects[1];
+        var baselineHold = (O2JamHoldNote)baseline.HitObjects[1];
+        ManiaHitObject[] actualEndpoints = [(O2JamNote)playable.HitObjects[0], hold.Head, hold.Tail];
+        ManiaHitObject[] baselineEndpoints = [(O2JamNote)baseline.HitObjects[0], baselineHold.Head, baselineHold.Tail];
+        for (var i = 0; i < actualEndpoints.Length; i++)
+        {
+            Assert.That(actualEndpoints[i].HitWindows, Is.TypeOf<O2JamFrameworkHitWindows>());
+            Assert.That(actualEndpoints[i].HitWindows.GetAllAvailableWindows(), Is.EqualTo(baselineEndpoints[i].HitWindows.GetAllAvailableWindows()));
+            Assert.That(actualEndpoints[i].StartTime, Is.EqualTo(baselineEndpoints[i].StartTime));
+        }
 
         Assert.Multiple(() =>
         {

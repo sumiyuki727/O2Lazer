@@ -100,7 +100,7 @@ public partial class O2JamSettingsSubsection : RulesetSettingsSubsection
                 Current = config.GetBindable<double>(O2JamRulesetSetting.ScrollSpeed),
                 KeyboardStep = 1,
                 LabelFormat = speed => O2LazerStrings.ScrollSpeedTooltipWithO2JamGrade(
-                    RulesetSettingsStrings.ScrollSpeedTooltip((int)O2JamDrawableRuleset.ComputeScrollTime(speed), speed),
+                    (int)O2JamDrawableRuleset.ComputeScrollTime(speed), speed,
                     O2JamDrawableRuleset.GetO2JamSpeedMultiplier(speed)),
             }),
             new SettingsItemV2(new FormEnumDropdown<ManiaScrollingDirection>

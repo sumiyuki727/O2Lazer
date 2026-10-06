@@ -1,5 +1,7 @@
 using System;
 using System.Threading.Tasks;
+using System.Threading;
+using osu.Framework.Localisation;
 using osu.Framework.Bindables;
 using osu.Framework.Logging;
 using osu.Game.Overlays;
@@ -60,26 +62,32 @@ internal sealed class O2JamLibrarySettingsSession : IDisposable
         if (!Application.CanRefresh)
             return;
 
-        var notification = new ProgressNotification
+        var notification = new O2JamLibraryProgressNotification(formatProgress)
         {
-            Text = O2LazerStrings.RefreshingProgress(0, 0),
+            Text = O2LazerStrings.CheckingBeatmaps,
             Progress = 0,
             State = ProgressNotificationState.Active,
         };
         notifications?.Post(notification);
+        var imported = 0;
 
         try
         {
             var summary = await Application.RefreshAsync(progress =>
             {
-                notification.Text = progress.SynchronisingCollections
-                    ? O2LazerStrings.SynchronisingCollections
-                    : O2LazerStrings.RefreshingProgress(progress.Processed, progress.Total);
-                notification.Progress = progress.Total == 0 ? 1 : (float)progress.Processed / progress.Total;
+                // Concurrent star work must not replace the import counter or flicker stages.
+                if (progress.Stage == O2JamLibraryStage.CalculatingDifficulties && Volatile.Read(ref imported) == 0)
+                    return;
+                if (progress.Stage == O2JamLibraryStage.SynchronisingCollections)
+                    Volatile.Write(ref imported, 1);
+                if (PresentRefreshProgress(progress) is { } visible)
+                    notification.Report(visible);
             }, notification.CancellationToken).ConfigureAwait(false);
             notification.CompletionText = summary.RulesetUnavailable ? O2LazerStrings.RulesetUnavailable
                 : summary.Failed > 0 ? O2LazerStrings.RefreshWithFailures(summary.Imported, summary.Updated, summary.Failed)
+                : summary.FailedDifficultyCalculations > 0 ? O2LazerStrings.RefreshDifficultiesPending
                 : summary.PendingNotifications > 0 ? O2LazerStrings.RefreshUpdatesPending : O2LazerStrings.RefreshComplete;
+            notification.Flush();
             notification.State = summary.RulesetUnavailable ? ProgressNotificationState.Cancelled : ProgressNotificationState.Completed;
         }
         catch (O2JamImportCancelledException exception)
@@ -103,16 +111,52 @@ internal sealed class O2JamLibrarySettingsSession : IDisposable
 
     public async Task DeleteAllAsync()
     {
+        var notification = new O2JamLibraryProgressNotification(formatProgress)
+        {
+            Text = O2LazerStrings.ClearingBeatmaps,
+            State = ProgressNotificationState.Active,
+        };
+        notifications?.Post(notification);
         try
         {
-            await Application.DeleteAllAsync().ConfigureAwait(false);
+            await Application.DeleteAllAsync(notification.Report, notification.CancellationToken).ConfigureAwait(false);
+            notification.CompletionText = O2LazerStrings.ClearComplete;
+            notification.Flush();
+            notification.State = ProgressNotificationState.Completed;
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+            notification.Text = O2LazerStrings.ClearStopped;
+            notification.State = ProgressNotificationState.Cancelled;
+        }
         catch (Exception exception)
         {
+            notification.State = ProgressNotificationState.Cancelled;
             reportFailure(exception);
         }
     }
+
+    private static LocalisableString formatProgress(O2JamLibraryProgress progress) => progress.Stage switch
+    {
+        O2JamLibraryStage.ReadingSourceFiles => O2LazerStrings.CheckingBeatmaps,
+        O2JamLibraryStage.CalculatingDifficulties => O2LazerStrings.CalculatingDifficulties(progress.Processed, progress.Total),
+        O2JamLibraryStage.ClearingCharts => O2LazerStrings.ClearingProgress(progress.Processed, progress.Total),
+        _ => O2LazerStrings.RefreshingProgress(progress.Processed, progress.Total),
+    };
+
+    // Keep backend stages intact for diagnosis; only presentation combines the two
+    // equally sized source passes and hides stages without any counted work.
+    internal static O2JamLibraryProgress? PresentRefreshProgress(O2JamLibraryProgress progress) => progress.Stage switch
+    {
+        O2JamLibraryStage.ScanningSources or O2JamLibraryStage.ReadingImportedMetadata or O2JamLibraryStage.CheckingStoredFiles
+            => new O2JamLibraryProgress(0, 0, O2JamLibraryStage.ReadingSourceFiles),
+        O2JamLibraryStage.ReadingSourceFiles => progress with { Total = checked(progress.Total * 2) },
+        O2JamLibraryStage.MatchingSources => new O2JamLibraryProgress(checked(progress.Total + progress.Processed),
+            checked(progress.Total * 2), O2JamLibraryStage.ReadingSourceFiles),
+        O2JamLibraryStage.SynchronisingCollections => null,
+        O2JamLibraryStage.RefreshingCharts or O2JamLibraryStage.CalculatingDifficulties when progress.Total == 0 => null,
+        _ => progress,
+    };
 
     private void reportFailure(Exception exception)
     {

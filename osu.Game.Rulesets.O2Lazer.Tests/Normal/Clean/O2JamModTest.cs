@@ -279,12 +279,16 @@ public class O2JamModTest
         }
     }
 
-    [Test]
-    public void RandomSeedSurvivesReplayArchiveAndRecreatesCombinedColumnMods()
+    [TestCase(O2JamRandomAlgorithm.Native)]
+    [TestCase(O2JamRandomAlgorithm.O2Jam)]
+    [TestCase(O2JamRandomAlgorithm.Panic)]
+    [TestCase(O2JamRandomAlgorithm.RRandom)]
+    [TestCase(O2JamRandomAlgorithm.SRandom)]
+    public void RandomSeedSurvivesReplayArchiveAndRecreatesCombinedColumnMods(O2JamRandomAlgorithm algorithm)
     {
         var ruleset = new O2LazerRuleset();
         var working = new FlatWorkingBeatmap(createBeatmap(ruleset));
-        var random = new O2JamModRandom();
+        var random = new O2JamModRandom { Algorithm = { Value = algorithm } };
         Mod[] mods = [new O2JamModNoFail(), random, new O2JamModMirror()];
         var playable = (O2JamBeatmap)working.GetPlayableBeatmap(ruleset.RulesetInfo, mods, default);
         var replay = new O2JamAutoGenerator(playable).Generate();
@@ -304,6 +308,7 @@ public class O2JamModTest
         {
             Assert.That(restored.Mods.Select(mod => mod.Acronym), Is.EqualTo(mods.Select(mod => mod.Acronym)));
             Assert.That(restoredRandom.Seed.Value, Is.EqualTo(random.Seed.Value));
+            Assert.That(restoredRandom.Algorithm.Value, Is.EqualTo(algorithm));
             Assert.That(replayBeatmap.HitObjects.Select(note => note.Column), Is.EqualTo(playable.HitObjects.Select(note => note.Column)));
             Assert.That(replay.Frames.Cast<O2JamReplayFrame>().First().Actions,
                 Is.EqualTo(new[] { ManiaAction.Key1 + playable.HitObjects[0].Column }));
@@ -333,6 +338,7 @@ public class O2JamModTest
             Assert.That(health.HasFailed, Is.False);
             Assert.That(processor.GameplayState.Current.HasFailed, Is.False);
             Assert.That(processor.GameplayState.Current.ScoringEnabled, Is.True);
+            Assert.That(processor.GameplayState.Current.LifeLockedAtZero, Is.False);
         });
 
         for (var i = 0; i < 25; i++)
@@ -346,17 +352,21 @@ public class O2JamModTest
             Assert.That(score.TotalScore, Is.EqualTo(2500));
             Assert.That(score.TotalScoreWithoutMods, Is.EqualTo(5000));
             Assert.That(score.MaxCombo, Is.EqualTo(24));
-            Assert.That(processor.GameplayState.Current.JamCombo, Is.EqualTo(1));
+            Assert.That(processor.GameplayState.Current.JamCombo, Is.Zero);
+            Assert.That(processor.GameplayState.Current.JamProgress, Is.EqualTo(100));
             Assert.That(processor.GameplayState.Current.Pills, Is.EqualTo(1));
             Assert.That(health.Health.Value, Is.EqualTo(processor.GameplayState.Current.Life / 1000d).Within(0.000001));
             Assert.That(health.Health.Value, Is.GreaterThan(0));
+            Assert.That(score.Rank, Is.Not.EqualTo(ScoreRank.F));
+            Assert.That(score.Passed, Is.True);
         });
 
         processor.Mods.Value = [];
         processor.ApplyBeatmap(beatmap);
         for (var i = 0; i < 40; i++)
             processor.Resolve(createResult(), O2JamAccuracy.Miss);
-        Assert.That(processor.GameplayState.Current.ScoringEnabled, Is.False);
+        Assert.That(processor.GameplayState.Current.ScoringEnabled, Is.EqualTo(difficulty == O2JamDifficulty.EX));
+        Assert.That(processor.GameplayState.Current.LifeLockedAtZero, Is.True);
 
         void apply(O2JamAccuracy accuracy)
         {

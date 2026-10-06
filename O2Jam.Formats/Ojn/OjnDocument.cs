@@ -88,7 +88,13 @@ public readonly record struct OjnNoteEvent(
     float TailPan = 0)
 {
     public bool IsPlayable => Channel is >= 2 and <= 8;
+
+    // Normalised positions cannot recover package boundaries in fractional measures.
+    public OjnRawPosition? RawPosition { get; init; }
+    public OjnRawPosition? RawEndPosition { get; init; }
 }
+
+public readonly record struct OjnRawPosition(int Measure, int Tick);
 
 public enum OjnNoteType : byte
 {

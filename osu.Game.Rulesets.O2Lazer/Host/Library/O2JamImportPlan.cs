@@ -35,4 +35,7 @@ public sealed record O2JamImportChart(
     int TotalObjectCount,
     int HoldObjectCount,
     double ManiaStarRating,
-    int ManiaMaxCombo);
+    int ManiaMaxCombo)
+{
+    public bool HasManiaDifficulty => double.IsFinite(ManiaStarRating) && ManiaStarRating >= 0 && ManiaMaxCombo >= 0;
+}

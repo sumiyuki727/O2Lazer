@@ -1,23 +1,33 @@
 namespace O2Jam.Core;
 
 /// <summary>
-/// Endpoint accuracies are resolved values, after pill conversion. Immutable snapshots allow
-/// a host to restore a hold on rewind without replaying presentation callbacks.
+/// Endpoint accuracies are scored values, while the original head accuracy controls continuation.
+/// Immutable snapshots allow rewind without replaying presentation callbacks. Hosts with no pill
+/// conversion may omit the original accuracy because it is identical to the scored value.
 /// </summary>
 public readonly record struct O2JamHoldState(
     O2JamAccuracy HeadAccuracy,
     O2JamAccuracy TailAccuracy,
-    bool IsHolding)
+    bool IsHolding,
+    O2JamAccuracy? RequestedHeadAccuracy = null)
 {
     public bool HeadResolved => HeadAccuracy != O2JamAccuracy.None;
     public bool IsComplete => TailAccuracy != O2JamAccuracy.None;
-    public O2JamHoldHeadOutcome HeadOutcome => O2JamHoldRules.ResolveHead(HeadAccuracy);
+    public O2JamHoldHeadOutcome HeadOutcome => O2JamHoldRules.ResolveHead(RequestedHeadAccuracy ?? HeadAccuracy);
     public bool RequiresTailMiss => !IsComplete && HeadOutcome == O2JamHoldHeadOutcome.EndWithMiss;
     public bool CanBeginHold => !IsComplete && HeadOutcome == O2JamHoldHeadOutcome.BeginHold;
     public bool CanRelease => !IsComplete && IsHolding;
 
     public O2JamHoldState ResolveHead(O2JamAccuracy accuracy) =>
-        HeadResolved ? this : this with { HeadAccuracy = accuracy };
+        HeadResolved || accuracy == O2JamAccuracy.None
+            ? this : this with { HeadAccuracy = accuracy, RequestedHeadAccuracy = accuracy };
+
+    public O2JamHoldState ResolveHead(O2JamResolvedJudgement resolution) =>
+        HeadResolved || resolution.ResolvedAccuracy == O2JamAccuracy.None ? this : this with
+        {
+            HeadAccuracy = resolution.ResolvedAccuracy,
+            RequestedHeadAccuracy = resolution.RequestedAccuracy,
+        };
 
     public O2JamHoldState BeginHold() => CanBeginHold ? this with { IsHolding = true } : this;
 

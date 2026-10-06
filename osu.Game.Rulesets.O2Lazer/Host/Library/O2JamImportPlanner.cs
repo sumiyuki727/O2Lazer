@@ -45,12 +45,6 @@ public sealed class O2JamImportPlanner
                                  if (cache != null && (cache.Version != O2JamManiaStarRating.CacheVersion
                                                        || !double.IsFinite(cache.StarRating) || cache.StarRating < 0 || cache.MaxCombo < 0))
                                      cache = null;
-                                 if (cache == null)
-                                 {
-                                     var beatmap = new OjnBeatmapFactory().Create(document, chart.Difficulty);
-                                     var attributes = O2JamManiaStarRating.CalculateAttributes(beatmap, [], false);
-                                     cache = new O2JamImportDifficultyCache(chart.Difficulty.ToGameplay(), attributes.StarRating, attributes.MaxCombo, O2JamManiaStarRating.CacheVersion);
-                                 }
 
                                  return new O2JamImportChart(
                                      chart.Difficulty.ToGameplay(),
@@ -59,8 +53,8 @@ public sealed class O2JamImportPlanner
                                      Math.Max(objectLength, declaredLength),
                                      playable.Length,
                                      playable.Count(note => note.EndPosition != null),
-                                     cache.StarRating,
-                                     cache.MaxCombo);
+                                     cache?.StarRating ?? -1,
+                                     cache?.MaxCombo ?? -1);
                              })
                              .ToArray();
 

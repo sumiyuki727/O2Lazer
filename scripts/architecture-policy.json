@@ -44,6 +44,12 @@
   },
   "Exceptions": [
     {
+      "Source": "osu.Game.Rulesets.O2Lazer/Host/Mods/O2JamModRandom.cs",
+      "Target": "osu.Game.Rulesets.O2Lazer/Presentation/AccessAndSettings/O2JamRandomAlgorithmDropdown.cs",
+      "Type": "osu.Game.Rulesets.O2Lazer.UI.O2JamRandomAlgorithmDropdown",
+      "Reason": "原生 SettingSource 需要具体控件类型；原生枚举菜单不能隐藏退役算法。控件只筛选菜单并保留已录制的旧值，随机算法仍由独立谱面变换负责。"
+    },
+    {
       "Source": "osu.Game.Rulesets.O2Lazer/Host/Difficulty/Data/O2JamStarRatingMetadata.cs",
       "Target": "osu.Game.Rulesets.O2Lazer/Presentation/DifficultyLevels/Policy/O2JamDifficultyRating.cs",
       "Type": "osu.Game.Rulesets.O2Lazer.Presentation.DifficultyLevels.Policy.O2JamDifficultyRating",

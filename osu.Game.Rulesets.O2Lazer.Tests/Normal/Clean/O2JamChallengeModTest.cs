@@ -85,8 +85,10 @@ public partial class O2JamChallengeModTest
         health.ApplyResult(new JudgementResult(body, body.CreateJudgement()) { Type = HitResult.IgnoreMiss });
         Assert.That(health.HasFailed, Is.False, "The visual hold body must not trigger Perfect.");
 
-        apply(new O2JamHoldTail(), O2JamAccuracy.Good);
-        Assert.That(health.HasFailed, Is.True, "The hold release has its own accuracy judgement.");
+        var state = O2JamJudgementBridge.ReadHoldState(rescuedHead, null, false);
+        var holdEngine = new O2JamHoldJudgementEngine(new O2JamPositionClock(beatmap.TimingMap));
+        apply(new O2JamHoldTail(), holdEngine.InspectTail(state, 2, 0, false, false));
+        Assert.That(health.HasFailed, Is.True, "A rescued BAD head still forces a tail MISS, which triggers Perfect.");
 
         O2JamJudgementResult apply(ManiaHitObject note, O2JamAccuracy accuracy)
         {

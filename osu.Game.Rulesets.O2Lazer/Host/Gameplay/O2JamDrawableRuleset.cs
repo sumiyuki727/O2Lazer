@@ -37,7 +37,7 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
 {
     public const double MaximumTimeRange = 11485;
 
-    private static readonly double[] o2jam_speed_multipliers = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8];
+    private static readonly double[] o2jam_speed_multipliers = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 8];
 
     public new ManiaPlayfield Playfield => (ManiaPlayfield)base.Playfield;
 
@@ -105,6 +105,8 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
 
         hitSoundRateAdjustments.Configure(Mods);
         hitSoundRateAdjustments.BindPlaybackDisabled(IsPaused);
+        // Column empty-hit sounds and MS drawables also need the same musical-voice lifecycle.
+        hitSoundRateAdjustments.RegisterSoundContainer(this);
     }
 
     [BackgroundDependencyLoader]

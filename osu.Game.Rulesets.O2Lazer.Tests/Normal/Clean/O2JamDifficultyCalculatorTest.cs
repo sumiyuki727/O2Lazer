@@ -10,6 +10,7 @@ using osu.Framework.Graphics.Textures;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
+using osu.Game.Rulesets.O2Lazer.Import;
 using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojn;
 using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.O2Lazer.Objects;
@@ -109,6 +110,27 @@ public class O2JamDifficultyCalculatorTest
         Assert.That(source.DecodeCount, Is.EqualTo(1), "Switching MS must reuse the calculated baseline.");
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DeferredProjectionCalculatesStarsAndManiaMaxComboOnDemand(bool nativeAlreadyWroteStars)
+    {
+        var ruleset = new O2LazerRuleset();
+        var beatmap = new OjnBeatmapFactory().Create(new OjnReader().Read(OjnTestData.CreateChart()), O2JamDifficulty.EX);
+        var expected = O2JamManiaStarRating.CalculateAttributes(beatmap, [], false);
+        beatmap.BeatmapInfo.Ruleset = ruleset.RulesetInfo;
+        beatmap.BeatmapInfo.Ruleset.LastAppliedDifficultyVersion = O2JamManiaStarRating.CacheVersion;
+        beatmap.BeatmapInfo.StarRating = nativeAlreadyWroteStars ? expected.StarRating : -1;
+        beatmap.BeatmapInfo.TotalObjectCount = 1;
+        beatmap.BeatmapInfo.EndTimeObjectCount = 1;
+        var plan = new O2JamImportPlan("", "", "", [], "", "", 0, "", "", "", 120, [], []);
+        beatmap.Metadata.Tags = O2JamImportMetadata.Create(plan, new O2JamImportChart(O2JamDifficulty.EX, 5, "", 1000, 1, 1, -1, -1));
+        var source = new PreparedWorkingBeatmap(beatmap);
+        var calculator = ruleset.CreateDifficultyCalculator(source);
+        var attributes = calculator.Calculate([new O2JamModManiaScore()]);
+        Assert.That(attributes.StarRating, Is.EqualTo(expected.StarRating));
+        Assert.That(attributes.MaxCombo, Is.EqualTo(expected.MaxCombo));
+        Assert.That(source.DecodeCount, Is.EqualTo(1));
+    }
     private sealed class PreparedWorkingBeatmap(IBeatmap beatmap) : FlatWorkingBeatmap(beatmap)
     {
         public int DecodeCount { get; private set; }

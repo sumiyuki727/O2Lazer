@@ -43,6 +43,20 @@ internal static class O2JamManiaStarRating
         };
         mania.Difficulty.CircleSize = O2JamBeatmap.ColumnCount;
 
+        return calculateNativeAttributes(mania, mods, isPreprocessed, cancellationToken);
+    }
+
+    // This input is newly built for this calculation. Native defaults may mutate it;
+    // gameplay/Mod callers continue to use the copying entry point above.
+    public static ManiaDifficultyAttributes CalculateBaselineAttributes(ManiaBeatmap projection, CancellationToken token = default)
+    {
+        projection.BeatmapInfo = new BeatmapInfo(maniaRuleset, new BeatmapDifficulty(projection.Difficulty));
+        return calculateNativeAttributes(projection, [], false, token);
+    }
+
+    private static ManiaDifficultyAttributes calculateNativeAttributes(ManiaBeatmap mania, IReadOnlyList<Mod> mods,
+                                                                       bool isPreprocessed, CancellationToken cancellationToken)
+    {
         // Structural mods have already been applied to the O2Jam beatmap. Pass only rate mods
         // through mania's playable-beatmap pipeline so defaults are populated without applying
         // Random, Mirror or Invert to the projected objects for a second time.

@@ -80,7 +80,7 @@ internal static class O2JamDifficultyCachePatch
         var selectedMods = mods?.ToArray() ?? [];
         var storedStars = O2JamStarRatingMetadata.ReadMania(beatmap);
         if (O2JamGameplayProfile.RequiresStarCalculation(selectedMods)
-            || storedStars == null)
+            || storedStars == null || !O2JamStarRatingMetadata.CanReuseManiaDifficulty(beatmap))
             return cache.GetDifficultyAsync(beatmap, ruleset, selectedMods, cancellationToken, computationDelay);
 
         return Task.FromResult<StarDifficulty?>(new StarDifficulty(

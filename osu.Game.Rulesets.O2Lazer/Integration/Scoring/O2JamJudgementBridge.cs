@@ -56,7 +56,9 @@ internal static class O2JamJudgementBridge
         O2JamResultMapper.ToFramework(state.TailAccuracy) is HitResult.Perfect or HitResult.Good or HitResult.Ok;
 
     public static O2JamHoldState ReadHoldState(JudgementResult? head, JudgementResult? tail, bool isHolding) =>
-        new(readAccuracy(head), readAccuracy(tail), isHolding);
+        new(readAccuracy(head), readAccuracy(tail), isHolding,
+            head is O2JamJudgementResult { ResolutionApplied: true } resolved
+                ? resolved.Resolution.RequestedAccuracy : readAccuracy(head));
 
     private static O2JamAccuracy readAccuracy(JudgementResult? result) =>
         result is O2JamJudgementResult { ResolutionApplied: true } resolved

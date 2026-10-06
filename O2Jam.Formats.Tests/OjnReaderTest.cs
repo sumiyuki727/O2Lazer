@@ -57,6 +57,8 @@ public class OjnReaderTest
             Assert.That(hold.Type, Is.EqualTo(OjnNoteType.Hold));
             Assert.That(hold.Position, Is.Zero);
             Assert.That(hold.EndPosition, Is.EqualTo(0.5));
+            Assert.That(hold.RawPosition, Is.EqualTo(new OjnRawPosition(0, 0)));
+            Assert.That(hold.RawEndPosition, Is.EqualTo(new OjnRawPosition(1, 0)));
             Assert.That(hold.SampleId, Is.Zero);
             Assert.That(hold.TailSampleId, Is.EqualTo(1));
         });
@@ -240,6 +242,34 @@ public class OjnReaderTest
             Assert.That(note.Type, Is.EqualTo(OjnNoteType.Tap));
             Assert.That(note.SampleKind, Is.EqualTo(OjnSampleKind.Background));
             Assert.That(note.SampleId, Is.EqualTo(1000));
+        });
+    }
+
+    [Test]
+    public void RetainsTruncatedPackageTicksWithoutQuantisingGameplayPosition()
+    {
+        var header = OjnTestData.CreateChart()[..300];
+        BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(64, 4), 1);
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+        writer.Write(header);
+        writer.Write(0u);
+        writer.Write((ushort)2);
+        writer.Write((ushort)5);
+        for (var index = 0; index < 5; index++)
+        {
+            writer.Write(index == 4 ? (ushort)1 : (ushort)0);
+            writer.Write((byte)0);
+            writer.Write((byte)0);
+        }
+        stream.Position = 0;
+
+        var note = new OjnReader().ReadChart(stream, OjnDifficulty.EX).Charts[0].Notes.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(note.RawPosition, Is.EqualTo(new OjnRawPosition(0, 152)));
+            Assert.That(note.Position, Is.EqualTo(0.8));
         });
     }
 

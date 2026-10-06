@@ -14,6 +14,13 @@ public enum O2JamLibraryWriteResult
     RulesetUnavailable,
 }
 
+public enum O2JamLibraryRefreshMode
+{
+    Update,
+    // Maintenance callers can request stored-byte verification without adding a UI command.
+    Repair,
+}
+
 public sealed record O2JamImportedSource(
     Guid SetId,
     DateTimeOffset? LastLocalUpdate,
@@ -23,7 +30,8 @@ public sealed record O2JamImportedSource(
     string? SourceHash = null,
     OjnMetadataEncoding? EncodingFallback = null,
     IReadOnlyList<O2JamImportDifficultyCache>? ManiaCache = null,
-    IReadOnlyList<O2JamStoredDifficultyIdentity>? DifficultyIdentities = null);
+    IReadOnlyList<O2JamStoredDifficultyIdentity>? DifficultyIdentities = null,
+    bool CanReuseFiles = false);
 
 public sealed record O2JamStoredDifficultyIdentity(O2JamDifficulty Difficulty, string Md5Hash);
 

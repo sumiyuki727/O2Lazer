@@ -2,6 +2,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Nodes;
 using NUnit.Framework;
 using O2Jam.Core;
 using osu.Game.Beatmaps;
@@ -23,6 +24,25 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 [TestFixture]
 public class O2JamReplayCompatibilityTest
 {
+    [TestCase(0, true)]
+    [TestCase(O2JamJudgementEngine.RulesVersion, true)]
+    [TestCase(O2JamJudgementEngine.RulesVersion + 1, false)]
+    public void RuleTagAcceptsTestRecordingsAndRejectsUnknownPolicies(int version, bool accepted)
+    {
+        var score = new Score { Replay = new Replay { Frames = [new O2JamReplayFrame(100, ManiaAction.Key1)] } };
+        var bytes = O2JamReplayArchive.Create(score);
+        using var compressed = new GZipStream(new MemoryStream(bytes), CompressionMode.Decompress);
+        using var reader = new StreamReader(compressed, Encoding.UTF8);
+        var payload = JsonNode.Parse(reader.ReadToEnd())!;
+        Assert.That(payload["judgement_version"]!.GetValue<int>(), Is.EqualTo(O2JamJudgementEngine.RulesVersion));
+        if (version == 0)
+            payload.AsObject().Remove("judgement_version");
+        else
+            payload["judgement_version"] = version;
+        var changed = Encoding.UTF8.GetBytes(payload.ToJsonString());
+        Assert.That(O2JamReplayArchive.TryReadScore(new ScoreInfo(), changed, out _), Is.EqualTo(accepted));
+    }
+
     [Test]
     public void NativeFrameRemainsNativeInInputHandler()
     {
@@ -154,6 +174,30 @@ public class O2JamReplayCompatibilityTest
             Assert.That(autoplay, Is.TypeOf<O2JamModAutoplay>());
             Assert.That(ruleset.GetModsFor(ModType.Automation).Single(), Is.TypeOf<O2JamModAutoplay>());
             Assert.That(O2JamReplayPersistencePatch.IsInstalled, Is.True);
+        });
+    }
+
+    [TestCase(ScoreRank.F, false)]
+    [TestCase(ScoreRank.A, true)]
+    public void ReplayRestoresTransientPassedFlagFromTheStoredGrade(ScoreRank rank, bool passed)
+    {
+        var ruleset = new O2LazerRuleset();
+        var info = new BeatmapInfo(ruleset.RulesetInfo) { Hash = "zero-life-replay" };
+        var score = new Score
+        {
+            ScoreInfo = new ScoreInfo(info, ruleset.RulesetInfo) { Rank = rank, Passed = passed },
+            Replay = new Replay { Frames = [new O2JamReplayFrame(100, ManiaAction.Key1)] },
+        };
+        var bytes = O2JamReplayArchive.Create(score);
+        var restoredInfo = new ScoreInfo(info, ruleset.RulesetInfo) { Rank = rank };
+
+        Assert.That(O2JamReplayArchive.TryReadScore(restoredInfo, bytes, out var restored), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.ScoreInfo.Passed, Is.EqualTo(passed));
+            Assert.That(restored.ScoreInfo.Rank, Is.EqualTo(rank));
+            Assert.That(O2JamReplayArchive.TryReadMetadata(bytes, out var metadata), Is.True);
+            Assert.That(metadata.Rank, Is.EqualTo(rank));
         });
     }
 

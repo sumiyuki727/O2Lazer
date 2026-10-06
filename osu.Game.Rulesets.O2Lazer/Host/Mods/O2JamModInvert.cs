@@ -26,6 +26,7 @@ public sealed class O2JamModInvert : ManiaModInvert, IApplicableAfterBeatmapConv
             // MS has already replaced the chart objects, so native inversion preserves all
             // required metadata. Only the O2Jam route needs to add musical judgement positions.
             base.ApplyToBeatmap(beatmap);
+            o2JamBeatmap.SourcePositions.Clear();
             return;
         }
 
@@ -59,6 +60,7 @@ public sealed class O2JamModInvert : ManiaModInvert, IApplicableAfterBeatmapConv
         }
 
         o2JamBeatmap.HitObjects = [.. newObjects.OrderBy(hitObject => hitObject.StartTime)];
+        o2JamBeatmap.SourcePositions.Clear();
         o2JamBeatmap.Breaks.Clear();
     }
 }

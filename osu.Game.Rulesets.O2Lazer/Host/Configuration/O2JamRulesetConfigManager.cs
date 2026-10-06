@@ -78,7 +78,7 @@ public sealed class O2JamRulesetConfigManager : RulesetConfigManager<O2JamRulese
                 rawValue: speed,
                 name: RulesetSettingsStrings.ScrollSpeed,
                 value: O2LazerStrings.ScrollSpeedTooltipWithO2JamGrade(
-                    RulesetSettingsStrings.ScrollSpeedTooltip((int)O2JamDrawableRuleset.ComputeScrollTime(speed), speed),
+                    (int)O2JamDrawableRuleset.ComputeScrollTime(speed), speed,
                     O2JamDrawableRuleset.GetO2JamSpeedMultiplier(speed)))),
     };
 }

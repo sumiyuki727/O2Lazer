@@ -10,6 +10,14 @@ public class O2JamHoldStateTest
 
     private O2JamHoldJudgementEngine engine => new(new O2JamPositionClock(map));
 
+    [Test]
+    public void EmptyHeadResolutionLeavesSnapshotUnchanged()
+    {
+        var state = new O2JamHoldState();
+        Assert.That(state.ResolveHead(O2JamAccuracy.None), Is.EqualTo(state));
+        Assert.That(state.ResolveHead(default(O2JamResolvedJudgement)), Is.EqualTo(state));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void WholeHoldCanResolveWithoutAHost(bool disableReleaseTiming)
@@ -17,7 +25,7 @@ public class O2JamHoldStateTest
         var score = new O2JamGameplayState(O2JamDifficulty.EX);
         var state = new O2JamHoldState();
         var requested = engine.InspectHead(state, 1, map.TimeAt(1), true);
-        state = state.ResolveHead(score.Apply(requested).ResolvedAccuracy).BeginHold();
+        state = state.ResolveHead(score.Apply(requested)).BeginHold();
         Assert.That(state.IsHolding, Is.True);
         requested = engine.InspectTail(state, 2, map.TimeAt(2), !disableReleaseTiming, disableReleaseTiming);
         state = state.ResolveTail(score.Apply(requested).ResolvedAccuracy);
@@ -34,7 +42,7 @@ public class O2JamHoldStateTest
 
     [TestCase(false)]
     [TestCase(true)]
-    public void PillResolutionPrecedesHeadRejection(bool hasPill)
+    public void BadHeadRejectsHoldEvenWhenPillRescuesItsScore(bool hasPill)
     {
         var score = new O2JamGameplayState(O2JamDifficulty.EX);
         if (hasPill)
@@ -43,14 +51,30 @@ public class O2JamHoldStateTest
 
         var requested = engine.InspectHead(default, 1, map.TimeAt(1 + O2JamTimingMap.TicksToPosition(20)), true);
         var resolution = score.Apply(requested);
-        var state = new O2JamHoldState().ResolveHead(resolution.ResolvedAccuracy).BeginHold();
+        var state = new O2JamHoldState().ResolveHead(resolution).BeginHold();
         Assert.Multiple(() =>
         {
             Assert.That(resolution.PillConsumed, Is.EqualTo(hasPill));
-            Assert.That(state.IsHolding, Is.EqualTo(hasPill));
-            Assert.That(state.RequiresTailMiss, Is.EqualTo(!hasPill));
+            Assert.That(state.HeadAccuracy, Is.EqualTo(hasPill ? O2JamAccuracy.Cool : O2JamAccuracy.Bad));
+            Assert.That(state.RequestedHeadAccuracy, Is.EqualTo(O2JamAccuracy.Bad));
+            Assert.That(state.IsHolding, Is.False);
+            Assert.That(state.RequiresTailMiss, Is.True);
+            Assert.That(state.CanBeginHold, Is.False);
             Assert.That(engine.InspectTail(state, 2, map.TimeAt(1), false, false),
-                Is.EqualTo(hasPill ? O2JamAccuracy.None : O2JamAccuracy.Miss));
+                Is.EqualTo(O2JamAccuracy.Miss));
+        });
+        var tail = score.Apply(engine.InspectTail(state, 2, map.TimeAt(1), false, true));
+        var complete = state.ResolveTail(tail.ResolvedAccuracy);
+        Assert.Multiple(() =>
+        {
+            Assert.That(complete.IsComplete, Is.True);
+            Assert.That(complete.TailAccuracy, Is.EqualTo(O2JamAccuracy.Miss));
+            Assert.That(complete.RequestedHeadAccuracy, Is.EqualTo(O2JamAccuracy.Bad));
+            Assert.That(score.Current.Score, Is.EqualTo(hasPill ? 3190 : 0));
+            Assert.That(score.Current.Combo, Is.EqualTo(-1));
+            Assert.That(score.Current.JamCombo, Is.Zero);
+            Assert.That(complete.ResolveHead(O2JamAccuracy.Cool), Is.EqualTo(complete));
+            Assert.That(state.RequiresTailMiss, Is.True);
         });
     }
 
@@ -73,10 +97,16 @@ public class O2JamHoldStateTest
         Assert.That(engine.InspectTail(default, 2, map.TimeAt(2), true, true), Is.EqualTo(O2JamAccuracy.None));
     }
 
-    [TestCase(-24, O2JamAccuracy.Bad)]
+    [TestCase(-25, O2JamAccuracy.Bad)]
+    [TestCase(25, O2JamAccuracy.Bad)]
+    [TestCase(-25.01, O2JamAccuracy.Miss)]
     [TestCase(-18, O2JamAccuracy.Good)]
     [TestCase(6, O2JamAccuracy.Cool)]
-    [TestCase(24.01, O2JamAccuracy.Miss)]
+    [TestCase(24.01, O2JamAccuracy.Bad)]
+    [TestCase(25.01, O2JamAccuracy.Bad)]
+    [TestCase(26, O2JamAccuracy.Miss)]
+    [TestCase(6.5, O2JamAccuracy.Cool)]
+    [TestCase(-6.5, O2JamAccuracy.Good)]
     public void ReleaseUsesIntegratedBpmWindow(double ticks, O2JamAccuracy expected)
     {
         var changingMap = new O2JamTimingMap(120, [new O2JamBpmEvent(1.95, 60)]);

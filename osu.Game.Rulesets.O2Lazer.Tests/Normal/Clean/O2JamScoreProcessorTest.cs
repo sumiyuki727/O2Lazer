@@ -164,6 +164,88 @@ public class O2JamScoreProcessorTest
         });
     }
 
+    [Test]
+    public void DepletedExRecordsTheWholePlayAsFWithoutEndingPlayback()
+    {
+        var processor = createProcessor(O2JamDifficulty.EX);
+        var health = new O2JamHealthProcessor();
+        health.ApplyBeatmap(processor.Beatmap.Value!);
+        health.Failed += () => throw new AssertionException("EX depletion must not end playback.");
+
+        for (var i = 0; i < 20; i++)
+            apply(O2JamAccuracy.Miss);
+        for (var i = 0; i < 51; i++)
+            apply(O2JamAccuracy.Cool);
+        var rescued = apply(O2JamAccuracy.Bad);
+        var score = new ScoreInfo(ruleset: processor.Ruleset.RulesetInfo);
+        processor.PopulateScore(score);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(health.Health.Value, Is.Zero);
+            Assert.That(health.HasFailed, Is.False);
+            Assert.That(processor.GameplayState.Current.HasFailed, Is.False);
+            Assert.That(processor.GameplayState.Current.ScoringEnabled, Is.True);
+            Assert.That(rescued.Resolution.PillConsumed, Is.True);
+            Assert.That(score.TotalScoreWithoutMods, Is.EqualTo(10670));
+            Assert.That(score.MaxCombo, Is.EqualTo(51));
+            Assert.That(score.Statistics[HitResult.Perfect], Is.EqualTo(52));
+            Assert.That(score.Statistics[HitResult.Miss], Is.EqualTo(20));
+            Assert.That(score.Accuracy, Is.EqualTo(52d / 72).Within(0.000001));
+            Assert.That(score.Rank, Is.EqualTo(ScoreRank.F));
+            Assert.That(score.Passed, Is.False);
+            Assert.That(processor.Rank.Value, Is.Not.EqualTo(ScoreRank.F), "The live native rank must remain rewindable.");
+        });
+
+        O2JamJudgementResult apply(O2JamAccuracy accuracy)
+        {
+            var result = createResult();
+            processor.Resolve(result, accuracy);
+            health.ApplyResult(result);
+            processor.ApplyResult(result);
+            return result;
+        }
+    }
+
+    [Test]
+    public void RewindingBeforeExDepletionRestoresLifeRecoveryAndPassingGrade()
+    {
+        var processor = createProcessor(O2JamDifficulty.EX);
+        var health = new O2JamHealthProcessor();
+        health.ApplyBeatmap(processor.Beatmap.Value!);
+        var last = createResult();
+        for (var i = 0; i < 20; i++)
+        {
+            last = createResult();
+            processor.Resolve(last, O2JamAccuracy.Miss);
+            health.ApplyResult(last);
+            processor.ApplyResult(last);
+        }
+
+        var score = new ScoreInfo(ruleset: processor.Ruleset.RulesetInfo);
+        processor.PopulateScore(score);
+        Assert.That(score.Rank, Is.EqualTo(ScoreRank.F));
+
+        health.RevertResult(last);
+        processor.RevertResult(last);
+        processor.PopulateScore(score);
+        Assert.Multiple(() =>
+        {
+            Assert.That(processor.GameplayState.Current.LifeLockedAtZero, Is.False);
+            Assert.That(processor.GameplayState.Current.Life, Is.EqualTo(50));
+            Assert.That(health.Health.Value, Is.EqualTo(0.05).Within(0.000001));
+            Assert.That(score.Rank, Is.Not.EqualTo(ScoreRank.F));
+            Assert.That(score.Passed, Is.True);
+            Assert.That(score.Statistics[HitResult.Miss], Is.EqualTo(19));
+        });
+
+        var cool = createResult();
+        processor.Resolve(cool, O2JamAccuracy.Cool);
+        health.ApplyResult(cool);
+        processor.ApplyResult(cool);
+        Assert.That(processor.GameplayState.Current.Life, Is.EqualTo(53));
+    }
+
     private static O2JamScoreProcessor createProcessor(O2JamDifficulty difficulty)
     {
         var processor = new O2JamScoreProcessor(new O2LazerRuleset());

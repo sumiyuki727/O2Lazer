@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Import;
 using osu.Game.Rulesets.O2Lazer.Presentation.DifficultyLevels.Policy;
@@ -42,6 +43,11 @@ internal static class O2JamStarRatingMetadata
     public static string CreateManiaMaxComboTag(int maxCombo) =>
         maniaMaxComboCurrentPrefix + Math.Max(0, maxCombo).ToString(CultureInfo.InvariantCulture);
 
+    public static string WithManiaCache(string tags, int maxCombo) => string.Join(' ',
+        splitTags(tags).Where(tag => !tag.StartsWith(ManiaVersionPrefix, StringComparison.Ordinal)
+                                    && !tag.StartsWith(ManiaMaxComboPrefix, StringComparison.Ordinal))
+            .Append(ManiaVersionTag).Append(CreateManiaMaxComboTag(maxCombo)));
+
     public static int? ReadManiaMaxCombo(string tags)
     {
         var tokens = Array.FindAll(splitTags(tags), tag => tag.StartsWith(ManiaMaxComboPrefix, StringComparison.Ordinal));
@@ -62,6 +68,13 @@ internal static class O2JamStarRatingMetadata
             || beatmap.Ruleset is RulesetInfo ruleset && ruleset.LastAppliedDifficultyVersion == O2JamManiaStarRating.CacheVersion)
             ? beatmap.StarRating
             : null;
+
+    // Older native writes, or an unavailable persistence adapter, may have stars only.
+    // Current projections need both attributes before using the metadata fast path.
+    public static bool CanReuseManiaDifficulty(IBeatmapInfo beatmap) =>
+        ReadMania(beatmap).HasValue
+        && (O2JamImportMetadata.Read(beatmap.Metadata.Tags, out _) != O2JamImportMetadataStatus.Valid
+            || ReadManiaMaxCombo(beatmap.Metadata.Tags).HasValue);
 
     public static double GetO2JamStars(IBeatmapInfo beatmap) =>
         O2JamImportMetadata.Read(beatmap.Metadata.Tags, out var metadata) == O2JamImportMetadataStatus.Valid

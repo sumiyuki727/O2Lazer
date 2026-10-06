@@ -58,8 +58,18 @@ public class O2JamGameplayStateTest
         Assert.That(rescued.PillConsumed, Is.True);
         Assert.That(rescued.ResolvedAccuracy, Is.EqualTo(O2JamAccuracy.Cool));
         Assert.That(rescued.State.Pills, Is.Zero);
+        Assert.That(rescued.RequestedAccuracy, Is.EqualTo(O2JamAccuracy.Bad));
+        Assert.That(rescued.State.ConsecutiveCoolProgress, Is.Zero);
         Assert.That(rescued.State.Combo, Is.EqualTo(15));
         Assert.That(rescued.LifeDelta, Is.EqualTo(1));
+
+        for (var i = 0; i < 14; i++)
+            state.Apply(O2JamAccuracy.Cool);
+        Assert.That(state.Current.Pills, Is.Zero);
+        Assert.That(state.Current.ConsecutiveCoolProgress, Is.EqualTo(14));
+        state.Apply(O2JamAccuracy.Cool);
+        Assert.That(state.Current.Pills, Is.EqualTo(1));
+        Assert.That(state.Current.ConsecutiveCoolProgress, Is.Zero);
     }
 
     [Test]
@@ -82,20 +92,83 @@ public class O2JamGameplayStateTest
         for (var i = 0; i < 25; i++)
             state.Apply(O2JamAccuracy.Cool);
 
-        Assert.That(state.Current.JamCombo, Is.EqualTo(1));
-        Assert.That(state.Current.JamProgress, Is.Zero);
+        Assert.That(state.Current.JamCombo, Is.Zero);
+        Assert.That(state.Current.JamProgress, Is.EqualTo(100));
         Assert.That(state.Current.Score, Is.EqualTo(5000));
 
+        var promotion = state.Apply(O2JamAccuracy.Cool);
+        Assert.That(promotion.ScoreDelta, Is.EqualTo(200));
+        Assert.That(promotion.State.Score, Is.EqualTo(5200));
+        Assert.That(promotion.State.JamCombo, Is.EqualTo(1));
+        Assert.That(promotion.State.JamProgress, Is.EqualTo(4));
         var next = state.Apply(O2JamAccuracy.Cool);
         Assert.That(next.ScoreDelta, Is.EqualTo(210));
-        Assert.That(next.State.Score, Is.EqualTo(5210));
+        Assert.That(next.State.Score, Is.EqualTo(5410));
+    }
+
+    [TestCase(O2JamAccuracy.Cool, 51, 2, 4, 10450)]
+    [TestCase(O2JamAccuracy.Cool, 76, 3, 4, 15950)]
+    [TestCase(O2JamAccuracy.Good, 50, 0, 100, 5000)]
+    [TestCase(O2JamAccuracy.Good, 51, 1, 2, 5100)]
+    [TestCase(O2JamAccuracy.Good, 101, 2, 2, 10350)]
+    public void LaterJamPromotionsPreserveCumulativeThresholds(O2JamAccuracy accuracy, int count,
+                                                            int jam, int progress, long score)
+    {
+        var state = new O2JamGameplayState(O2JamDifficulty.HX);
+        for (var i = 0; i < count; i++)
+            state.Apply(accuracy);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(state.Current.JamCombo, Is.EqualTo(jam));
+            Assert.That(state.Current.MaximumJamCombo, Is.EqualTo(jam));
+            Assert.That(state.Current.JamProgress, Is.EqualTo(progress));
+            Assert.That(state.Current.Score, Is.EqualTo(score));
+        });
+    }
+
+    [Test]
+    public void MixedCoolsAndGoodsMustExceedTheJamThreshold()
+    {
+        var state = new O2JamGameplayState(O2JamDifficulty.HX);
+        for (var i = 0; i < 24; i++)
+            state.Apply(O2JamAccuracy.Cool);
+        state.Apply(O2JamAccuracy.Good);
+        state.Apply(O2JamAccuracy.Good);
+        Assert.That(state.Current.JamCombo, Is.Zero);
+        Assert.That(state.Current.JamProgress, Is.EqualTo(100));
+
+        var promotion = state.Apply(O2JamAccuracy.Good);
+        Assert.That(promotion.ScoreDelta, Is.EqualTo(100));
+        Assert.That(promotion.State.JamCombo, Is.EqualTo(1));
+        Assert.That(promotion.State.JamProgress, Is.EqualTo(2));
+        Assert.That(state.Apply(O2JamAccuracy.Cool).State.Score, Is.EqualTo(5310));
+    }
+
+    [Test]
+    public void RescuedBadCanPromoteJamWithoutStartingAnotherPillStreak()
+    {
+        var state = new O2JamGameplayState(O2JamDifficulty.HX);
+        for (var i = 0; i < 25; i++)
+            state.Apply(O2JamAccuracy.Cool);
+
+        var rescued = state.Apply(O2JamAccuracy.Bad);
+        Assert.Multiple(() =>
+        {
+            Assert.That(rescued.PillConsumed, Is.True);
+            Assert.That(rescued.ScoreDelta, Is.EqualTo(200));
+            Assert.That(rescued.State.Score, Is.EqualTo(5200));
+            Assert.That(rescued.State.JamCombo, Is.EqualTo(1));
+            Assert.That(rescued.State.JamProgress, Is.EqualTo(4));
+            Assert.That(rescued.State.ConsecutiveCoolProgress, Is.Zero);
+        });
     }
 
     [Test]
     public void BreakResetsCurrentJamButPreservesMaximum()
     {
         var state = new O2JamGameplayState(O2JamDifficulty.HX);
-        for (var i = 0; i < 50; i++)
+        for (var i = 0; i < 51; i++)
             state.Apply(O2JamAccuracy.Good);
 
         state.Apply(O2JamAccuracy.Bad);
@@ -106,38 +179,98 @@ public class O2JamGameplayStateTest
     }
 
     [Test]
-    public void ExContinuesComboButFreezesScoreAndJamAfterLifeDepletion()
+    public void ExRecordsScoreComboJamAndPillsWithLifeLockedAtZero()
     {
         var state = new O2JamGameplayState(O2JamDifficulty.EX);
-        var maximumBeforeDeath = state.Current.MaximumCombo;
         for (var i = 0; i < 20; i++)
             state.Apply(O2JamAccuracy.Miss);
 
-        Assert.That(state.Current.Life, Is.Zero);
-        Assert.That(state.Current.ScoringEnabled, Is.False);
-        Assert.That(state.Current.HasFailed, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(state.Current.Life, Is.Zero);
+            Assert.That(state.Current.LifeLockedAtZero, Is.True);
+            Assert.That(state.Current.ScoringEnabled, Is.True);
+            Assert.That(state.Current.HasFailed, Is.False);
+        });
 
-        var firstAfterDeath = state.Apply(O2JamAccuracy.Cool);
-        var secondAfterDeath = state.Apply(O2JamAccuracy.Cool);
+        for (var i = 0; i < 51; i++)
+            Assert.That(state.Apply(O2JamAccuracy.Cool).LifeDelta, Is.Zero);
 
-        Assert.That(firstAfterDeath.ScoreDelta, Is.Zero);
-        Assert.That(firstAfterDeath.LifeDelta, Is.Zero);
-        Assert.That(firstAfterDeath.State.Combo, Is.Zero);
-        Assert.That(secondAfterDeath.State.Combo, Is.EqualTo(1));
-        Assert.That(secondAfterDeath.State.MaximumCombo, Is.EqualTo(maximumBeforeDeath));
-        Assert.That(secondAfterDeath.State.JamProgress, Is.Zero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(state.Current.Score, Is.EqualTo(10450));
+            Assert.That(state.Current.Combo, Is.EqualTo(50));
+            Assert.That(state.Current.MaximumCombo, Is.EqualTo(50));
+            Assert.That(state.Current.JamCombo, Is.EqualTo(2));
+            Assert.That(state.Current.MaximumJamCombo, Is.EqualTo(2));
+            Assert.That(state.Current.JamProgress, Is.EqualTo(4));
+            Assert.That(state.Current.Pills, Is.EqualTo(3));
+            Assert.That(state.Current.ConsecutiveCoolProgress, Is.EqualTo(6));
+        });
+
+        var rescued = state.Apply(O2JamAccuracy.Bad);
+        Assert.Multiple(() =>
+        {
+            Assert.That(rescued.PillConsumed, Is.True);
+            Assert.That(rescued.ResolvedAccuracy, Is.EqualTo(O2JamAccuracy.Cool));
+            Assert.That(rescued.ScoreDelta, Is.EqualTo(220));
+            Assert.That(rescued.LifeDelta, Is.Zero);
+            Assert.That(rescued.State.Pills, Is.EqualTo(2));
+            Assert.That(rescued.State.ConsecutiveCoolProgress, Is.Zero);
+            Assert.That(rescued.State.MaximumCombo, Is.EqualTo(51));
+        });
+
+        var missed = state.Apply(O2JamAccuracy.Miss);
+        Assert.Multiple(() =>
+        {
+            Assert.That(missed.ScoreDelta, Is.EqualTo(-10));
+            Assert.That(missed.State.Combo, Is.EqualTo(-1));
+            Assert.That(missed.State.JamCombo, Is.Zero);
+            Assert.That(missed.State.JamProgress, Is.Zero);
+            Assert.That(missed.State.MaximumJamCombo, Is.EqualTo(2));
+            Assert.That(missed.State.Life, Is.Zero);
+            Assert.That(missed.State.HasFailed, Is.False);
+        });
     }
 
     [Test]
-    public void NxFailsWhenLifeReachesZero()
+    public void ResetUnlocksExLifeForTheNextAttempt()
     {
-        var state = new O2JamGameplayState(O2JamDifficulty.NX);
-        for (var i = 0; i < 25; i++)
+        var state = new O2JamGameplayState(O2JamDifficulty.EX);
+        for (var i = 0; i < 20; i++)
+            state.Apply(O2JamAccuracy.Miss);
+        state.Apply(O2JamAccuracy.Cool);
+        state.Reset();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(state.Current.Life, Is.EqualTo(O2JamGameplayState.MaximumLife));
+            Assert.That(state.Current.LifeLockedAtZero, Is.False);
+            Assert.That(state.Current.Score, Is.Zero);
+            Assert.That(state.Current.MaximumCombo, Is.Zero);
+            Assert.That(state.Current.Pills, Is.Zero);
+        });
+        state.Apply(O2JamAccuracy.Miss);
+        Assert.That(state.Apply(O2JamAccuracy.Cool).LifeDelta, Is.EqualTo(3));
+    }
+
+    [TestCase(O2JamDifficulty.NX, 25)]
+    [TestCase(O2JamDifficulty.HX, 34)]
+    public void NxAndHxStopScoringWhenLifeReachesZero(O2JamDifficulty difficulty, int misses)
+    {
+        var state = new O2JamGameplayState(difficulty);
+        for (var i = 0; i < misses; i++)
             state.Apply(O2JamAccuracy.Miss);
 
-        Assert.That(state.Current.Life, Is.Zero);
-        Assert.That(state.Current.ScoringEnabled, Is.False);
-        Assert.That(state.Current.HasFailed, Is.True);
+        var failed = state.Current;
+        Assert.Multiple(() =>
+        {
+            Assert.That(failed.Life, Is.Zero);
+            Assert.That(failed.LifeLockedAtZero, Is.True);
+            Assert.That(failed.ScoringEnabled, Is.False);
+            Assert.That(failed.HasFailed, Is.True);
+            Assert.That(state.Apply(O2JamAccuracy.Cool).State, Is.EqualTo(failed));
+        });
     }
 
     [TestCase(O2JamAccuracy.None, O2JamHoldHeadOutcome.Ignore)]

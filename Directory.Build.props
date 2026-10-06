@@ -12,7 +12,7 @@
     </PropertyGroup>
     <PropertyGroup Label="Osu dependency">
         <!-- Host compatibility is independent of the ruleset's semantic release version. -->
-        <OsuBase Condition="'$(OsuBase)' == ''">2026.921</OsuBase>
+        <OsuBase Condition="'$(OsuBase)' == ''">2026.1005</OsuBase>
         <OsuRevision Condition="'$(OsuRevision)' == ''">0</OsuRevision>
         <OsuVersion>$(OsuBase).$(OsuRevision)</OsuVersion>
         <!-- Reference an explicit binary directory so a clone never builds or modifies sibling

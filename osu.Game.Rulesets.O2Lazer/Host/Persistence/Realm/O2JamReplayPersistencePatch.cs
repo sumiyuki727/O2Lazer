@@ -231,6 +231,7 @@ internal static class O2JamReplayPersistencePatch
             ModsJson = metadata.ModsJson,
             ClientVersion = metadata.ClientVersion,
             Rank = metadata.Rank,
+            Passed = metadata.Rank != ScoreRank.F,
         };
         scoreInfo.Pauses.AddRange(metadata.Pauses);
         __result = scoreInfo;

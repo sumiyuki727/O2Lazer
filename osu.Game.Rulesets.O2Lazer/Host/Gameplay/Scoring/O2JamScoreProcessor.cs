@@ -161,8 +161,15 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor, IO2JamJudgemen
         if (UsesManiaScoring)
             return;
 
-        score.Combo = System.Math.Max(0, judgementHistory.State.Current.Combo);
-        score.MaxCombo = System.Math.Max(0, judgementHistory.State.Current.MaximumCombo);
+        var state = judgementHistory.State.Current;
+        score.Combo = System.Math.Max(0, state.Combo);
+        score.MaxCombo = System.Math.Max(0, state.MaximumCombo);
+
+        // A depleted EX play completes normally, so use the native result grade without invoking
+        // FailScore(), which permanently latches the live rank and cannot follow replay rewind.
+        if (state.LifeLockedAtZero)
+            score.Rank = ScoreRank.F;
+        score.Passed = score.Rank != ScoreRank.F;
     }
 
     protected override void Dispose(bool isDisposing)

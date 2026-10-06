@@ -141,6 +141,16 @@ public partial class O2JamReplayImportTest
     {
         public ScoreInfo? ReadHeaders(ArchiveReader archive) => CreateModel(archive, default);
 
+        public Guid StoreReplay(ScoreInfo score, byte[] bytes) => Realm.Write(database =>
+        {
+            // Match native ScoreImporter population so detached headers bind existing
+            // beatmap/ruleset objects instead of recursively inserting duplicates.
+            Populate(score, null, database);
+            AttachReplay(score, bytes);
+            database.Add(score);
+            return score.ID;
+        });
+
         public void AttachReplay(ScoreInfo score, byte[] bytes)
         {
             using var stream = new MemoryStream(bytes);

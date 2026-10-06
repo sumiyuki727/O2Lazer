@@ -57,7 +57,7 @@
             <HintPath>$(OsuManiaAssemblyPath)</HintPath>
             <Private>false</Private>
         </Reference>
-        <PackageReference Include="ppy.osu.Framework" Version="2026.921.0" />
+        <PackageReference Include="ppy.osu.Framework" Version="2026.921.1" />
         <PackageReference Include="Realm" Version="20.1.0" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     </ItemGroup>

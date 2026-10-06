@@ -259,7 +259,7 @@ public partial class O2JamLegacyLibraryMigrationTest
     public void CancellationAfterLaterReservationRetainsEarlierCommitCounts() => runProjectionTest((realm, storage) =>
     {
         var paths = new List<string>();
-        for (uint index = 200; index < 210; index++)
+        for (uint index = 200; index < 218; index++)
         {
             var path = storage.GetFullPath($"batch-{index}.ojn");
             File.WriteAllBytes(path, recoverySource(index));
@@ -279,17 +279,17 @@ public partial class O2JamLegacyLibraryMigrationTest
             failure: (_, _) => failures++, cancellationToken: cancellation.Token))!;
         Assert.Multiple(() =>
         {
-            Assert.That(exception.Summary.Imported, Is.EqualTo(8));
+            Assert.That(exception.Summary.Imported, Is.EqualTo(16));
             Assert.That(exception.Summary.Failed, Is.Zero);
             Assert.That(failures, Is.Zero);
-            Assert.That(invalidations, Is.EqualTo(8));
-            Assert.That(writer.GetImportedSources(), Has.Count.EqualTo(8));
+            Assert.That(invalidations, Is.EqualTo(16));
+            Assert.That(writer.GetImportedSources(), Has.Count.EqualTo(16));
             Assert.That(realm.Run(database => database.All<RealmFile>().AsEnumerable().Count(file => file.Usages.Count() == 0)), Is.EqualTo(4));
         });
         var retry = service.Refresh(paths, writer.GetImportedSources());
         Assert.That(retry.Imported, Is.EqualTo(2));
-        Assert.That(retry.AlreadyPresent, Is.EqualTo(8));
-        Assert.That(writer.GetImportedSources(), Has.Count.EqualTo(10));
+        Assert.That(retry.AlreadyPresent, Is.EqualTo(16));
+        Assert.That(writer.GetImportedSources(), Has.Count.EqualTo(18));
         Assert.That(realm.Run(database => database.All<RealmFile>().AsEnumerable().Any(file => file.Usages.Count() == 0)), Is.False);
     });
     private static byte[] recoverySource(uint songId)
@@ -353,7 +353,7 @@ public partial class O2JamLegacyLibraryMigrationTest
 
     private static readonly byte[] recovery_replay = [1, 3, 5, 7];
 
-    private static void assertSavedLibrary(RealmAccess realm, Storage storage, SavedRecoveryLibrary saved)
+    private static void assertSavedLibrary(RealmAccess realm, Storage storage, SavedRecoveryLibrary saved, int expectedSets = 1)
     {
         realm.Run(database =>
         {
@@ -362,8 +362,8 @@ public partial class O2JamLegacyLibraryMigrationTest
             var score = database.Find<ScoreInfo>(saved.ScoreId)!;
             Assert.Multiple(() =>
             {
-                Assert.That(database.All<BeatmapSetInfo>().Count(), Is.EqualTo(1));
-                Assert.That(database.All<BeatmapInfo>().Count(), Is.EqualTo(1));
+                Assert.That(database.All<BeatmapSetInfo>().Count(), Is.EqualTo(expectedSets));
+                Assert.That(database.All<BeatmapInfo>().Count(), Is.EqualTo(expectedSets));
                 Assert.That(set.DeletePending, Is.False);
                 Assert.That(set.Hash, Is.EqualTo(saved.Plan.SetHash));
                 Assert.That(set.Files.Select(file => file.File.Hash), Is.EquivalentTo(saved.FileHashes));

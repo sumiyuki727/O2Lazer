@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
+  <data name="clearing_beatmaps" xml:space="preserve"><value>Clearing imported beatmaps</value></data>
+  <data name="clearing_progress" xml:space="preserve"><value>Clearing imported beatmaps ({0} of {1})</value></data>
+  <data name="clear_complete" xml:space="preserve"><value>Imported beatmaps cleared.</value></data>
+  <data name="clear_stopped" xml:space="preserve"><value>Clearing stopped. Completed removals have been kept.</value></data>
+  <data name="calculating_difficulties_start" xml:space="preserve">
+    <value>Calculating beatmap star ratings</value>
+  </data>
+  <data name="calculating_difficulties" xml:space="preserve">
+    <value>Calculating beatmap star ratings ({0} of {1})</value>
+  </data>
+  <data name="refresh_difficulties_pending" xml:space="preserve">
+    <value>Beatmaps updated. Some Mania star ratings could not be calculated; refresh again to retry.</value>
+  </data>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -55,7 +68,7 @@
     <value>SR</value>
   </data>
   <data name="missing_mania_star_rating_description" xml:space="preserve">
-    <value>Mania star rating is not calculated (-1). Use Refresh beatmaps in O2Lazer settings to update the stored rating.</value>
+    <value>Mania star rating is still being calculated. You can already play this beatmap. Refresh beatmaps in O2Lazer settings to retry an interrupted calculation.</value>
   </data>
   <data name="mania_star_rating_description" xml:space="preserve">
     <value>Stored osu!mania star rating, independent of MS.</value>
@@ -82,7 +95,7 @@
     <value>Keep long notes in their original colour after release. COOL/GOOD continue clipping at the judgement line; BAD/MISS stop clipping and scroll past it. Pill-rescued BAD follows COOL.</value>
   </data>
   <data name="scroll_speed_tooltip_with_o2jam_grade" xml:space="preserve">
-    <value>{0} · O2Jam X{1:0.#}</value>
+    <value>{0}ms (speed {1:N1} · ×{2:0.#})</value>
   </data>
   <data name="import_path" xml:space="preserve">
     <value>Import path</value>
@@ -156,8 +169,8 @@
   <data name="refreshing_progress" xml:space="preserve">
     <value>Updating O2Jam beatmaps {0}/{1}</value>
   </data>
-  <data name="synchronising_collections" xml:space="preserve">
-    <value>Synchronising collections...</value>
+  <data name="checking_beatmaps" xml:space="preserve">
+    <value>Checking beatmaps...</value>
   </data>
   <data name="refresh_complete" xml:space="preserve">
     <value>Update complete.</value>
@@ -356,5 +369,26 @@
   </data>
   <data name="refresh_with_failures" xml:space="preserve">
     <value>Refresh finished: {0} imported, {1} updated, {2} failed.</value>
+  </data>
+  <data name="random_algorithm" xml:space="preserve">
+    <value>Algorithm</value>
+  </data>
+  <data name="random_algorithm_description" xml:space="preserve">
+    <value>Random: shuffle lanes; R-Random: rotate with optional mirror; S-Random: O2Jam measure shuffle with long-note and boundary protection. Algorithm and seed reproduce the layout.</value>
+  </data>
+  <data name="random_algorithm_native" xml:space="preserve">
+    <value>Random</value>
+  </data>
+  <data name="random_algorithm_o2jam" xml:space="preserve">
+    <value>O2Jam random</value>
+  </data>
+  <data name="random_algorithm_panic" xml:space="preserve">
+    <value>S-Random</value>
+  </data>
+  <data name="random_algorithm_r_random" xml:space="preserve">
+    <value>R-Random</value>
+  </data>
+  <data name="random_algorithm_s_random" xml:space="preserve">
+    <value>S-Random (legacy)</value>
   </data>
 </root>

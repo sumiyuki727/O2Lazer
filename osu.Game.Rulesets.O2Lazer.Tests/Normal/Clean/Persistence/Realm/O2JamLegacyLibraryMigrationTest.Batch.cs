@@ -12,6 +12,325 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 public partial class O2JamLegacyLibraryMigrationTest
 {
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(3)]
+    [TestCase(4)]
+    [TestCase(5)]
+    [TestCase(6)]
+    public void PathLookupRecognisesCurrentAndLegacySourceRepresentations(int format) => runProjectionTest((realm, storage) =>
+    {
+        var path = storage.GetFullPath("nested/chart.ojn");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, OjnTestData.CreateChart());
+        var plan = new O2JamImportPlanner().Create(path);
+        var writer = new O2JamLibraryWriter(realm, storage);
+        writer.Write(plan);
+        var id = writer.GetImportedSources()[path].SetId;
+        realm.Write(database =>
+        {
+            var set = database.Find<BeatmapSetInfo>(id)!;
+            var beatmap = set.Beatmaps.Single();
+            switch (format)
+            {
+                case 1:
+                case 5:
+                    beatmap.Metadata.Source = storage.GetFullPath(string.Empty);
+                    beatmap.Metadata.AudioFile = format == 1 ? "nested\\chart.ojn" : "nested/chart.ojn";
+                    break;
+
+                case 2:
+                    beatmap.Metadata.Source = storage.GetFullPath("unrelated");
+                    beatmap.Metadata.AudioFile = path;
+                    break;
+
+                case 3:
+                    beatmap.Metadata.Source = storage.GetFullPath(string.Empty);
+                    beatmap.Metadata.AudioFile = string.Empty;
+                    beatmap.Hash = plan.SourceHash;
+                    set.Files.Single().Filename = "nested\\chart.ojn";
+                    break;
+
+                case 4:
+                    beatmap.Metadata.AudioFile = "CHART.OJN";
+                    break;
+
+                case 6:
+                    beatmap.Metadata.AudioFile = $"{Path.GetPathRoot(path)![0]}:chart.ojn";
+                    break;
+            }
+
+            // Matching hashes must not hide a missing path candidate.
+            var expectedPath = format == 6 ? Path.GetFullPath(beatmap.Metadata.AudioFile) : path;
+            var lookup = new O2JamLibraryLookup(database, [new O2JamLibraryWriteRequest(plan with
+            {
+                SourcePath = expectedPath,
+                SetHash = "unrelated-set-hash",
+                SourceHash = "unrelated-source-hash",
+            })]);
+            Assert.That(lookup.FindPath(expectedPath)?.ID, Is.EqualTo(id));
+        });
+    });
+
+    [Test]
+    public void PathLookupRejectsConflictingCurrentAndLegacyRepresentations() => runProjectionTest((realm, storage) =>
+    {
+        var path = storage.GetFullPath("nested/chart.ojn");
+        var other = storage.GetFullPath("other.ojn");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var bytes = OjnTestData.CreateChart();
+        File.WriteAllBytes(path, bytes);
+        BitConverter.GetBytes(650).CopyTo(bytes, 0);
+        File.WriteAllBytes(other, bytes);
+        var planner = new O2JamImportPlanner();
+        var writer = new O2JamLibraryWriter(realm, storage);
+        var plan = planner.Create(path);
+        writer.Write(plan);
+        writer.Write(planner.Create(other));
+        var sources = writer.GetImportedSources();
+        realm.Write(database =>
+        {
+            var beatmap = database.Find<BeatmapSetInfo>(sources[other].SetId)!.Beatmaps.Single();
+            beatmap.Metadata.Source = storage.GetFullPath(string.Empty);
+            beatmap.Metadata.AudioFile = "nested\\chart.ojn";
+        });
+        Assert.Throws<InvalidDataException>(() => writer.Write(plan));
+        realm.Run(database =>
+        {
+            Assert.That(database.All<BeatmapSetInfo>().Count(), Is.EqualTo(2));
+            foreach (var source in sources.Values)
+            {
+                var set = database.Find<BeatmapSetInfo>(source.SetId)!;
+                Assert.That(set.DeletePending, Is.False);
+                Assert.That(set.Beatmaps.Single().MD5Hash, Is.EqualTo(source.DifficultyIdentities!.Single().Md5Hash));
+            }
+        });
+    });
+
+    [TestCase("foreign")]
+    [TestCase("deleted")]
+    [TestCase("orphan")]
+    public void BatchLookupIgnoresForeignDeletedAndOrphanMatches(string state) => runProjectionTest((realm, storage) =>
+    {
+        var path = storage.GetFullPath("excluded.ojn");
+        File.WriteAllBytes(path, OjnTestData.CreateChart());
+        var plan = new O2JamImportPlanner().Create(path);
+        var writer = new O2JamLibraryWriter(realm, storage);
+        writer.Write(plan);
+        var id = writer.GetImportedSources()[path].SetId;
+        realm.Write(database =>
+        {
+            var set = database.Find<BeatmapSetInfo>(id)!;
+            var beatmap = set.Beatmaps.Single();
+            switch (state)
+            {
+                case "foreign":
+                    beatmap.Ruleset = database.Add(new RulesetInfo { ShortName = "foreign" });
+                    break;
+
+                case "deleted":
+                    set.DeletePending = true;
+                    break;
+
+                case "orphan":
+                    beatmap.Hash = plan.SourceHash;
+                    beatmap.BeatmapSet = null;
+                    set.Beatmaps.Clear();
+                    Assert.That(database.Find<BeatmapInfo>(beatmap.ID), Is.Not.Null);
+                    break;
+            }
+
+            var lookup = new O2JamLibraryLookup(database, [new O2JamLibraryWriteRequest(plan)]);
+            Assert.Multiple(() =>
+            {
+                Assert.That(lookup.FindPath(path), Is.Null);
+                Assert.That(lookup.FindContent(plan.SourceHash), Is.Null);
+                Assert.That(lookup.ContainsSetHash(plan.SetHash), Is.False);
+            });
+        });
+    });
+
+    [Test]
+    public void PathLookupDoesNotUseAnotherRulesetsMetadata() => runProjectionTest((realm, storage) =>
+    {
+        var path = storage.GetFullPath("owned.ojn");
+        File.WriteAllBytes(path, OjnTestData.CreateChart());
+        var plan = new O2JamImportPlanner().Create(path);
+        var writer = new O2JamLibraryWriter(realm, storage);
+        writer.Write(plan);
+        var id = writer.GetImportedSources()[path].SetId;
+        realm.Write(database =>
+        {
+            var set = database.Find<BeatmapSetInfo>(id)!;
+            set.Beatmaps.Single().Metadata.AudioFile = "other.ojn";
+            var foreign = database.Add(new RulesetInfo { ShortName = "foreign" });
+            set.Beatmaps.Add(new BeatmapInfo(foreign, metadata: new BeatmapMetadata
+            {
+                Source = plan.SourceDirectory,
+                AudioFile = plan.FileName,
+            }) { BeatmapSet = set });
+            var lookup = new O2JamLibraryLookup(database, [new O2JamLibraryWriteRequest(plan with
+            {
+                SetHash = "unrelated-set-hash",
+                SourceHash = "unrelated-source-hash",
+            })]);
+            Assert.That(lookup.FindPath(path), Is.Null);
+        });
+    });
+
+    [Test]
+    public void PathLookupUsesMatchingDifficultyMetadataInsteadOfSetFirst() => runProjectionTest((realm, storage) =>
+    {
+        var path = storage.GetFullPath("three-slots.ojn");
+        File.WriteAllBytes(path, createThreeSlotSource());
+        var plan = new O2JamImportPlanner().Create(path);
+        var writer = new O2JamLibraryWriter(realm, storage);
+        writer.Write(plan);
+        var id = writer.GetImportedSources()[path].SetId;
+        realm.Write(database =>
+        {
+            var set = database.Find<BeatmapSetInfo>(id)!;
+            Assert.That(set.Beatmaps, Has.Count.EqualTo(3));
+            set.Beatmaps[0].Metadata.AudioFile = "other.ojn";
+            var lookup = new O2JamLibraryLookup(database, [new O2JamLibraryWriteRequest(plan with
+            {
+                SetHash = "unrelated-set-hash",
+                SourceHash = "unrelated-source-hash",
+            })]);
+            Assert.That(lookup.FindPath(path)?.ID, Is.EqualTo(id));
+        });
+    });
+
+    [Test]
+    public void BatchLookupKeepsSameFilenameSourcesInDifferentFoldersSeparate() => runProjectionTest((realm, storage) =>
+    {
+        string[] paths = [storage.GetFullPath("first/chart.ojn"), storage.GetFullPath("second/chart.ojn")];
+        var plans = paths.Select((path, index) =>
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var bytes = OjnTestData.CreateChart();
+            BitConverter.GetBytes(index + 400).CopyTo(bytes, 0);
+            File.WriteAllBytes(path, bytes);
+            return new O2JamImportPlanner().Create(path);
+        }).ToArray();
+        var writer = new O2JamLibraryWriter(realm, storage);
+        writer.WriteBatch(plans.Select(plan => new O2JamLibraryWriteRequest(plan)).ToArray());
+        var original = writer.GetImportedSources();
+        var updated = plans.Select((plan, index) => new O2JamLibraryWriteRequest(plan with { Title = $"Changed {index}" })).ToArray();
+        Assert.That(writer.WriteBatch(updated), Is.All.EqualTo(O2JamLibraryWriteResult.Updated));
+        var current = writer.GetImportedSources();
+        foreach (var path in paths)
+            Assert.That(current[path].SetId, Is.EqualTo(original[path].SetId));
+        realm.Run(database =>
+        {
+            for (var index = 0; index < paths.Length; index++)
+                Assert.That(database.Find<BeatmapSetInfo>(current[paths[index]].SetId)!.Beatmaps.Single().Metadata.Title, Is.EqualTo($"Changed {index}"));
+        });
+    });
+
+    [Test]
+    public void BatchLookupSeesRelocatedLegacyContentAfterItsHashChanges() => runProjectionTest((realm, storage) =>
+    {
+        var original = storage.GetFullPath("legacy.ojn");
+        var moved = storage.GetFullPath("moved.ojn");
+        var copy = storage.GetFullPath("copy.ojn");
+        File.WriteAllBytes(original, OjnTestData.CreateChart());
+        var planner = new O2JamImportPlanner();
+        var plan = planner.Create(original);
+        var writer = new O2JamLibraryWriter(realm, storage);
+        writer.Write(plan);
+        var id = writer.GetImportedSources()[original].SetId;
+        realm.Write(database =>
+        {
+            var set = database.Find<BeatmapSetInfo>(id)!;
+            set.Files.Clear();
+            set.Beatmaps.Single().Hash = plan.SourceHash.ToUpperInvariant();
+            set.Beatmaps.Single().Metadata.Tags = "o2jam";
+        });
+        File.Move(original, moved);
+        File.Copy(moved, copy);
+        var results = writer.WriteBatch([new O2JamLibraryWriteRequest(planner.Create(moved)), new O2JamLibraryWriteRequest(planner.Create(copy))]);
+        Assert.That(results, Is.EqualTo(new[] { O2JamLibraryWriteResult.Updated, O2JamLibraryWriteResult.AlreadyPresent }));
+        Assert.That(writer.GetImportedSources().Keys, Is.EqualTo(new[] { moved }));
+        Assert.That(writer.GetImportedSources()[moved].SetId, Is.EqualTo(id));
+    });
+
+    [Test]
+    public void StoredSetHashCollisionIsRejectedCaseInsensitive() => runProjectionTest((realm, storage) =>
+    {
+        var original = storage.GetFullPath("unrelated.ojn");
+        var replacement = storage.GetFullPath("new-source.ojn");
+        var bytes = OjnTestData.CreateChart();
+        File.WriteAllBytes(original, bytes);
+        BitConverter.GetBytes(550).CopyTo(bytes, 0);
+        File.WriteAllBytes(replacement, bytes);
+        var planner = new O2JamImportPlanner();
+        var writer = new O2JamLibraryWriter(realm, storage);
+        writer.Write(planner.Create(original));
+        var id = writer.GetImportedSources()[original].SetId;
+        var plan = planner.Create(replacement);
+        realm.Write(database => database.Find<BeatmapSetInfo>(id)!.Hash = plan.SetHash.ToUpperInvariant());
+        Assert.Throws<InvalidDataException>(() => writer.Write(plan));
+        Assert.That(writer.GetImportedSources().Keys, Is.EqualTo(new[] { original }));
+        Assert.That(writer.GetImportedSources()[original].SetId, Is.EqualTo(id));
+        Assert.That(realm.Run(database => database.All<BeatmapSetInfo>().Count()), Is.EqualTo(1));
+    });
+
+    [Test]
+    public void BatchLookupRejectsSetHashCollisionIntroducedEarlierInTransaction() => runProjectionTest((realm, storage) =>
+    {
+        var a = storage.GetFullPath("first.ojn");
+        var b = storage.GetFullPath("second.ojn");
+        var bytes = OjnTestData.CreateChart();
+        File.WriteAllBytes(a, bytes);
+        BitConverter.GetBytes(500).CopyTo(bytes, 0);
+        File.WriteAllBytes(b, bytes);
+        var planner = new O2JamImportPlanner();
+        var first = planner.Create(a);
+        var second = planner.Create(b) with { SetHash = first.SetHash };
+        var writer = new O2JamLibraryWriter(realm, storage);
+        Assert.Throws<InvalidDataException>(() => writer.WriteBatch([new O2JamLibraryWriteRequest(first), new O2JamLibraryWriteRequest(second)]));
+        Assert.That(realm.Run(database => database.All<BeatmapSetInfo>().Count()), Is.Zero);
+        Assert.That(realm.Run(database => database.All<BeatmapInfo>().Count()), Is.Zero);
+    });
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void LegacySourceLookupUsesNativeFileOrHashOwnership(bool missingUsage) => runProjectionTest((realm, storage) =>
+    {
+        var path = storage.GetFullPath("lookup.ojn");
+        File.WriteAllBytes(path, OjnTestData.CreateChart());
+        var planner = new O2JamImportPlanner();
+        var plan = planner.Create(path);
+        var writer = new O2JamLibraryWriter(realm, storage);
+        writer.Write(plan);
+        var beatmapId = realm.Run(database => database.All<BeatmapInfo>().Single().ID);
+        var scoreId = Guid.NewGuid();
+        realm.Write(database =>
+        {
+            var beatmap = database.Find<BeatmapInfo>(beatmapId)!;
+            beatmap.Hash = plan.SourceHash;
+            beatmap.Metadata.Tags = "o2jam";
+            if (missingUsage)
+                beatmap.BeatmapSet!.Files.Clear();
+            else
+                beatmap.Metadata.AudioFile = string.Empty;
+            database.Add(new ScoreInfo(beatmap, beatmap.Ruleset) { ID = scoreId, TotalScore = 1234 });
+        });
+        var summary = new O2JamImportService(planner, writer).Refresh([path], writer.GetImportedSources());
+        Assert.That(summary.Updated, Is.EqualTo(1));
+        Assert.That(summary.Imported + summary.Failed, Is.Zero);
+        realm.Run(database =>
+        {
+            Assert.That(database.All<BeatmapSetInfo>().Count(), Is.EqualTo(1));
+            Assert.That(database.Find<BeatmapInfo>(beatmapId)!.Hash, Is.Not.EqualTo(plan.SourceHash));
+            var score = database.Find<ScoreInfo>(scoreId)!;
+            Assert.That(score.BeatmapInfo!.ID, Is.EqualTo(beatmapId));
+            Assert.That(score.BeatmapHash, Is.EqualTo(score.BeatmapInfo.Hash));
+        });
+    });
+
     [Test]
     public void LaterBatchRechecksCommittedContentWithoutScanHints() => runProjectionTest((realm, storage) =>
     {
@@ -81,9 +400,10 @@ public partial class O2JamLegacyLibraryMigrationTest
         }
         Assert.That(realm.Run(database => database.All<BeatmapSetInfo>().Any(set => set.DeletePending)), Is.False);
     });
+
     [TestCase(false)]
     [TestCase(true)]
-    public void SameBatchCopiesUseFreshIndexAndKeepOneSet(bool reverse) => runProjectionTest((realm, storage) =>
+    public void SameBatchCopiesUseNativeLookupAndKeepOneSet(bool reverse) => runProjectionTest((realm, storage) =>
     {
         var a = storage.GetFullPath("a.ojn");
         var b = storage.GetFullPath("b.ojn");
@@ -102,7 +422,7 @@ public partial class O2JamLegacyLibraryMigrationTest
     public void RefreshGroupsCrossBatchCopiesAndSelectsStablePaths() => runProjectionTest((realm, storage) =>
     {
         var paths = new List<string>();
-        for (var index = 0; index < 10; index++)
+        for (var index = 0; index < 18; index++)
         {
             var bytes = OjnTestData.CreateChart();
             BitConverter.GetBytes(index + 100).CopyTo(bytes, 0);
@@ -118,15 +438,15 @@ public partial class O2JamLegacyLibraryMigrationTest
         var summary = service.Refresh(paths.AsEnumerable().Reverse().Concat(paths).ToArray(), writer.GetImportedSources());
         Assert.Multiple(() =>
         {
-            Assert.That(summary.Imported, Is.EqualTo(10));
-            Assert.That(summary.AlreadyPresent, Is.EqualTo(20));
+            Assert.That(summary.Imported, Is.EqualTo(18));
+            Assert.That(summary.AlreadyPresent, Is.EqualTo(36));
             Assert.That(summary.Failed, Is.Zero);
             Assert.That(writer.GetImportedSources().Keys.Select(Path.GetFileName), Is.All.StartsWith("a-"));
-            Assert.That(realm.Run(database => database.All<BeatmapSetInfo>().Count()), Is.EqualTo(10));
+            Assert.That(realm.Run(database => database.All<BeatmapSetInfo>().Count()), Is.EqualTo(18));
         });
         var ids = writer.GetImportedSources().Values.Select(source => source.SetId).ToHashSet();
         summary = service.Refresh(paths, writer.GetImportedSources());
-        Assert.That(summary.AlreadyPresent, Is.EqualTo(30));
+        Assert.That(summary.AlreadyPresent, Is.EqualTo(54));
         Assert.That(writer.GetImportedSources().Values.Select(source => source.SetId), Is.EquivalentTo(ids));
     });
 
@@ -249,7 +569,7 @@ public partial class O2JamLegacyLibraryMigrationTest
         var paths = new List<string>();
         var writer = new O2JamLibraryWriter(realm, storage);
         var planner = new O2JamImportPlanner();
-        for (var index = 0; index < 10; index++)
+        for (var index = 0; index < 18; index++)
         {
             var bytes = OjnTestData.CreateChart();
             BitConverter.GetBytes(index + 100).CopyTo(bytes, 0);
@@ -271,11 +591,11 @@ public partial class O2JamLegacyLibraryMigrationTest
             service.Refresh(paths, writer.GetImportedSources(), cancellationToken: cancellation.Token))!;
         Assert.Multiple(() =>
         {
-            Assert.That(exception.Summary.Updated, Is.EqualTo(8));
+            Assert.That(exception.Summary.Updated, Is.EqualTo(16));
             Assert.That(exception.Summary.Failed, Is.Zero);
-            Assert.That(invalidated, Has.Count.EqualTo(8));
-            Assert.That(writer.GetImportedSources().Values.Count(source => source.HasCurrentMetadata), Is.EqualTo(8));
-            Assert.That(realm.Run(database => database.All<BeatmapSetInfo>().Count()), Is.EqualTo(10));
+            Assert.That(invalidated, Has.Count.EqualTo(16));
+            Assert.That(writer.GetImportedSources().Values.Count(source => source.HasCurrentMetadata), Is.EqualTo(16));
+            Assert.That(realm.Run(database => database.All<BeatmapSetInfo>().Count()), Is.EqualTo(18));
         });
         Assert.That(service.Refresh(paths, writer.GetImportedSources()).Updated, Is.EqualTo(2));
     });

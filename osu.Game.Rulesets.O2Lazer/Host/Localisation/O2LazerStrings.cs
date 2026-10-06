@@ -49,9 +49,16 @@ public static class O2LazerStrings
     public static LocalisableString RefreshBeatmaps => get("refresh_beatmaps");
     public static LocalisableString RefreshBeatmapsTooltip => get("refresh_beatmaps_tooltip");
     public static LocalisableString DeleteAllImportedFiles => get("delete_all_imported_files");
+    public static LocalisableString ClearingBeatmaps => get("clearing_beatmaps");
+    public static LocalisableString ClearingProgress(int processed, int total) => get("clearing_progress", processed, total);
+    public static LocalisableString ClearComplete => get("clear_complete");
+    public static LocalisableString ClearStopped => get("clear_stopped");
     public static LocalisableString DeleteAllConfirmation => get("delete_all_confirmation");
     public static LocalisableString RefreshingProgress(int processed, int total) => get("refreshing_progress", processed, total);
-    public static LocalisableString SynchronisingCollections => get("synchronising_collections");
+    public static LocalisableString CheckingBeatmaps => get("checking_beatmaps");
+    public static LocalisableString CalculatingDifficulties(int processed, int total) => total == 0
+        ? get("calculating_difficulties_start") : get("calculating_difficulties", processed, total);
+    public static LocalisableString RefreshDifficultiesPending => get("refresh_difficulties_pending");
     public static LocalisableString RefreshComplete => get("refresh_complete");
     public static LocalisableString RefreshUpdatesPending => get("refresh_updates_pending");
     public static LocalisableString RefreshStopped(int imported, int updated) => get("refresh_stopped", imported, updated);
@@ -76,8 +83,8 @@ public static class O2LazerStrings
     public static LocalisableString Miss => get("miss");
     public static LocalisableString DifficultyName(object difficulty, int level) => get("difficulty_name", difficulty, level);
     public static LocalisableString ScrollSpeedValue(double milliseconds, double speed) => get("scroll_speed_value", milliseconds, speed);
-    public static LocalisableString ScrollSpeedTooltipWithO2JamGrade(LocalisableString tooltip, double multiplier) =>
-        get("scroll_speed_tooltip_with_o2jam_grade", tooltip, multiplier);
+    public static LocalisableString ScrollSpeedTooltipWithO2JamGrade(int milliseconds, double speed, double multiplier) =>
+        get("scroll_speed_tooltip_with_o2jam_grade", milliseconds, speed, multiplier);
     public static LocalisableString ActionKey1 => get("action_key_1");
     public static LocalisableString ActionKey2 => get("action_key_2");
     public static LocalisableString ActionKey3 => get("action_key_3");
@@ -103,6 +110,13 @@ public static class O2LazerStrings
     public static LocalisableString ModConstantSpeedDescription => get("mod_constant_speed_description");
     public static LocalisableString ModMirrorDescription => get("mod_mirror_description");
     public static LocalisableString ModRandomDescription => get("mod_random_description");
+    public static LocalisableString RandomAlgorithm => Catalog.GetEnglish("random_algorithm");
+    public static LocalisableString RandomAlgorithmDescription => Catalog.GetEnglish("random_algorithm_description");
+    public static LocalisableString RandomAlgorithmNative => Catalog.GetEnglish("random_algorithm_native");
+    public static LocalisableString RandomAlgorithmO2Jam => Catalog.GetEnglish("random_algorithm_o2jam");
+    public static LocalisableString RandomAlgorithmPanic => Catalog.GetEnglish("random_algorithm_panic");
+    public static LocalisableString RandomAlgorithmRRandom => Catalog.GetEnglish("random_algorithm_r_random");
+    public static LocalisableString RandomAlgorithmSRandom => Catalog.GetEnglish("random_algorithm_s_random");
     public static LocalisableString ModInvertDescription => get("mod_invert_description");
     public static LocalisableString ModWindUpDescription => get("mod_wind_up_description");
     public static LocalisableString ModWindDownDescription => get("mod_wind_down_description");

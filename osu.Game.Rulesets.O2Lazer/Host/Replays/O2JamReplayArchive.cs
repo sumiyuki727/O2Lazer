@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using O2Jam.Core;
 using osu.Game.IO.Serialization;
 using osu.Game.Replays;
 using osu.Game.Rulesets.Mania;
@@ -27,6 +28,7 @@ internal static class O2JamReplayArchive
         var payload = new Payload
         {
             Version = current_version,
+            JudgementVersion = O2JamJudgementEngine.RulesVersion,
             Ruleset = O2LazerIdentity.ShortName,
             HasReceivedAllFrames = score.Replay.HasReceivedAllFrames,
             Frames = score.Replay.Frames.Select(convertFrame).ToList(),
@@ -67,6 +69,9 @@ internal static class O2JamReplayArchive
         if (!TryReadPayload(bytes, out var payload))
             return false;
 
+        // Passed is transient in native ScoreInfo; the persisted grade survives Realm reload
+        // and the existing v5 envelope without adding a second outcome format.
+        scoreInfo.Passed = scoreInfo.Rank != ScoreRank.F;
         score.Replay = new Replay
         {
             HasReceivedAllFrames = payload.HasReceivedAllFrames,
@@ -121,7 +126,10 @@ internal static class O2JamReplayArchive
 
             // The marker keeps this global importer from claiming another ruleset's JSON/gzip
             // envelope. Unmarked test builds are intentionally treated as unsupported replays.
+            // Existing unversioned v5 recordings are test data and use the current rule.
+            // Reject unknown tagged policies instead of silently rejudging future releases.
             if (payload.Version != current_version
+                || payload.JudgementVersion != 0 && payload.JudgementVersion != O2JamJudgementEngine.RulesVersion
                 || !string.Equals(payload.Ruleset, O2LazerIdentity.ShortName, StringComparison.Ordinal)
                 || payload.Frames == null || payload.Frames.Count == 0)
                 return false;
@@ -161,6 +169,8 @@ internal static class O2JamReplayArchive
     private sealed class Payload
     {
         public int Version { get; set; }
+
+        public int JudgementVersion { get; set; }
 
         public string Ruleset { get; set; } = string.Empty;
 

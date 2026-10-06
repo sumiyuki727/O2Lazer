@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
+  <data name="clearing_beatmaps" xml:space="preserve"><value>正在清空导入谱面</value></data>
+  <data name="clearing_progress" xml:space="preserve"><value>正在清空导入谱面（{0} / {1}）</value></data>
+  <data name="clear_complete" xml:space="preserve"><value>导入谱面已清空。</value></data>
+  <data name="clear_stopped" xml:space="preserve"><value>已停止清空谱面，已完成的清理已保留。</value></data>
+  <data name="calculating_difficulties_start" xml:space="preserve">
+    <value>正在计算谱面星级</value>
+  </data>
+  <data name="calculating_difficulties" xml:space="preserve">
+    <value>正在计算谱面星级（{0} / {1}）</value>
+  </data>
+  <data name="refresh_difficulties_pending" xml:space="preserve">
+    <value>谱面更新完成，部分 Mania 星数未能计算；再次更新可重试。</value>
+  </data>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -55,7 +68,7 @@
     <value>SR</value>
   </data>
   <data name="missing_mania_star_rating_description" xml:space="preserve">
-    <value>mania 星数尚未计算（-1）。请在 O2Lazer 设置中使用“刷新谱面”更新已保存的星数。</value>
+    <value>Mania 星数尚在计算，谱面已可游玩。如果计算中断，可在 O2Lazer 设置中再次更新谱面重试。</value>
   </data>
   <data name="mania_star_rating_description" xml:space="preserve">
     <value>已保存的 osu!mania 星数，不受 MS 开关影响。</value>
@@ -82,7 +95,7 @@
     <value>松键后长条保持原色。Cool/Good 继续在判定线处裁切；Bad/Miss 停止裁切并继续下落。药丸修正后的 Bad 按 Cool 处理。</value>
   </data>
   <data name="scroll_speed_tooltip_with_o2jam_grade" xml:space="preserve">
-    <value>{0} · O2Jam X{1:0.#}</value>
+    <value>{0}毫秒 ({1:N1}速 · ×{2:0.#})</value>
   </data>
   <data name="import_path" xml:space="preserve">
     <value>导入路径</value>
@@ -155,9 +168,6 @@
   </data>
   <data name="refreshing_progress" xml:space="preserve">
     <value>正在更新 O2Jam 谱面 {0}/{1}</value>
-  </data>
-  <data name="synchronising_collections" xml:space="preserve">
-    <value>正在同步收藏夹……</value>
   </data>
   <data name="refresh_complete" xml:space="preserve">
     <value>更新完成。</value>
@@ -356,5 +366,29 @@
   </data>
   <data name="refresh_with_failures" xml:space="preserve">
     <value>刷新完成：导入 {0} 个，更新 {1} 个，失败 {2} 个。</value>
+  </data>
+  <data name="random_algorithm" xml:space="preserve">
+    <value>Algorithm</value>
+  </data>
+  <data name="random_algorithm_description" xml:space="preserve">
+    <value>Random: shuffle lanes; R-Random: rotate with optional mirror; S-Random: O2Jam measure shuffle with long-note and boundary protection. Algorithm and seed reproduce the layout.</value>
+  </data>
+  <data name="random_algorithm_native" xml:space="preserve">
+    <value>Random</value>
+  </data>
+  <data name="random_algorithm_o2jam" xml:space="preserve">
+    <value>O2Jam random</value>
+  </data>
+  <data name="random_algorithm_panic" xml:space="preserve">
+    <value>S-Random</value>
+  </data>
+  <data name="random_algorithm_r_random" xml:space="preserve">
+    <value>R-Random</value>
+  </data>
+  <data name="random_algorithm_s_random" xml:space="preserve">
+    <value>S-Random (legacy)</value>
+  </data>
+  <data name="checking_beatmaps" xml:space="preserve">
+    <value>正在检查谱面...</value>
   </data>
 </root>

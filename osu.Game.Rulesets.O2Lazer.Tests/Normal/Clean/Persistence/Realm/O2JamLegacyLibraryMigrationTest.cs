@@ -121,14 +121,17 @@ public partial class O2JamLegacyLibraryMigrationTest
                     beatmap.StarRating = 99;
                 });
                 var outdatedSources = writer.GetImportedSources();
-                Assert.That(outdatedSources[sourcePath].HasCurrentMetadata, Is.False);
+                Assert.That(outdatedSources[sourcePath].HasCurrentMetadata, Is.True);
                 Assert.That(outdatedSources[sourcePath].SourceHash, Is.Not.Null.And.Not.Empty);
                 var updates = new System.Collections.Generic.List<BeatmapInfo>();
                 writer.BeatmapUpdated += updates.Add;
                 var migration = new O2JamImportService(new O2JamImportPlanner(), writer).Refresh([sourcePath], outdatedSources);
+                Assert.That(updates, Is.Empty, "An outdated star cache must not force a chart/file rewrite.");
+                Assert.That(new O2JamLibraryDifficultyProcessor(writer).Process(sourceDirectory, null, CancellationToken.None), Is.Zero);
                 Assert.Multiple(() =>
                 {
-                    Assert.That(migration.Updated, Is.EqualTo(1));
+                    Assert.That(migration.Updated, Is.Zero);
+                    Assert.That(migration.AlreadyPresent, Is.EqualTo(1));
                     Assert.That(migration.Failed, Is.Zero);
                     Assert.That(updates, Has.Count.EqualTo(1));
                     Assert.That(updates[0].IsManaged, Is.False);

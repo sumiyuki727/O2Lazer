@@ -5,14 +5,41 @@ using osu.Framework.Logging;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
 
-internal readonly record struct O2JamLibraryProgress(int Processed, int Total, bool SynchronisingCollections = false);
+internal enum O2JamLibraryStage
+{
+    ScanningSources,
+    ReadingImportedMetadata,
+    CheckingStoredFiles,
+    ReadingSourceFiles,
+    MatchingSources,
+    RefreshingCharts,
+    SynchronisingCollections,
+    CalculatingDifficulties,
+    ClearingCharts,
+}
+
+internal readonly record struct O2JamLibraryProgress(int Processed, int Total, O2JamLibraryStage Stage = O2JamLibraryStage.RefreshingCharts)
+{
+    public void Publish(Action<O2JamLibraryProgress>? observer)
+    {
+        try { observer?.Invoke(this); }
+        catch (Exception exception) { Logger.Error(exception, "O2Jam library progress observer failed."); }
+    }
+}
 
 internal interface IO2JamLibraryBackend : IDisposable
 {
     bool DirectoryExists(string path);
-    O2JamImportSummary Refresh(string path, Action<O2JamLibraryProgress>? progress, CancellationToken cancellationToken);
-    void DeleteAll();
+    O2JamImportSummary Refresh(string path, Action<O2JamLibraryProgress>? progress, CancellationToken cancellationToken,
+                              O2JamLibraryRefreshMode mode = O2JamLibraryRefreshMode.Update);
+    void DeleteAll(Action<O2JamLibraryProgress>? progress = null, CancellationToken cancellationToken = default);
     void UpdateCollections(string path, bool enabled);
+    (int Failed, int PendingNotifications) CalculateDifficulties(string path, Action<O2JamLibraryProgress>? progress, CancellationToken cancellationToken);
+}
+
+internal interface IO2JamConcurrentDifficultyBackend
+{
+    IDisposable StartDifficultyProcessing(Action<O2JamLibraryProgress>? progress, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -24,6 +51,7 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
     private readonly CancellationTokenSource lifetime = new();
     private Task queue = Task.CompletedTask;
     private Task<O2JamImportSummary>? refreshTask;
+    private O2JamLibraryRefreshMode refreshMode;
     private string libraryPath = string.Empty;
     private bool collectionsEnabled;
     private int pending;
@@ -63,29 +91,31 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
         return result;
     }
 
-    public Task<O2JamImportSummary> RefreshAsync(Action<O2JamLibraryProgress>? progress = null, CancellationToken cancellationToken = default)
+    public Task<O2JamImportSummary> RefreshAsync(Action<O2JamLibraryProgress>? progress = null, CancellationToken cancellationToken = default,
+                                                O2JamLibraryRefreshMode mode = O2JamLibraryRefreshMode.Update)
     {
         Task<O2JamImportSummary> result;
         lock (operationLock)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
-            if (refreshTask is { IsCompleted: false })
+            if (refreshTask is { IsCompleted: false } && refreshMode == mode)
                 return refreshTask;
 
             var path = libraryPath;
             if (string.IsNullOrWhiteSpace(path) || !backend.DirectoryExists(path))
                 throw new InvalidOperationException("The library directory is unavailable.");
 
+            refreshMode = mode;
             result = refreshTask = enqueue(() =>
             {
                 using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token, cancellationToken);
                 cancellation.Token.ThrowIfCancellationRequested();
-                var summary = backend.Refresh(path, progress, cancellation.Token);
+                using var difficultyWork = (backend as IO2JamConcurrentDifficultyBackend)?.StartDifficultyProcessing(progress, cancellation.Token);
+                var summary = backend.Refresh(path, progress, cancellation.Token, mode);
                 try
                 {
                     cancellation.Token.ThrowIfCancellationRequested();
-                    try { progress?.Invoke(new O2JamLibraryProgress(0, 0, true)); }
-                    catch (Exception exception) { Logger.Error(exception, "O2Jam collection progress observer failed."); }
+                    new O2JamLibraryProgress(0, 0, O2JamLibraryStage.SynchronisingCollections).Publish(progress);
                     updateCollections();
                 }
                 catch (OperationCanceledException) when (summary.Imported + summary.Updated > 0)
@@ -98,6 +128,31 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
                     Logger.Error(exception, "O2Jam collection synchronisation failed after refreshing the library; retry on the next refresh.");
                     summary = summary with { PendingNotifications = summary.PendingNotifications + 1 };
                 }
+                try
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    if (!summary.RulesetUnavailable)
+                    {
+                        var result = backend.CalculateDifficulties(path, progress, cancellation.Token);
+                        summary = summary with
+                        {
+                            FailedDifficultyCalculations = result.Failed,
+                            PendingNotifications = summary.PendingNotifications + result.PendingNotifications,
+                        };
+                    }
+                    cancellation.Token.ThrowIfCancellationRequested();
+                }
+                catch (OperationCanceledException) when (summary.Imported + summary.Updated > 0)
+                {
+                    throw new O2JamImportCancelledException(summary, cancellation.Token);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception exception)
+                {
+                    // Star caches are supplementary: failure must not discard a playable import.
+                    Logger.Error(exception, "O2Jam difficulty processing failed after importing the library; retry on the next refresh.");
+                    summary = summary with { FailedDifficultyCalculations = summary.FailedDifficultyCalculations + 1 };
+                }
                 return summary;
             });
         }
@@ -105,7 +160,7 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
         return result;
     }
 
-    public Task DeleteAllAsync()
+    public Task DeleteAllAsync(Action<O2JamLibraryProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         Task result;
         lock (operationLock)
@@ -113,8 +168,10 @@ internal sealed class O2JamLibraryApplication(IO2JamLibraryBackend backend) : ID
             ObjectDisposedException.ThrowIf(disposed, this);
             result = enqueue(() =>
             {
-                backend.DeleteAll();
-                updateCollections();
+                using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token, cancellationToken);
+                cancellation.Token.ThrowIfCancellationRequested();
+                try { backend.DeleteAll(progress, cancellation.Token); }
+                finally { updateCollections(); }
                 return true;
             });
         }

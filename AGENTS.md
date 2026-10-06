@@ -24,6 +24,7 @@
 
 - All user-facing text must use the `O2LazerStrings` localisation system; do not hard-code labels, abbreviations, formatted values, or units in UI code.
 - Keep the English base resource and all supported `.resx` translations in sync when adding or changing user-facing text.
+- User-selected exception: the Random algorithm caption, names, and descriptions remain fixed English through `O2LazerStrings` English resource access. Keep those seven resource entries identical in all supported translations; do not localise algorithm identities or change saved enum values.
 
 ## Test Rules
 

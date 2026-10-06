@@ -1,6 +1,9 @@
 # 本地化模块与新增语言
 
-更新：2026-10-01。A13 已检查生产文本的所有使用位置及原生接收接口；本轮保留现有运行实现，补充原生绑定回归与固定字符串约定。
+维护状态（2026-10-06）：现行本地化指引；随机七项固定英文是用户例外，仍统一走资源入口。
+文档职责与最新状态入口见[索引](README.md)。
+
+更新：2026-10-06。A13 已检查生产文本的所有使用位置及原生接收接口；本轮保留现有运行实现，补充原生绑定回归与固定字符串约定。
 
 当前本地化按三个职责组织，随宿主单 DLL 发布：
 
@@ -49,6 +52,13 @@ O2JamLocalisationTest 自动检查所有已打包语言，不需要增加语言�
 动态切换适用于保留 LocalisableString 的控件。UI 应把原始值交给原生 Text、Caption、HintText、TooltipText、SettingSource 或 Bindable，不在赋值前调用 ToString。SpriteText 的原生本地化绑定会响应宿主语言变化，无需增加自己的全局语言事件或刷新全部谱面。
 
 ## 文本所有者与固定字符串
+
+2026-10-05 用户追加约定：随机算法的标题、名称和说明固定英文。标题 `random_algorithm` 使用 Algorithm；
+`random_algorithm_description` 与
+`random_algorithm_native/o2jam/panic/r_random/s_random` 仍通过 O2LazerStrings 供原生控件消费，
+这七个入口直接读取 Catalog.GetEnglish，不随当前或未来新增语言的绑定变化；
+所有语言资源也应保留相同英文文本；`panic` 的显示值是 S-Random，`s_random` 是隐藏旧值的
+S-Random (legacy)。其余设置继续本地化，不能因此改变 enum/回放身份。
 
 | 使用位置 | 当前方式与理由 |
 |---|---|

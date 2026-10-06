@@ -55,6 +55,8 @@ public sealed class O2JamBeatmapConverter : BeatmapConverter<ManiaHitObject>
             copy.Column = hitObject.Column;
             copy.Samples = [.. hitObject.Samples];
             objects.Add(copy);
+            if (source != null && source.SourcePositions.TryGetValue(hitObject, out var position))
+                ((O2JamBeatmap)beatmap).SourcePositions.Add(copy, position);
         }
 
         beatmap.HitObjects = objects;
@@ -77,6 +79,7 @@ public sealed class O2JamBeatmapConverter : BeatmapConverter<ManiaHitObject>
         {
             beatmap.AutomaticAudioEvents.AddRange(source.AutomaticAudioEvents);
             beatmap.MeasureLineTimes.AddRange(source.MeasureLineTimes);
+            beatmap.SourceMeasureTickLengths.AddRange(source.SourceMeasureTickLengths);
         }
 
         return beatmap;

@@ -8,7 +8,7 @@ namespace osu.Game.Rulesets.O2Lazer.Import;
 
 internal static class O2JamChartSourceScanner
 {
-    public static string[] Enumerate(string path, CancellationToken cancellationToken)
+    public static string[] Enumerate(string path, CancellationToken cancellationToken, Action<int>? progress = null)
     {
         var options = new EnumerationOptions
         {
@@ -23,7 +23,10 @@ internal static class O2JamChartSourceScanner
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (string.Equals(Path.GetExtension(file), ".ojn", StringComparison.OrdinalIgnoreCase))
-                charts.Add(file);
+            {
+                if (charts.Add(file))
+                    progress?.Invoke(charts.Count);
+            }
         }
         cancellationToken.ThrowIfCancellationRequested();
         return charts.Order(StringComparer.OrdinalIgnoreCase).ThenBy(path => path, StringComparer.Ordinal).ToArray();

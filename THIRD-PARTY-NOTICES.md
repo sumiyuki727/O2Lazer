@@ -27,3 +27,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 The implementation also references public OJN/OJM documentation, [SirusDoma/CXO2](https://github.com/SirusDoma/CXO2) for O2Jam gameplay-behaviour research, and the [djask/o2jam_utils](https://github.com/djask/o2jam_utils) source project for interoperability research. No code from CXO2 or `o2jam_utils` is included.
 
+## Randomisation behaviour references
+
+The independently written R-Random and retained note-by-note S-Random implementations were
+checked against beatoraja commit `ad42f56c4658e968f93b24bf23440fe51cb9878e`, specifically
+[LaneShuffleModifier](https://github.com/exch-bms2/beatoraja/blob/ad42f56c4658e968f93b24bf23440fe51cb9878e/src/bms/player/beatoraja/pattern/LaneShuffleModifier.java) and
+[Randomizer](https://github.com/exch-bms2/beatoraja/blob/ad42f56c4658e968f93b24bf23440fe51cb9878e/src/bms/player/beatoraja/pattern/Randomizer.java).
+Reference source files, Java test fixtures and original O2Jam client assets are not packaged in
+the ruleset DLL. Current menu, deliberate differences and seeded identities are documented in
+[the randomisation contract](docs/column-randomisation.md); this notice does not replace the
+existing decoding attribution or the project licence.

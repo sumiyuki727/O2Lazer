@@ -18,24 +18,32 @@ internal static class O2JamManiaScoreBeatmapAdapter
 
         // Replacing the O2Jam subclasses before ApplyDefaults() lets mania own judgements,
         // hit windows and hold children while retaining the imported chart timing and samples.
-        o2JamBeatmap.HitObjects = o2JamBeatmap.HitObjects.Select<ManiaHitObject, ManiaHitObject>(hitObject => hitObject switch
+        o2JamBeatmap.HitObjects = o2JamBeatmap.HitObjects.Select(hitObject =>
         {
-            O2JamHoldNote hold => new HoldNote
+            ManiaHitObject replacement = hitObject switch
             {
-                StartTime = hold.StartTime,
-                Duration = hold.Duration,
-                Column = hold.Column,
-                Samples = [.. hold.Samples],
-                NodeSamples = [[.. hold.GetNodeSamples(0)], []],
-                PlaySlidingSamples = hold.PlaySlidingSamples,
-            },
-            O2JamNote note => new Note
-            {
-                StartTime = note.StartTime,
-                Column = note.Column,
-                Samples = [.. note.Samples],
-            },
-            _ => hitObject,
+                O2JamHoldNote hold => new HoldNote
+                {
+                    StartTime = hold.StartTime,
+                    Duration = hold.Duration,
+                    Column = hold.Column,
+                    Samples = [.. hold.Samples],
+                    NodeSamples = [[.. hold.GetNodeSamples(0)], []],
+                    PlaySlidingSamples = hold.PlaySlidingSamples,
+                },
+                O2JamNote note => new Note
+                {
+                    StartTime = note.StartTime,
+                    Column = note.Column,
+                    Samples = [.. note.Samples],
+                },
+                _ => hitObject,
+            };
+
+            if (!ReferenceEquals(hitObject, replacement) && o2JamBeatmap.SourcePositions.Remove(hitObject, out var position))
+                o2JamBeatmap.SourcePositions.Add(replacement, position);
+
+            return replacement;
         }).ToList();
     }
 }

@@ -67,6 +67,7 @@ public partial class O2JamBmsCompatibilityTest
                 var beforeIcon = getIconType(beatmap);
                 var before = checkChart(manager, bms, beatmap);
                 var o2Lazer = new O2LazerRuleset();
+                Assert.That(O2JamHitErrorMeterPatch.IsInstalled, Is.True, "BMS loading must not prevent native tick-meter adaptation.");
                 var after = checkChart(manager, bms, beatmap);
                 Assert.That(after, Is.EqualTo(before), "Initialising O2Lazer must not change BMS difficulty.");
                 Assert.That(getIconType(beatmap), Is.EqualTo(beforeIcon), "Initialising O2Lazer must not change the installed BMS icon behaviour.");

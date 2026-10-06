@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using O2Jam.Core;
 using osu.Game.Rulesets.Mania.Beatmaps;
+using osu.Game.Rulesets.Mania.Objects;
 using osu.Game.Rulesets.Mania.UI;
+using osu.Game.Rulesets.O2Lazer.Integration.Beatmaps;
 
 namespace osu.Game.Rulesets.O2Lazer.Beatmaps;
 
@@ -21,6 +23,11 @@ public sealed class O2JamBeatmap : ManiaBeatmap
     /// OJN measure boundaries retained independently from BPM timing points.
     /// </summary>
     public List<double> MeasureLineTimes { get; } = [];
+
+    // Layout transforms need authored package positions even after MS replaces the object types.
+    public Dictionary<ManiaHitObject, O2JamObjectSourcePosition> SourcePositions { get; } = [];
+
+    public List<int> SourceMeasureTickLengths { get; } = [];
 
     public O2JamBeatmap(O2JamDifficulty difficulty, O2JamTimingMap timingMap)
         : base(new StageDefinition(ColumnCount))

@@ -1,5 +1,8 @@
 # O2Jam 音频同步可选诊断构建
 
+维护状态（2026-10-06）：可选操作指南；音频诊断默认关闭，与已移除的误差条监听分开。
+文档职责与最新状态入口见[索引](README.md)。
+
 更新：2026-09-24。该开关和对应源码仍存在于 `Host/Audio/O2JamPreviewTrack.Diagnostics.cs`、`Host/Gameplay/O2JamDrawableRuleset.Diagnostics.cs` 与 `Host/Diagnostics`；本次审查只运行默认关闭诊断的常规构建，未重新安装诊断 DLL 或进行音频设备实测。此页用于需要复现同步问题时的操作，不是当前发布说明。
 
 This build observes timing without changing hit windows, chart timestamps, clock sources,

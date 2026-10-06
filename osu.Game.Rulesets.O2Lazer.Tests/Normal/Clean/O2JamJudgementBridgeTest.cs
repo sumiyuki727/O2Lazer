@@ -11,6 +11,33 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 [TestFixture]
 public class O2JamJudgementBridgeTest
 {
+    [Test]
+    public void NativeLifetimeEnvelopeRetainsTheExtraLateTick(
+        [Values(O2JamEndpointKind.Tap, O2JamEndpointKind.HoldHead, O2JamEndpointKind.HoldRelease)] O2JamEndpointKind endpoint,
+        [Values(false, true)] bool changesBpm)
+    {
+        var map = changesBpm ? new O2JamTimingMap(240, [new O2JamBpmEvent(1, 120)]) : new O2JamTimingMap(160);
+        IO2JamJudgedObject judged = endpoint switch
+        {
+            O2JamEndpointKind.Tap => new O2JamNote(),
+            O2JamEndpointKind.HoldHead => new O2JamHoldHead(),
+            _ => new O2JamHoldTail(),
+        };
+        judged.ChartPosition = changesBpm ? 1.003 : 1;
+        judged.TimingMap = map;
+        var note = (osu.Game.Rulesets.Mania.Objects.Note)judged;
+        note.StartTime = map.TimeAt(judged.ChartPosition);
+        note.ApplyDefaults(new osu.Game.Beatmaps.ControlPoints.ControlPointInfo(), new osu.Game.Beatmaps.BeatmapDifficulty());
+        var lastHit = map.TimeAt(judged.ChartPosition + O2JamTimingMap.TicksToPosition(25.5));
+        var deadline = map.TimeAt(judged.ChartPosition + O2JamTimingMap.TicksToPosition(26));
+        Assert.That(note.HitWindows!.CanBeHit(lastHit - note.StartTime), Is.True);
+        Assert.That(note.MaximumJudgementOffset, Is.GreaterThan(lastHit - note.StartTime));
+        Assert.That(judged.Judge(lastHit, true).Accuracy, Is.EqualTo(O2JamAccuracy.Bad));
+        Assert.That(judged.Judge(deadline, false).Accuracy, Is.EqualTo(O2JamAccuracy.Miss));
+        Assert.That(note.MaximumJudgementOffset, Is.EqualTo(deadline - note.StartTime).Within(1e-8));
+        Assert.That(note.HitWindows.WindowFor(HitResult.Miss), Is.EqualTo(note.MaximumJudgementOffset));
+    }
+
     [TestCase(O2JamAccuracy.None, false)]
     [TestCase(O2JamAccuracy.Cool, true)]
     [TestCase(O2JamAccuracy.Good, true)]
@@ -52,7 +79,7 @@ public class O2JamJudgementBridgeTest
     }
 
     [Test]
-    public void PillConversionReachesHoldStateBeforeNativeCommit()
+    public void PillConversionScoresCoolButKeepsTheRejectedHoldHead()
     {
         using var processor = createProcessor();
         for (var i = 0; i < O2JamGameplayState.CoolHitsPerPill; i++)
@@ -65,7 +92,38 @@ public class O2JamJudgementBridgeTest
         Assert.That(result.RequestedAccuracy, Is.EqualTo(O2JamAccuracy.Bad));
         Assert.That(result.Resolution.PillConsumed, Is.True);
         Assert.That(result.HasResult, Is.False);
-        Assert.That(O2JamJudgementBridge.ReadHoldState(result, null, false).CanBeginHold, Is.True);
+        var state = O2JamJudgementBridge.ReadHoldState(result, null, false);
+        Assert.That(state.HeadAccuracy, Is.EqualTo(O2JamAccuracy.Cool));
+        Assert.That(state.RequestedHeadAccuracy, Is.EqualTo(O2JamAccuracy.Bad));
+        Assert.That(state.CanBeginHold, Is.False);
+        Assert.That(state.RequiresTailMiss, Is.True);
+        result.Type = HitResult.Perfect;
+        processor.ApplyResult(result);
+
+        var tail = new O2JamHoldTail { ChartPosition = 2, ReleaseTimingDisabled = true };
+        var tailResult = new O2JamJudgementResult(tail, tail.CreateJudgement());
+        var prepared = O2JamJudgementBridge.CheckTail(tail, state, tailResult, processor, time, false);
+        Assert.That(prepared, Is.EqualTo(HitResult.Miss));
+        tailResult.Type = prepared;
+        processor.ApplyResult(tailResult);
+        var completed = processor.GameplayState.Current;
+        Assert.That(completed.Score, Is.EqualTo(3190));
+        Assert.That(completed.Combo, Is.EqualTo(-1));
+        Assert.That(completed.JamCombo, Is.Zero);
+        Assert.That(completed.ConsecutiveCoolProgress, Is.Zero);
+        Assert.That(O2JamJudgementBridge.CheckTail(tail,
+            O2JamJudgementBridge.ReadHoldState(result, tailResult, false), tailResult, processor, time, false), Is.EqualTo(HitResult.None));
+        Assert.That(processor.GameplayState.Current, Is.EqualTo(completed));
+
+        processor.RevertResult(tailResult);
+        tailResult.Type = HitResult.None;
+        Assert.That(O2JamJudgementBridge.ReadHoldState(result, tailResult, false).RequiresTailMiss, Is.True);
+        processor.RevertResult(result);
+        result.Type = HitResult.None;
+        Assert.That(O2JamJudgementBridge.ReadHoldState(result, tailResult, false).HeadResolved, Is.False);
+        Assert.That(processor.GameplayState.Current.Pills, Is.EqualTo(1));
+        Assert.That(O2JamJudgementBridge.CheckHead(head, default, result, processor, time, true), Is.EqualTo(HitResult.Perfect));
+        Assert.That(O2JamJudgementBridge.ReadHoldState(result, null, false).RequiresTailMiss, Is.True);
     }
 
     [Test]

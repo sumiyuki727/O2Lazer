@@ -271,7 +271,11 @@ public sealed class OjnReader
                     _ => OjnNoteType.Tap,
                 };
 
-                notes.Add(new OjnNoteEvent(position, channel, sampleId, volume, pan, noteType, sampleKind));
+                notes.Add(new OjnNoteEvent(position, channel, sampleId, volume, pan, noteType, sampleKind)
+                {
+                    // The original reader truncates the package step before multiplying by the slot.
+                    RawPosition = new OjnRawPosition(checked((int)measure), eventIndex * (192 / eventCount)),
+                });
             }
         }
 
@@ -328,6 +332,7 @@ public sealed class OjnReader
                     {
                         Type = OjnNoteType.Hold,
                         EndPosition = note.Position,
+                        RawEndPosition = note.RawPosition,
                         TailSampleId = note.SampleId,
                         TailVolume = note.Volume,
                         TailPan = note.Pan,

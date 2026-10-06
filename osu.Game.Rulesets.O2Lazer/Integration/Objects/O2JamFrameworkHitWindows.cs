@@ -14,18 +14,14 @@ internal sealed class O2JamFrameworkHitWindows(IO2JamJudgedObject hitObject) : H
 
     public override double WindowFor(HitResult result)
     {
-        var ticks = result switch
+        var accuracy = result switch
         {
-            HitResult.Perfect => O2JamJudgementEngine.CoolTicks,
-            HitResult.Good => O2JamJudgementEngine.GoodTicks,
-            HitResult.Ok or HitResult.Miss => O2JamJudgementEngine.BadTicksFor(hitObject.EndpointKind),
-            _ => 0,
+            HitResult.Perfect => O2JamAccuracy.Cool,
+            HitResult.Good => O2JamAccuracy.Good,
+            HitResult.Ok or HitResult.Miss => O2JamAccuracy.Bad,
+            _ => O2JamAccuracy.None,
         };
-
-        var distance = O2JamTimingMap.TicksToPosition(ticks);
-        var targetTime = hitObject.TimingMap.TimeAt(hitObject.ChartPosition);
-        var early = targetTime - hitObject.TimingMap.TimeAt(hitObject.ChartPosition - distance);
-        var late = hitObject.TimingMap.TimeAt(hitObject.ChartPosition + distance) - targetTime;
-        return System.Math.Max(early, late);
+        return accuracy == O2JamAccuracy.None ? 0
+            : O2JamHitObjectTiming.MaximumOffset(hitObject, O2JamJudgementEngine.WindowFor(accuracy, hitObject.EndpointKind));
     }
 }

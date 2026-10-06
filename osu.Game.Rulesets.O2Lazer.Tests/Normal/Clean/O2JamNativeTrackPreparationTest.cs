@@ -66,8 +66,9 @@ public class O2JamNativeTrackPreparationTest
         Bass.Free();
     }
 
-    [Test]
-    public void DetachedGameplayKeySoundPausesAndResumesButStopsOnSeek()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DetachedGameplayKeySoundPausesAndResumesButStopsOnSeek(bool retriggerBeforePause)
     {
         Assert.That(O2JamHitSampleLookupPatch.InstallOnce(), Is.True);
         var samples = (ISampleStore)Activator.CreateInstance(typeof(Sample).Assembly.GetType("osu.Framework.Audio.Sample.SampleStore")!,
@@ -130,6 +131,29 @@ public class O2JamNativeTrackPreparationTest
             }
             var initialPosition = Bass.ChannelGetPosition(channelHandle);
             Assert.That(initialPosition, Is.GreaterThan(0));
+            SampleChannel? replacedChannel = null;
+            if (retriggerBeforePause)
+            {
+                replacedChannel = channel;
+                // Keep the old native handle inspectable while testing its terminal stop.
+                replacedChannel.ManualFree = true;
+                using var replacement = new DrawableSample(samples.Get("o2jam/7"), disposeSampleOnDisposal: false);
+                parentProperty.SetValue(replacement, innerContainer);
+                onAudioThread(() =>
+                {
+                    channel = replacement.GetChannel();
+                    channelHandle = (int)channel.GetType().GetField("channel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(channel)!;
+                    Assert.That(Bass.ChannelGetPosition(channelHandle), Is.Zero,
+                        "A replacement must begin at the sample start, not inherit the old offset.");
+                    channel.Frequency.Value = 1.5;
+                    channel.Play();
+                    channel.Update();
+                    sampleManager.Update();
+                    mixer.Update();
+                    replacedChannel.Update();
+                });
+                Assert.That(replacedChannel.Playing, Is.False);
+            }
             for (var i = 0; i < 3; i++)
             {
                 paused.Value = true;
@@ -156,6 +180,8 @@ public class O2JamNativeTrackPreparationTest
                 Assert.That(Bass.ChannelGetPosition(channelHandle), Is.GreaterThan(pausedPosition));
                 Assert.That((int)channel.GetType().GetField("channel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(channel)!,
                     Is.EqualTo(channelHandle), "Resume must keep the original voice rather than restart or replace it.");
+                if (replacedChannel != null)
+                    Assert.That(replacedChannel.Playing, Is.False, "Resume cannot revive the replaced voice.");
             }
             adjustments.StopActiveChannels();
             onAudioThread(() =>

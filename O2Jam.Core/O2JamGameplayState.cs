@@ -13,7 +13,8 @@ public readonly record struct O2JamGameplaySnapshot(
     int Pills,
     int Life,
     bool ScoringEnabled,
-    bool HasFailed);
+    bool HasFailed,
+    bool LifeLockedAtZero);
 
 public readonly record struct O2JamResolvedJudgement(
     O2JamAccuracy RequestedAccuracy,
@@ -55,6 +56,7 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
     private int life = MaximumLife;
     private bool scoringEnabled = true;
     private bool hasFailed;
+    private bool lifeLockedAtZero;
 
     public O2JamGameplayState(O2JamDifficulty difficulty, bool continueAfterLifeDepletion = false)
     {
@@ -73,7 +75,8 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
         pills,
         life,
         scoringEnabled,
-        hasFailed);
+        hasFailed,
+        lifeLockedAtZero);
 
     public event Action<O2JamGameplaySnapshot>? StateChanged;
 
@@ -102,7 +105,7 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
             return new O2JamResolvedJudgement(requestedAccuracy, requestedAccuracy, false, 0, 0, Current);
 
         if (!scoringEnabled)
-            return applyAfterLifeDepleted(requestedAccuracy);
+            return applyAfterFailure(requestedAccuracy);
 
         var resolvedAccuracy = requestedAccuracy;
         var pillConsumed = false;
@@ -110,7 +113,6 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
         if (requestedAccuracy == O2JamAccuracy.Bad && pills > 0)
         {
             pills--;
-            consecutiveCoolProgress = 0;
             resolvedAccuracy = O2JamAccuracy.Cool;
             pillConsumed = true;
         }
@@ -118,14 +120,19 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
         var scoreBefore = score;
         var lifeBefore = life;
 
+        // A rescued BAD scores as COOL but does not start the next streak for earning pills.
+        applyPillProgress(requestedAccuracy);
         applyScore(resolvedAccuracy);
         applyComboAndJam(resolvedAccuracy);
         applyLife(resolvedAccuracy);
 
         if (life == 0 && !continueAfterLifeDepletion)
         {
-            scoringEnabled = false;
+            // EX records the complete performance after depletion without allowing recovery.
+            // Ending playback is a separate policy used by NX/HX.
+            lifeLockedAtZero = true;
             hasFailed = difficulty != O2JamDifficulty.EX;
+            scoringEnabled = !hasFailed;
         }
 
         var snapshot = Current;
@@ -153,19 +160,12 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
         life = MaximumLife;
         scoringEnabled = true;
         hasFailed = false;
+        lifeLockedAtZero = false;
         StateChanged?.Invoke(Current);
     }
 
-    private O2JamResolvedJudgement applyAfterLifeDepleted(O2JamAccuracy accuracy)
+    private O2JamResolvedJudgement applyAfterFailure(O2JamAccuracy accuracy)
     {
-        if (difficulty == O2JamDifficulty.EX)
-        {
-            if (accuracy is O2JamAccuracy.Cool or O2JamAccuracy.Good)
-                combo++;
-            else
-                combo = -1;
-        }
-
         var snapshot = Current;
         StateChanged?.Invoke(snapshot);
         return new O2JamResolvedJudgement(accuracy, accuracy, false, 0, 0, snapshot);
@@ -191,20 +191,17 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
         {
             case O2JamAccuracy.Cool:
                 combo++;
-                consecutiveCoolProgress++;
                 jamProgress += 4;
                 break;
 
             case O2JamAccuracy.Good:
                 combo++;
-                consecutiveCoolProgress = 0;
                 jamProgress += 2;
                 break;
 
             case O2JamAccuracy.Bad:
             case O2JamAccuracy.Miss:
                 combo = -1;
-                consecutiveCoolProgress = 0;
                 jamProgress = 0;
                 jamCombo = 0;
                 return;
@@ -212,22 +209,35 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
 
         maximumCombo = Math.Max(maximumCombo, combo);
 
-        if (consecutiveCoolProgress >= CoolHitsPerPill)
+        // Strictly crossing the boundary matches the clients' cumulative thresholds. Keeping
+        // the remainder preserves later promotion times without exposing cumulative counters.
+        if (jamProgress > MaximumJamProgress)
         {
-            pills = Math.Min(pills + 1, MaximumPills);
-            consecutiveCoolProgress = 0;
-        }
-
-        if (jamProgress >= MaximumJamProgress)
-        {
-            jamProgress %= MaximumJamProgress;
+            jamProgress -= MaximumJamProgress;
             jamCombo++;
             maximumJamCombo = Math.Max(maximumJamCombo, jamCombo);
         }
     }
 
+    private void applyPillProgress(O2JamAccuracy requestedAccuracy)
+    {
+        if (requestedAccuracy != O2JamAccuracy.Cool)
+        {
+            consecutiveCoolProgress = 0;
+            return;
+        }
+
+        consecutiveCoolProgress++;
+        if (consecutiveCoolProgress >= CoolHitsPerPill)
+        {
+            pills = Math.Min(pills + 1, MaximumPills);
+            consecutiveCoolProgress = 0;
+        }
+    }
+
     private void applyLife(O2JamAccuracy accuracy)
     {
-        life = Math.Clamp(life + LifeDeltaFor(difficulty, accuracy), 0, MaximumLife);
+        if (!lifeLockedAtZero)
+            life = Math.Clamp(life + LifeDeltaFor(difficulty, accuracy), 0, MaximumLife);
     }
 }

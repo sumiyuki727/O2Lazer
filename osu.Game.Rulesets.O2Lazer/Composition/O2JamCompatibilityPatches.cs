@@ -3,6 +3,7 @@ using osu.Game.Rulesets;
 using osu.Framework.Logging;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
+using osu.Game.Rulesets.O2Lazer.Import;
 using osu.Game.Rulesets.O2Lazer.Mods;
 using osu.Game.Rulesets.O2Lazer.Replays;
 using osu.Game.Rulesets.O2Lazer.SongSelect;
@@ -21,6 +22,7 @@ internal static class O2JamCompatibilityPatches
         new(nameof(O2JamWorkingBeatmapHook), O2JamWorkingBeatmapHook.InstallOnce, RequiredForGameplay),
         new(nameof(O2JamDifficultyIconPatch), O2JamDifficultyIconPatch.InstallOnce, Optional),
         new(nameof(O2JamComboCompatibilityPatches), O2JamComboCompatibilityPatches.InstallOnce, RequiredForGameplay),
+        new(nameof(O2JamHitErrorMeterPatch), O2JamHitErrorMeterPatch.InstallOnce, Optional),
         new(nameof(O2JamSongSelectRankPatch), O2JamSongSelectRankPatch.InstallOnce, Optional),
         new(nameof(O2JamBeatmapBoundaryPatches), O2JamBeatmapBoundaryPatches.InstallOnce, RequiredForGameplay),
         new(nameof(O2JamReplayPersistencePatch), O2JamReplayPersistencePatch.InstallOnce, RequiredForGameplay),
@@ -31,6 +33,8 @@ internal static class O2JamCompatibilityPatches
         new(nameof(O2JamManiaScoreModAvailabilityPatch), O2JamManiaScoreModAvailabilityPatch.InstallOnce, RequiredForGameplay),
         new(nameof(O2JamManiaScoreStatisticsPatch), O2JamManiaScoreStatisticsPatch.InstallOnce, Optional),
         new(nameof(O2JamDifficultyCachePatch), O2JamDifficultyCachePatch.InstallOnce, Optional),
+        new(nameof(O2JamNativeDifficultyPersistencePatch), O2JamNativeDifficultyPersistencePatch.InstallOnce, Optional),
+        new(nameof(O2JamFileVerificationPatch), O2JamFileVerificationPatch.InstallOnce, Optional),
         new(nameof(O2JamStarRatingDisplayPatch), O2JamStarRatingDisplayPatch.InstallOnce, Optional),
         new(nameof(O2JamStarRatingPresentationPatch), O2JamStarRatingPresentationPatch.InstallOnce, Optional),
         new(nameof(O2JamCarouselTransitionPatch), O2JamCarouselTransitionPatch.InstallOnce, Optional),
@@ -39,7 +43,7 @@ internal static class O2JamCompatibilityPatches
         new(nameof(O2JamLevelSortPatch), O2JamLevelSortPatch.InstallOnce, Optional),
         new(nameof(O2JamLevelGroupPatch), O2JamLevelGroupPatch.InstallOnce, Optional),
         new(nameof(O2JamHitSampleLookupPatch), O2JamHitSampleLookupPatch.InstallOnce, RequiredForGameplay),
-        new(nameof(O2JamHeldKeySoundPatch), O2JamHeldKeySoundPatch.InstallOnce, RequiredForGameplay),
+        new(nameof(O2JamResolvedKeySoundPatch), O2JamResolvedKeySoundPatch.InstallOnce, RequiredForGameplay),
         new(nameof(O2JamEditorAccessPatch), O2JamEditorAccessPatch.InstallOnce, Optional),
     ];
 
