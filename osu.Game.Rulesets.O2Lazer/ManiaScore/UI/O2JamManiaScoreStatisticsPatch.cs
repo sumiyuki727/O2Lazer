@@ -121,5 +121,5 @@ internal static class O2JamManiaScoreStatisticsPatch
         string.Equals(ruleset?.ShortName, O2LazerIdentity.ShortName, StringComparison.Ordinal);
 
     private static bool isO2JamResult(HitResult result) =>
-        result is HitResult.Perfect or HitResult.Good or HitResult.Ok or HitResult.Miss;
+        result is HitResult.Perfect or HitResult.Good or HitResult.Meh or HitResult.Miss;
 }

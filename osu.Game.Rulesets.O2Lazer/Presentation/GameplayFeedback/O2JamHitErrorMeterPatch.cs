@@ -47,10 +47,6 @@ internal static class O2JamHitErrorMeterPatch
                 argonEarlyBars = AccessTools.Field(typeof(BarHitErrorMeter), "colourBarsEarly");
 
                 var harmony = new Harmony(harmony_id);
-                // Patch the colour callee before load callers are recompiled, so JIT
-                // inlining cannot retain the original BAD colour in newly adapted bars.
-                harmony.Patch(AccessTools.Method(typeof(HitErrorMeter), "GetColourForHitResult"),
-                    prefix: new HarmonyMethod(typeof(O2JamHitErrorMeterPatch), nameof(useMania50Colour)));
                 harmony.Patch(AccessTools.Method(typeof(HitErrorMeter), "load"),
                     postfix: new HarmonyMethod(typeof(O2JamHitErrorMeterPatch), nameof(adaptDisplayWindows)));
                 harmony.Patch(AccessTools.Method(typeof(LegacyBarHitErrorMeter), "load"),
@@ -100,7 +96,7 @@ internal static class O2JamHitErrorMeterPatch
         // Keep zero at the native axis centre. The early-side spare tick is transparent;
         // using autosize on shifted colour boxes would otherwise move the axis itself.
         colourBars.AutoSizeAxes = Axes.None;
-        colourBars.Width = (float)windows.WindowFor(HitResult.Ok) * LegacySkin.STABLE_MAGIC_SCALE_FACTOR;
+        colourBars.Width = (float)windows.WindowFor(HitResult.Meh) * LegacySkin.STABLE_MAGIC_SCALE_FACTOR;
         for (var i = 0; i < regions.Length; i++)
         {
             var early = windows.EarlyWindowFor(regions[i].result);
@@ -120,17 +116,9 @@ internal static class O2JamHitErrorMeterPatch
         getRoot(__instance).Height *= (float)O2JamHitErrorDisplayWindows.NativeBarLengthMultiplier;
         var earlyBars = (Container)argonEarlyBars.GetValue(__instance)!;
         var regions = windows.GetAllAvailableWindows().Where(window => window.result.IsHit()).ToArray();
-        var maximum = windows.WindowFor(HitResult.Ok);
+        var maximum = windows.WindowFor(HitResult.Meh);
         for (var i = 0; i < regions.Length; i++)
             earlyBars.Children[i].Height = (float)(windows.EarlyWindowFor(regions[i].result) / maximum);
-    }
-
-    private static void useMania50Colour(HitErrorMeter __instance, ref HitResult result)
-    {
-        // Redirect only the native meter's colour lookup. BAD remains Ok in judgements,
-        // statistics and replays; pill-rescued results keep their final COOL colour.
-        if (result == HitResult.Ok && getWindows(__instance) is O2JamHitErrorDisplayWindows)
-            result = HitResult.Meh;
     }
 
     private static double displayOffset(JudgementResult result, HitErrorMeter meter) =>
@@ -181,7 +169,7 @@ internal sealed class O2JamHitErrorDisplayWindows : HitWindows
     internal static readonly double NativeBarLengthMultiplier = UnitsPerTick * O2JamJudgementEngine.WindowFor(O2JamAccuracy.Bad, O2JamEndpointKind.Tap).LateTicks / maniaOd7Window(HitResult.Meh);
     internal static readonly O2JamHitErrorDisplayWindows Instance = new();
 
-    public override bool IsHitResultAllowed(HitResult result) => result is HitResult.Perfect or HitResult.Good or HitResult.Ok or HitResult.Miss;
+    public override bool IsHitResultAllowed(HitResult result) => result is HitResult.Perfect or HitResult.Good or HitResult.Meh or HitResult.Miss;
 
     public override void SetDifficulty(double difficulty)
     {
@@ -195,7 +183,7 @@ internal sealed class O2JamHitErrorDisplayWindows : HitWindows
     {
         HitResult.Perfect => O2JamJudgementEngine.WindowFor(O2JamAccuracy.Cool, O2JamEndpointKind.Tap),
         HitResult.Good => O2JamJudgementEngine.WindowFor(O2JamAccuracy.Good, O2JamEndpointKind.Tap),
-        HitResult.Ok or HitResult.Miss => O2JamJudgementEngine.WindowFor(O2JamAccuracy.Bad, O2JamEndpointKind.Tap),
+        HitResult.Meh or HitResult.Miss => O2JamJudgementEngine.WindowFor(O2JamAccuracy.Bad, O2JamEndpointKind.Tap),
         _ => default,
     };
 

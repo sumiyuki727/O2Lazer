@@ -217,8 +217,9 @@ integrated timing map and subtracts the endpoint's chart position. This preserve
 direction, BPM changes inside a window and playback-rate behaviour without multiplying the
 already-rate-adjusted native offset again. The native bar draws the final judgement colour,
 so a pill-rescued BAD can appear as a COOL-coloured marker in the physical BAD region.
-The BAD colour region and final BAD marker use native Mania 50 (Meh) yellow; their score
-result remains Ok. This remaps only the meter colour lookup, never the global palette.
+BAD maps to HitResult.Meh for judgements and statistics, reusing native 50 yellow in
+meters and results without a colour patch. Its O2Jam raw score remains 4; Mania Score
+retains native judgement keys. Old Ok statistics are not aliased or migrated.
 
 The display reuses native Legacy/Argon bars, pools, fading, moving-average animation and
 seek clearing. Only those exact native component types with O2Jam object windows receive

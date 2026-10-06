@@ -57,10 +57,8 @@ TimeOffset 读取，改成只读显示投影。Argon 的移动平均与标记使
 postfix 保留原生轴中心，调整原生色块宽度和位置；Argon.load postfix 延长根轴，
 调整已有早侧色块范围，保留原生晚侧布局、渐变、厚度、入场动画和 HUD 设置。
 最大轴用 ±26 tick 包络，早侧多出一 tick 透明留白。没有每帧重建或新监听。
-原生 HitErrorMeter.GetColourForHitResult 的 prefix 只在 O2Jam 显示窗口下将
-Ok 取色参数转为 Meh，复用原生 Mania 50 黄色。色区、Argon 渐变和最终 BAD 标记
-共用此入口；药丸救回的 COOL 仍按最终值取色，其他组件与 MS 保持原生路径。
-颜色入口必须先于加载方法补丁安装，避免加载方法重新 JIT 时内联未适配的旧取色逻辑。
+BAD 统一映射到 HitResult.Meh，色区、渐变、标记与结算直接使用原生 50 黄色。
+旧 GetColourForHitResult 取色 prefix 已删除；MS 保留原生判定和配色。
 不补丁全局 TimeOffset getter，不改物件窗口或结果。匹配的私有签名或预期读取
 数量变化时，本项按独立 Harmony ID 全部回滚，记录可选功能失败并恢复原生显示。
 升级时复测两种表的加载、标记/平均箭头、清空，以及原生 Mania/MS 隔离；若宿主
@@ -73,5 +71,5 @@ LoadComplete 的入场动画，不能用缩放整棵树来改变图标或标记�
 
 
 2026-10-05，用户确认 COOL 基准和 MS 变速修复表现正常，临时误差条监听及
-其构建开关已移除。BAD 黄色只改变上述原生取色参数；两种表的实际色区和
+其构建开关已移除。2026-10-06 BAD 改为 Meh 判定及统计键并删除取色补丁；两种表的实际色区和
 标记、MS/Mania 隔离及 BMS 双顺序已通过定向测试，见[显示验收](hit-error-display-validation.md)。

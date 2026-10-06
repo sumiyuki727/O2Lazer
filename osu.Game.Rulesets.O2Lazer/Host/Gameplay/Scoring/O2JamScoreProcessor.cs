@@ -62,7 +62,7 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor, IO2JamJudgemen
 
         // Successful judgements are allowed to advance the framework combo once inside
         // ScoreProcessor.ApplyResultInternal(). Breaks must be exposed before that method because
-        // framework Ok is a hit while O2Jam Bad breaks combo.
+        // framework Meh is a hit while O2Jam Bad breaks combo.
         if (resolution.ResolvedAccuracy is O2JamAccuracy.Bad or O2JamAccuracy.Miss)
             syncCombo();
 
@@ -126,7 +126,7 @@ public sealed partial class O2JamScoreProcessor : ScoreProcessor, IO2JamJudgemen
         {
             HitResult.Perfect => 200,
             HitResult.Good => 100,
-            HitResult.Ok => 4,
+            HitResult.Meh => 4,
             _ => 0,
         };
     }

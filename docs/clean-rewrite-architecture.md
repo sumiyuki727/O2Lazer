@@ -139,7 +139,7 @@ Legacy 调整已有色块位置和宽度；Argon 固有轴长按同一 tick 刻�
 不能把显示窗口赋给谱面物件，不能改全局 TimeOffset 或游戏时钟来让条形稳定；
 不对称判定窗口仅由 Core 定义，Integration 把最大早/晚端点换算为原生毫秒生命周期
 包络；显示层不重复判定。MS 保持原生表，UR 数字仍是原生毫秒统计。
-BAD 的原生取色参数在此模块映射到 Meh 黄色，不改全局配色或判定值。临时误差条
+BAD 在 Integration 统一映射为 Meh，显示层直接使用原生黄色，无取色补丁。临时误差条
 监听已在用户验收后移除；历史证据和当前状态见[显示验收](hit-error-display-validation.md)。
 具体原生缺口、限定范围和升级检查见[补丁清单](compatibility-patches.md#tick-误差条适配2026-10-05)。
 

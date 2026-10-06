@@ -175,7 +175,7 @@ public class O2JamJudgementBridgeTest
     public void PreviewWithoutScoreProcessorOnlyMapsTheResult()
     {
         var result = createResult();
-        Assert.That(O2JamJudgementBridge.Prepare(result, null, O2JamAccuracy.Bad), Is.EqualTo(HitResult.Ok));
+        Assert.That(O2JamJudgementBridge.Prepare(result, null, O2JamAccuracy.Bad), Is.EqualTo(HitResult.Meh));
         Assert.That(result.ResolutionApplied, Is.False);
         Assert.That(result.HasResult, Is.False);
     }

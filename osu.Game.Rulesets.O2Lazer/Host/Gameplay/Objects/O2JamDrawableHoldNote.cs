@@ -90,7 +90,7 @@ public partial class O2JamDrawableHoldNote : DrawableHoldNote, IKeyBindingHandle
             return;
         }
 
-        // IsHit also includes unrescued BAD (framework Ok). Only the final COOL/GOOD result
+        // IsHit also includes unrescued BAD (framework Meh). Only the final COOL/GOOD result
         // continues clipping; BAD/MISS keep mania's frozen bounds and scroll past the line.
         if (state.TailAccuracy is not (O2JamAccuracy.Cool or O2JamAccuracy.Good))
             return;

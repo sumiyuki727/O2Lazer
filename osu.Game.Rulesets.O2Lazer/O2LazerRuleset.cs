@@ -168,7 +168,7 @@ public sealed class O2LazerRuleset : Ruleset
     {
         HitResult.Perfect => O2LazerStrings.Cool,
         HitResult.Good => O2LazerStrings.Good,
-        HitResult.Ok => O2LazerStrings.Bad,
+        HitResult.Meh => O2LazerStrings.Bad,
         HitResult.Miss => O2LazerStrings.Miss,
         _ => base.GetDisplayNameForHitResult(result),
     };

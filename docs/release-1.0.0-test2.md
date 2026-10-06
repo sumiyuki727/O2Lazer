@@ -21,6 +21,9 @@ The second 1.0.0 test release targets **osu!lazer 2026.1005.0**. The assembly ve
 - Fixes the optional Percy LN-body extension: correct column width, fixed-scale lower-half segments,
   no overlap with the first body span, and no enlarged final remainder. Disabled repair keeps native
   Mania rendering. The reported skin issue has passed user testing.
+- Uses native 50 (`HitResult.Meh`) for O2Jam BAD judgements and statistics, so results and UR
+  bars share native yellow without colour patches. Mania Score retains its native 100/50 keys;
+  old O2Jam 100 statistics are not migrated.
 - Removes the CI source checks' dependency on ripgrep; GitHub's Windows runner can execute them directly.
 
 ## Install / upgrade
@@ -37,7 +40,7 @@ retained; pre-rewrite unmarked test replays are intentionally unsupported. Curre
 
 ## Validation and remaining limits
 
-- 1,382 filtered tests passed with no failures or skips; production/diagnostic dependency analysis found
+- 1,385 filtered tests passed with no failures or skips; production/diagnostic dependency analysis found
   no compilation errors, boundary violations or stale exceptions.
 - The maintenance commit passed GitHub Actions. Remote CI covers portable modules and the checker;
   full host analysis was performed locally against matching binaries.

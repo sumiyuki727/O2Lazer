@@ -9,7 +9,7 @@ public static class O2JamResultMapper
     {
         O2JamAccuracy.Cool => HitResult.Perfect,
         O2JamAccuracy.Good => HitResult.Good,
-        O2JamAccuracy.Bad => HitResult.Ok,
+        O2JamAccuracy.Bad => HitResult.Meh,
         O2JamAccuracy.Miss => HitResult.Miss,
         _ => HitResult.None,
     };
@@ -18,7 +18,7 @@ public static class O2JamResultMapper
     {
         HitResult.Perfect => O2JamAccuracy.Cool,
         HitResult.Good => O2JamAccuracy.Good,
-        HitResult.Ok => O2JamAccuracy.Bad,
+        HitResult.Meh => O2JamAccuracy.Bad,
         HitResult.Miss => O2JamAccuracy.Miss,
         _ => O2JamAccuracy.None,
     };

@@ -50,7 +50,7 @@ public partial class O2JamHitErrorMeterTest
         var mania = new ManiaHitWindows();
         mania.SetDifficulty(7);
         var display = O2JamHitErrorDisplayWindows.Instance;
-        var outer = display.WindowFor(HitResult.Ok);
+        var outer = display.WindowFor(HitResult.Meh);
         Assert.That(display.WindowFor(HitResult.Perfect) - display.EarlyWindowFor(HitResult.Perfect),
             Is.EqualTo(O2JamHitErrorDisplayWindows.UnitsPerTick));
         Assert.That(display.EarlyWindowFor(HitResult.Perfect), Is.EqualTo(mania.WindowFor(HitResult.Great)));
@@ -100,7 +100,7 @@ public partial class O2JamHitErrorMeterTest
         var offset = result.TimeOffset;
 
         Assert.That(O2JamHitErrorProjection.OffsetTicks(result), Is.EqualTo(20).Within(1e-10));
-        HitEvent[] events = [new(0, rate, HitResult.Perfect, note, null, null), new(offset, rate, HitResult.Ok, note, null, null)];
+        HitEvent[] events = [new(0, rate, HitResult.Perfect, note, null, null), new(offset, rate, HitResult.Meh, note, null, null)];
         Assert.That(events.CalculateUnstableRate()!.Result, Is.EqualTo(offset / rate * 5).Within(1e-9));
         Assert.That(events[1].TimeOffset, Is.EqualTo(offset));
     }
@@ -155,7 +155,7 @@ public partial class O2JamHitErrorMeterTest
     {
         Assert.That(O2JamHitErrorMeterPatch.InstallOnce(), Is.True);
         using var host = new TestRunHeadlessGameHost($"O2JamBadColour-{Guid.NewGuid():N}");
-        var game = new MeterGame(argon, mode, 20, hitResult: HitResult.Ok);
+        var game = new MeterGame(argon, mode, 20, hitResult: HitResult.Meh);
         host.Run(game);
         if (game.Failure != null)
             throw game.Failure;
@@ -198,7 +198,7 @@ public partial class O2JamHitErrorMeterTest
     {
     }
 
-    private static JudgementResult createResult(Note note, double offset, HitResult type = HitResult.Ok)
+    private static JudgementResult createResult(Note note, double offset, HitResult type = HitResult.Meh)
     {
         var result = new JudgementResult(note, note.CreateJudgement()) { Type = type };
         AccessTools.PropertySetter(typeof(JudgementResult), nameof(JudgementResult.TimeOffset)).Invoke(result, [offset]);
@@ -340,7 +340,7 @@ public partial class O2JamHitErrorMeterTest
             var maxWindow = (double)AccessTools.Field(meter.GetType(), "maxHitWindow").GetValue(meter)!;
             var nativeWindows = new ManiaHitWindows { SpeedMultiplier = playbackRate };
             nativeWindows.SetDifficulty(7);
-            var expectedOuter = usesNativeWindows ? nativeWindows.WindowFor(HitResult.Meh) : O2JamHitErrorDisplayWindows.Instance.WindowFor(HitResult.Ok);
+            var expectedOuter = usesNativeWindows ? nativeWindows.WindowFor(HitResult.Meh) : O2JamHitErrorDisplayWindows.Instance.WindowFor(HitResult.Meh);
             Assert.That(maxWindow, Is.EqualTo(expectedOuter).Within(1e-9));
             if (!argon)
                 Assert.That(originalWidth, Is.EqualTo(expectedOuter * LegacySkin.STABLE_MAGIC_SCALE_FACTOR).Within(0.001));
@@ -355,7 +355,7 @@ public partial class O2JamHitErrorMeterTest
             var offset = usesNativeWindows ? result.TimeOffset : ticks * O2JamHitErrorDisplayWindows.UnitsPerTick;
             var expectedPosition = argon ? Math.Clamp((offset / maxWindow + 1) / 2, 0, 1) : Math.Clamp(offset / maxWindow / 2, -0.5, 0.5);
             Assert.That(argon ? marker.Y : marker.X, Is.EqualTo(expectedPosition).Within(1e-6));
-            var colourResult = !usesNativeWindows && result.Type == HitResult.Ok ? HitResult.Meh : result.Type;
+            var colourResult = result.Type;
             Assert.That(marker.Colour.AverageColour.SRGB, Is.EqualTo(new OsuColour().ForHitResult(colourResult)));
             Assert.That(result.Type, Is.EqualTo(hitResult), "Display colour adaptation must not rewrite the judgement.");
             verifyColourRegions();
@@ -400,7 +400,7 @@ public partial class O2JamHitErrorMeterTest
                     }
                     if (region is Container gradient)
                         region = gradient.Children[0];
-                    var colourResult = !usesNativeWindows && regions[i].result == HitResult.Ok ? HitResult.Meh : regions[i].result;
+                    var colourResult = regions[i].result;
                     Assert.That(region.Colour.AverageColour.SRGB, Is.EqualTo(new OsuColour().ForHitResult(colourResult)));
                 }
             }

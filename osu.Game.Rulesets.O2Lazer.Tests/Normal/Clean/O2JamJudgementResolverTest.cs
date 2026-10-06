@@ -40,7 +40,7 @@ public partial class O2JamJudgementResolverTest
         processor.ApplyBeatmap(new O2JamBeatmap(O2JamDifficulty.HX, new O2JamTimingMap(120)));
         var before = processor.GameplayState.Current;
         var result = createResult();
-        Assert.That(O2JamJudgementBridge.Prepare(result, processor, O2JamAccuracy.Bad), Is.EqualTo(HitResult.Ok));
+        Assert.That(O2JamJudgementBridge.Prepare(result, processor, O2JamAccuracy.Bad), Is.EqualTo(HitResult.Meh));
         Assert.That(result.ResolutionApplied, Is.False);
         Assert.That(result.HasResult, Is.False);
         Assert.That(processor.GameplayState.Current, Is.EqualTo(before));

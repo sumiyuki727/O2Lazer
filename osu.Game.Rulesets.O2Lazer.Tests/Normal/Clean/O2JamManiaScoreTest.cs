@@ -198,7 +198,7 @@ public class O2JamManiaScoreTest
         Assert.Multiple(() =>
         {
             Assert.That(normal.GetStatisticsForDisplay().Select(statistic => statistic.Result),
-                Is.EqualTo(new[] { HitResult.Perfect, HitResult.Good, HitResult.Ok, HitResult.Miss }));
+                Is.EqualTo(new[] { HitResult.Perfect, HitResult.Good, HitResult.Meh, HitResult.Miss }));
             Assert.That(maniaScore.GetStatisticsForDisplay().Select(statistic => statistic.Result),
                 Is.EqualTo(new[] { HitResult.Perfect, HitResult.Great, HitResult.Good, HitResult.Ok, HitResult.Meh, HitResult.Miss }));
             Assert.That(maniaScore.GetStatisticsForDisplay().Select(statistic => statistic.DisplayName.ToString()),

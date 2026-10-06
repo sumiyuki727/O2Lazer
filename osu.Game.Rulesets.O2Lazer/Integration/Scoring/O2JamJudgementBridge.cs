@@ -51,9 +51,9 @@ internal static class O2JamJudgementBridge
     }
 
     // Native ignored parent/body results follow the framework hit classification, where BAD
-    // maps to Ok. This does not imply an O2Jam combo success or change the endpoint accuracy.
+    // maps to Meh. This does not imply an O2Jam combo success or change the endpoint accuracy.
     public static bool IsTailHit(O2JamHoldState state) =>
-        O2JamResultMapper.ToFramework(state.TailAccuracy) is HitResult.Perfect or HitResult.Good or HitResult.Ok;
+        O2JamResultMapper.ToFramework(state.TailAccuracy) is HitResult.Perfect or HitResult.Good or HitResult.Meh;
 
     public static O2JamHoldState ReadHoldState(JudgementResult? head, JudgementResult? tail, bool isHolding) =>
         new(readAccuracy(head), readAccuracy(tail), isHolding,
