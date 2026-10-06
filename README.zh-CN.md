@@ -48,7 +48,8 @@ O2Jam 的独立性时，才使用限定于本 ruleset 的兼容补丁，同时�
 ## 安装
 
 当前 `master` 开发构建以 osu!lazer **2026.1005.0** 为目标；为保持 ruleset 身份，程序集版本仍为
-**1.0.0**。当前分支不代表新的发布标签。使用匹配的 Game 与 Mania 二进制构建，退出 lazer 后替换
+**1.0.0**。第二个测试版为 [1.0.0-test2](https://github.com/sumiyuki727/O2Lazer/releases/tag/1.0.0-test2)。
+下载发布 DLL 或使用匹配的 Game 与 Mania 二进制构建，退出 lazer 后替换
 数据目录 `rulesets` 下的 DLL，再启动游戏。备份请放在 `rulesets` 目录之外，不要同时安装两个
 O2Lazer 版本。现有导入与成绩关联预期保留，但存储迁移仍需明确验证。当前 replay 读取器接受带
 `o2lazer` 标记的 v5；重构前无标记 replay 属于测试实现，明确不在兼容范围。

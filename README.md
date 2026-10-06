@@ -50,7 +50,8 @@ The default key bindings are `S D F Space J K L`.
 ## Install
 
 The current `master` development build targets osu!lazer **2026.1005.0**; the ruleset assembly
-version remains **1.0.0** to preserve its identity. This branch is not a new release tag. Build
+version remains **1.0.0** to preserve its identity. The second test release is
+[1.0.0-test2](https://github.com/sumiyuki727/O2Lazer/releases/tag/1.0.0-test2). Download its DLL or build
 against matching Game and Mania binaries, close lazer, replace the DLL in its data directory's
 `rulesets` folder, and restart. Keep DLL backups outside `rulesets`; do not install two O2Lazer
 versions there. Existing import and score associations are intended to be retained, but storage
