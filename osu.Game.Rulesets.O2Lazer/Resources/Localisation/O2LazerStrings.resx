@@ -391,4 +391,6 @@
   <data name="random_algorithm_s_random" xml:space="preserve">
     <value>S-Random (legacy)</value>
   </data>
+  <data name="synchronising_collections" xml:space="preserve"><value>Synchronising collections...</value></data>
+  <data name="collection_sync_complete" xml:space="preserve"><value>Collection synchronisation complete.</value></data>
 </root>

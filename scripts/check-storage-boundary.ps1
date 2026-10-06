@@ -2,7 +2,11 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $roots = @('osu.Game.Rulesets.O2Lazer', 'O2Jam.Core', 'O2Jam.Formats') | ForEach-Object { Join-Path $repositoryRoot $_ }
 $violations = @()
-foreach ($source in (& rg --files $roots -g '*.cs' -g '!obj/**' -g '!bin/**')) {
+$sources = @(Get-ChildItem -LiteralPath $roots -Recurse -File -Filter '*.cs' |
+    Where-Object { $_.FullName -notmatch '[\\/](?:obj|bin)[\\/]' })
+if ($sources.Count -eq 0) { throw 'No source files found for the boundary check.' }
+foreach ($source in $sources) {
+    $source = $source.FullName
     if ($source -match '[\\/]Host[\\/]Persistence[\\/]Realm[\\/]') { continue }
     $code = [IO.File]::ReadAllText($source)
     $code = [regex]::Replace($code, '(?s)/\*.*?\*/|(?m)//[^\r\n]*', '')
@@ -10,6 +14,5 @@ foreach ($source in (& rg --files $roots -g '*.cs' -g '!obj/**' -g '!bin/**')) {
         $violations += $source
     }
 }
-if ($LASTEXITCODE -ne 0) { throw 'Could not enumerate sources with rg.' }
 if ($violations.Count) { throw "Direct Realm dependencies escaped Host/Persistence/Realm: $($violations -join ', ')" }
 Write-Output 'Direct Realm source boundary passed.'

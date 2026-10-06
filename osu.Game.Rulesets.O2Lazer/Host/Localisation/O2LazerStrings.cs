@@ -31,6 +31,8 @@ public static class O2LazerStrings
     public static LocalisableString ScrollDirection => get("scroll_direction");
     public static LocalisableString ScrollSpeed => get("scroll_speed");
     public static LocalisableString SyncSourceFolderCollections => get("sync_source_folder_collections");
+    public static LocalisableString SynchronisingCollections => get("synchronising_collections");
+    public static LocalisableString CollectionSyncComplete => get("collection_sync_complete");
     public static LocalisableString SourceFolderCollectionPrefix => get("source_folder_collection_prefix");
     public static LocalisableString SourceFolderCollectionName(string folder) => get("source_folder_collection_name", folder);
     public static LocalisableString MetadataEncoding => get("ojn_metadata_encoding");

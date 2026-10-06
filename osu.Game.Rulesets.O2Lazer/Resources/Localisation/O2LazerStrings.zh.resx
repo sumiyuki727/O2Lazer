@@ -391,4 +391,6 @@
   <data name="checking_beatmaps" xml:space="preserve">
     <value>正在检查谱面...</value>
   </data>
+  <data name="synchronising_collections" xml:space="preserve"><value>正在同步收藏夹…</value></data>
+  <data name="collection_sync_complete" xml:space="preserve"><value>收藏夹同步完成。</value></data>
 </root>

@@ -2,18 +2,25 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using osu.Game.Beatmaps;
 using osu.Game.Collections;
+using osu.Game.Configuration;
 using osu.Game.Database;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Localisation;
+using Realms;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
 
 internal sealed class O2JamSourceFolderCollectionService(RealmAccess realm)
 {
+    internal const string OwnershipSettingKey = "O2LazerSourceFolderCollectionOwnership";
+
     internal O2JamSourceFolderCollectionResult Synchronise(string? libraryRoot) => realm.Write(database =>
     {
+        var ownershipSetting = findOwnershipSetting(database);
+        var ownership = readOwnership(ownershipSetting);
         var beatmaps = database.All<BeatmapSetInfo>()
                                .Where(set => !set.DeletePending)
                                .AsEnumerable()
@@ -28,29 +35,24 @@ internal sealed class O2JamSourceFolderCollectionService(RealmAccess realm)
                                    beatmap.MD5Hash))
                                .ToArray();
         var plans = BuildPlans(libraryRoot, beatmaps);
-        var prefix = O2LazerStrings.SourceFolderCollectionPrefix.ToString();
-        var existing = database.All<BeatmapCollection>()
-                               .AsEnumerable()
-                               .Where(collection => collection.Name.StartsWith(prefix, StringComparison.Ordinal))
-                               .ToList();
+        var existing = ownership.ToDictionary(entry => entry.Name, entry => database.Find<BeatmapCollection>(entry.ID), StringComparer.Ordinal);
         var retained = new HashSet<Guid>();
+        var currentOwnership = new List<CollectionOwnership>();
         var created = 0;
         var updated = 0;
 
         foreach (var plan in plans)
         {
-            var collection = existing.FirstOrDefault(candidate =>
-                !retained.Contains(candidate.ID)
-                && string.Equals(candidate.Name, plan.Name, StringComparison.Ordinal));
+            existing.TryGetValue(plan.Name, out var collection);
 
             if (collection == null)
             {
                 collection = database.Add(new BeatmapCollection(plan.Name));
-                existing.Add(collection);
                 created++;
             }
 
             retained.Add(collection.ID);
+            currentOwnership.Add(new CollectionOwnership(collection.ID, plan.Name));
             if (replaceHashes(collection, plan.Hashes))
             {
                 collection.LastModified = DateTimeOffset.UtcNow;
@@ -59,28 +61,89 @@ internal sealed class O2JamSourceFolderCollectionService(RealmAccess realm)
         }
 
         var removed = 0;
-        foreach (var collection in existing.Where(collection => !retained.Contains(collection.ID)).ToArray())
+        foreach (var collection in existing.Values.Where(collection => collection != null && !retained.Contains(collection.ID)))
         {
-            database.Remove(collection);
+            database.Remove(collection!);
             removed++;
         }
 
+        writeOwnership(database, ownershipSetting, currentOwnership);
         return new O2JamSourceFolderCollectionResult(created, updated, removed);
     });
 
     internal int DeleteFeatureCollections() => realm.Write(database =>
     {
-        var prefix = O2LazerStrings.SourceFolderCollectionPrefix.ToString();
-        var collections = database.All<BeatmapCollection>()
-                                  .AsEnumerable()
-                                  .Where(collection => collection.Name.StartsWith(prefix, StringComparison.Ordinal))
-                                  .ToArray();
+        var ownershipSetting = findOwnershipSetting(database);
+        var ownership = readOwnership(ownershipSetting);
+        var removed = 0;
 
-        foreach (var collection in collections)
+        foreach (var entry in ownership)
+        {
+            if (database.Find<BeatmapCollection>(entry.ID) is not { } collection)
+                continue;
+
             database.Remove(collection);
+            removed++;
+        }
 
-        return collections.Length;
+        writeOwnership(database, ownershipSetting, []);
+        return removed;
     });
+
+    // Native collections have no ownership field. A private native ruleset setting lets the
+    // collection and its ownership commit together, without changing the host's Realm schema.
+    // Collections are shared across variants, so their registry always uses variant zero.
+    private static RealmRulesetSetting? findOwnershipSetting(Realm database) => database.All<RealmRulesetSetting>()
+        .SingleOrDefault(setting => setting.RulesetName == O2LazerIdentity.ShortName
+                                    && setting.Variant == 0 && setting.Key == OwnershipSettingKey);
+
+    private static List<CollectionOwnership> readOwnership(RealmRulesetSetting? setting)
+    {
+        // Older releases only recorded a display prefix; it cannot distinguish their collections
+        // from user-created ones. Leave all untracked collections untouched rather than adopt them.
+        if (setting == null)
+            return [];
+
+        try
+        {
+            var entries = JsonSerializer.Deserialize<List<CollectionOwnership>>(setting.Value);
+            if (entries == null || entries.Any(entry => entry == null || entry.ID == Guid.Empty || string.IsNullOrWhiteSpace(entry.Name))
+                                || entries.Select(entry => entry.ID).Distinct().Count() != entries.Count
+                                || entries.Select(entry => entry.Name).Distinct(StringComparer.Ordinal).Count() != entries.Count)
+                throw new InvalidDataException("The source-folder collection ownership setting is invalid.");
+
+            return entries;
+        }
+        catch (JsonException exception)
+        {
+            // Do not replace damaged ownership evidence with a fresh registry and orphan or claim data.
+            throw new InvalidDataException("The source-folder collection ownership setting is invalid.", exception);
+        }
+    }
+
+    private static void writeOwnership(Realm database, RealmRulesetSetting? setting, List<CollectionOwnership> ownership)
+    {
+        if (ownership.Count == 0)
+        {
+            if (setting != null)
+                database.Remove(setting);
+            return;
+        }
+
+        var value = JsonSerializer.Serialize(ownership);
+        if (setting == null)
+        {
+            database.Add(new RealmRulesetSetting
+            {
+                RulesetName = O2LazerIdentity.ShortName,
+                Variant = 0,
+                Key = OwnershipSettingKey,
+                Value = value,
+            });
+        }
+        else if (setting.Value != value)
+            setting.Value = value;
+    }
 
     internal static IReadOnlyList<O2JamSourceFolderCollectionPlan> BuildPlans(
         string? libraryRoot,
@@ -158,6 +221,8 @@ internal sealed class O2JamSourceFolderCollectionService(RealmAccess realm)
         var name = Path.GetFileName(path);
         return string.IsNullOrWhiteSpace(name) ? path : name;
     }
+
+    private sealed record CollectionOwnership(Guid ID, string Name);
 }
 
 internal sealed record O2JamSourceFolderBeatmap(string SourceDirectory, string Md5Hash);

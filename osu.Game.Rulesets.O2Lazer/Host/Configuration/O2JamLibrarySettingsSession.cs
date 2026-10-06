@@ -42,17 +42,39 @@ internal sealed class O2JamLibrarySettingsSession : IDisposable
     }
 
     private void onPathChanged(ValueChangedEvent<string> change) => _ = updateSettings();
-    private void onSyncChanged(ValueChangedEvent<bool> change) => _ = updateSettings();
+    private void onSyncChanged(ValueChangedEvent<bool> change) => _ = updateSettings(change.NewValue);
 
-    private async Task updateSettings()
+    private async Task updateSettings(bool notifyCollectionSync = false)
     {
+        var notification = notifyCollectionSync ? new ProgressNotification
+        {
+            Text = O2LazerStrings.SynchronisingCollections,
+            CompletionText = O2LazerStrings.CollectionSyncComplete,
+            State = ProgressNotificationState.Active,
+            // Collection transactions cannot be cancelled once entered.
+            CancelRequested = () => false,
+        } : null;
+        if (notification != null)
+            notifications?.Post(notification);
+
         try
         {
             await Application.UpdateSettingsAsync(path.Value, syncCollections.Value).ConfigureAwait(false);
+            if (notification != null)
+            {
+                notification.Progress = 1;
+                notification.State = ProgressNotificationState.Completed;
+            }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+            if (notification != null)
+                notification.State = ProgressNotificationState.Cancelled;
+        }
         catch (Exception exception)
         {
+            if (notification != null)
+                notification.State = ProgressNotificationState.Cancelled;
             reportFailure(exception);
         }
     }

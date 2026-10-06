@@ -8,9 +8,12 @@ $moduleRoots = @{
 $violations = @()
 foreach ($module in $moduleRoots.GetEnumerator()) {
     $moduleRoot = Join-Path $repositoryRoot $module.Key
-    $sources = @(& rg --files $moduleRoot -g '*.cs')
-    if ($LASTEXITCODE -ne 0) { throw "Could not enumerate $($module.Key) sources with rg." }
+    # Hosted runners have PowerShell but do not necessarily provide ripgrep.
+    $sources = @(Get-ChildItem -LiteralPath $moduleRoot -Recurse -File -Filter '*.cs' |
+        Where-Object { $_.FullName -notmatch '[\\/](?:obj|bin)[\\/]' })
+    if ($sources.Count -eq 0) { throw "No source files found in $moduleRoot." }
     foreach ($source in $sources) {
+        $source = $source.FullName
         $code = [IO.File]::ReadAllText($source)
         $code = [regex]::Replace($code, '(?s)/\*.*?\*/|(?m)//[^\r\n]*', '')
         $namespaces = [regex]::Matches($code, '(?m)^\s*namespace\s+([\w.]+)\s*[;{]')

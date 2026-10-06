@@ -6,6 +6,7 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Animations;
 using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Primitives;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.Textures;
 using osu.Framework.Testing;
@@ -24,7 +25,7 @@ using osuTK.Graphics;
 namespace osu.Game.Rulesets.O2Lazer.Skinning;
 
 /// <summary>
-/// Extends only the blank remainder of an overlong non-stretch legacy mania body. The native
+/// Extends the remainder of an overlong non-stretch legacy mania body. The native
 /// piece remains responsible for its first span, animation, lighting and future mania changes.
 /// </summary>
 internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
@@ -41,6 +42,8 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
     private Texture? extensionTexture;
     private Texture? animationFrame;
     private TextureAnimation? nativeBodyAnimation;
+    private Drawable? nativeBodyDrawable;
+    private bool nativeBodyClamped;
     private IBindable<double?>? missingStartTime;
     private bool canExtend;
 
@@ -92,8 +95,11 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
         // The native component tree is fixed for this skin instance. Cache once so static
         // bodies do not rescan it every frame, and stretch/native MS bodies never gain repeats.
         if (canExtend)
+        {
             nativeBodyAnimation = nativePiece.ChildrenOfType<TextureAnimation>()
-                                            .FirstOrDefault(animation => animation.FrameCount > 1);
+                                            .FirstOrDefault();
+            nativeBodyDrawable = (Drawable?)nativeBodyAnimation ?? nativePiece.ChildrenOfType<Sprite>().FirstOrDefault();
+        }
     }
 
     protected override void UpdateAfterChildren()
@@ -106,6 +112,7 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
             nativePiece.Colour = Colour4.White;
 
         synchroniseAnimationFrame();
+        updateNativeSpan();
         extensionContainer.Colour = nativePiece.Colour;
         updateExtensions();
     }
@@ -134,7 +141,7 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
         if (!extensionFrames.TryGetValue(texture, out var frame))
         {
             frame = texture.Crop(
-                new osu.Framework.Graphics.Primitives.RectangleF(0, texture.Height / 2f, texture.Width, texture.Height / 2f),
+                new RectangleF(0, texture.Height / 2f, texture.Width, texture.Height / 2f),
                 wrapModeS: WrapMode.Repeat,
                 wrapModeT: WrapMode.Repeat);
             extensionFrames.Add(texture, frame);
@@ -158,9 +165,16 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
         {
             var segment = new Sprite
             {
+                // Set relative dimensions before assigning a texture: Sprite otherwise adopts
+                // its pixel width, which would become hundreds of column widths on Axes.X.
+                Size = Vector2.One,
                 Texture = extensionTexture,
                 FillMode = FillMode.Stretch,
                 RelativeSizeAxes = Axes.X,
+                // A partial last segment samples only its required portion instead of
+                // squeezing or enlarging the complete lower-half texture into that remainder.
+                TextureRelativeSizeAxes = Axes.X,
+                TextureRectangle = new RectangleF(0, 0, 1, extension_span),
             };
             extensionSegments.Add(segment);
             extensionContainer.Add(segment);
@@ -178,13 +192,31 @@ internal sealed partial class O2JamLegacyHoldBodyPiece : CompositeDrawable
             var segment = extensionSegments[index];
             var height = heights[index];
             segment.Height = height;
-            segment.Scale = new Vector2(1, (tailAtTop ? 1 : -1) * extension_span / Math.Max(1, height));
+            segment.Scale = new Vector2(1, tailAtTop ? 1 : -1);
             segment.Anchor = tailAtTop ? Anchor.TopCentre : Anchor.BottomCentre;
             segment.Origin = Anchor.TopCentre;
             segment.Y = tailAtTop
                 ? native_full_span + index * extension_span
                 : -(native_full_span + index * extension_span);
         }
+    }
+
+    private void updateNativeSpan()
+    {
+        if (nativeBodyDrawable == null)
+            return;
+
+        var clamp = canExtend && O2JamRuntimeOptions.UsePercyLongNoteBodyRepeat && DrawHeight > native_full_span;
+        if (!clamp && !nativeBodyClamped)
+            return;
+
+        // Mania otherwise stretches its first texture over the entire overlong body,
+        // overlapping the extension and repeating the tail fade underneath it.
+        nativeBodyDrawable.RelativeSizeAxes = clamp ? Axes.X : Axes.Both;
+        nativeBodyDrawable.Height = clamp ? native_full_span : 1;
+        nativeBodyDrawable.Scale = new Vector2(1, (direction.Value == ScrollingDirection.Down ? 1 : -1)
+                                                * (clamp ? 1 : MathF.Max(1, native_full_span / Math.Max(1, DrawHeight))));
+        nativeBodyClamped = clamp;
     }
 
     internal static IReadOnlyList<float> ComputeExtensionHeights(float bodyHeight)
