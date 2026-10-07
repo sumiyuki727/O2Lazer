@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using NUnit.Framework;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Track;
@@ -42,6 +44,32 @@ public partial class O2JamBmsCompatibilityTest
     [Explicit("Run separately to verify BMS loaded after O2Lazer's bundled Harmony.")]
     public void BmsFilteringAndStarsWorkWhenLoadedLast() => runProbe(true);
 
+    private static void verifyTrackedRuntimeRollback()
+    {
+        var owner = "O2Lazer.Tests.BmsRuntimeRollback." + Guid.NewGuid();
+        var target = typeof(O2JamBmsCompatibilityTest).GetMethod(nameof(rollbackProbeValue), BindingFlags.NonPublic | BindingFlags.Static)!;
+        var postfix = typeof(O2JamBmsCompatibilityTest).GetMethod(nameof(rollbackProbePostfix), BindingFlags.NonPublic | BindingFlags.Static)!;
+        try
+        {
+            Assert.That(O2JamBmsHarmonyCompatibility.TryPatch(target, null, postfix, owner), Is.True);
+            var diagnostic = O2JamPatchCoordinator.GetDiagnostics().Single(item => item.Owner == owner);
+            Assert.That(diagnostic.ProviderAssembly, Is.EqualTo("osu.Game.Rulesets.BmsRuleset"));
+            Assert.That(diagnostic.InspectionError, Is.Null);
+            Assert.That(diagnostic.ObservedOwners, Does.Contain(owner));
+            Assert.That(rollbackProbeValue(), Is.EqualTo(2));
+            Assert.That(O2JamPatchCoordinator.Rollback(owner), Is.True);
+            Assert.That(rollbackProbeValue(), Is.EqualTo(1));
+        }
+        finally
+        {
+            O2JamPatchCoordinator.Rollback(owner);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int rollbackProbeValue() => 1;
+    private static void rollbackProbePostfix(ref int __result) => __result = 2;
+
     private static void runProbe(bool o2LazerFirst)
     {
         var path = Environment.GetEnvironmentVariable("O2JAM_BMS_RULESET_PATH");
@@ -53,6 +81,7 @@ public partial class O2JamBmsCompatibilityTest
         var assembly = Assembly.LoadFrom(path!);
         var bms = (Ruleset)Activator.CreateInstance(assembly.GetType("osu.Game.Rulesets.BmsRuleset.BmsRuleset", true)!)!;
         TestContext.Progress.WriteLine($"BMS assembly: {assembly.GetName().Version}");
+        verifyTrackedRuntimeRollback();
 
         using var host = new TestRunHeadlessGameHost($"O2JamBmsCompatibility-{Guid.NewGuid():N}");
         Exception? failure = null;

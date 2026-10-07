@@ -32,7 +32,7 @@ O2Jam.Core    ──> 纯玩法规则/状态
 Composition 组装各模块；Persistence 接入具体存储后端
 ```
 
-图示表达数据使用关系，实际 C# 引用遵循下方的允许依赖矩阵。除两个独立项目外，其余区域编译在同一 ruleset 项目；语义检查约束源代码依赖，不产生程序集隔离。根目录的 `O2LazerRuleset` 和 `Composition/O2JamCompatibilityPatches` 是跨模块组装入口；`Host/Compatibility` 只承接原生兼容和 BMS 共存适配。
+图示表达数据使用关系，实际 C# 引用遵循下方的允许依赖矩阵。除两个独立项目外，其余区域编译在同一 ruleset 项目；语义检查约束源代码依赖，不产生程序集隔离。根目录的 `O2LazerRuleset` 和 `Composition/O2JamCompatibilityPatches` 是跨模块组装入口；`Host/Compatibility` 承接原生兼容、显式运行时补丁协调与 BMS 提供方适配，见[共存设计](ruleset-compatibility-design.md)。
 
 | 目录 | 应有责任 | 当前代表入口 |
 |---|---|---|

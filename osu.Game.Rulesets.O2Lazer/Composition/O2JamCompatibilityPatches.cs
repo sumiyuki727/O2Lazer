@@ -74,6 +74,7 @@ internal static class O2JamCompatibilityPatches
             if (!IsInstalled && CanPlay)
                 Logger.Log($"O2Lazer presentation features are incomplete: {string.Join(", ", FailedPatches)}", LoggingTarget.Runtime, LogLevel.Important);
 
+            O2JamPatchCoordinator.LogDiagnostics();
             return CanPlay;
         }
     }

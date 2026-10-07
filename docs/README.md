@@ -1,6 +1,6 @@
 # O2Lazer 文档索引
 
-更新：2026-10-06。当前目标 osu!lazer 2026.1005.0 / Framework 2026.921.1。
+更新：2026-10-07。当前目标 osu!lazer 2026.1005.0 / Framework 2026.921.1。
 原版客户端对齐阶段按用户决定结束，未选差异暂缓。这是选定范围的结束，不表示全项目
 重构、所有原版功能或全部客户端验收均已完成。当前曲库更新版本的审查、清理和验证见
 [版本冻结复核](library-refresh-release-review.md)；后续收藏通知、LN 补绘及 CI 整理见
@@ -21,6 +21,7 @@
 | [2026-10-06 重构后审查与待确认清单](refactor-review-2026-10-06.md) | 当前独立审查；R01 已修复，其余项待确认；证据、验收条件、设定兼容边界及逐项性能/行为取舍。 |
 | [全项目分层审查与问题清单](architecture-audit.md) | 现行问题清单；原版范围已结束；系统/依赖问题保持。 |
 | [O2Jam 音频同步可选诊断构建](audio-sync-diagnostics.md) | 可选操作指南；音频诊断默认关闭，与已移除的误差条监听分开。 |
+| [Ruleset 共存与补丁协调](ruleset-compatibility-design.md) | 通用协调器、只读诊断、BMS 专属边界、第三方适配流程及本轮验收收尾。 |
 | [BMSRuleset 共存验证](bms-coexistence.md) | 现行共存边界；指定 BMS 两种独立载入顺序通过，完整客户端链路边界保留。 |
 | [O2Lazer 当前架构](clean-rewrite-architecture.md) | 现行层级与扩展指引；显式用户政策优先；六条精确例外及两个 partial 仍存在。 |
 | [随机轨道变换契约](column-randomisation.md) | 现行随机契约；三项入口；旧算法隐藏保留，随机工作已结束。 |

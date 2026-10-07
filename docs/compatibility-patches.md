@@ -36,7 +36,7 @@
 
 文件校验观察器仅在 O2Lazer 的同步 Add 调用内按线程、实例和预期 Hash 生效；其他文件库操作保持原生路径。它不改变校验布尔值，也不接管写入。安装失败保留原先提前校验；检查未被观察或回调失败时保守通知本 ruleset 的活动所有者。升级宿主须复核私有校验方法签名和调用路径；若原生提供修复结果入口，应删除该观察器。2026-10-03 已通过 121 项迁移/文件恢复回归和 BMS 两种载入顺序检查。
 
-安装只尝试一次。必要补丁失败时，ruleset 仍可被宿主枚举，但 `CreateDrawableRulesetWith` 会抛出包含失败补丁名称的 `RulesetLoadException`，阻止进入可能损坏成绩或缺少音色的玩法；可选补丁失败只记录日志。安装器在异常时按独立 Harmony ID 撤销本项已经安装的钩子，包含可能由 BMSRuleset 携带的另一份 Harmony 运行时。BMSRuleset 携带独立 Harmony 时，`Host/Compatibility/O2JamBmsHarmonyCompatibility` 为重叠方法按载入顺序登记 O2Lazer 钩子；只以 O2Lazer 的 Harmony ID 回滚。它仅服务已知 BMS 组合，不作为通用设施。指定版本的测试矩阵、原生缺口与仍待客户端验收的范围见[共存验证](bms-coexistence.md)。
+安装只尝试一次。必要补丁失败时，ruleset 仍可被宿主枚举，但 `CreateDrawableRulesetWith` 会抛出包含失败补丁名称的 `RulesetLoadException`，阻止进入可能损坏成绩或缺少音色的玩法；可选补丁失败只记录日志。安装器在异常时按独立 Harmony ID 撤销本项已经安装的钩子，包含协调器实际登记的外部 Harmony 运行时。BMSRuleset 携带独立 Harmony 时，`Host/Compatibility/O2JamBmsHarmonyCompatibility` 为重叠方法按载入顺序登记 O2Lazer 钩子；只以 O2Lazer 的 Harmony ID 回滚。BMS 适配器只服务已知组合；注册、后加载与回滚由通用 O2JamPatchCoordinator 处理，见[协调设计](ruleset-compatibility-design.md)。安装及已知提供方后加载完成时输出一次协调器 Verbose 清单，查询失败仅作为诊断证据，不改变玩法可用性。指定版本的测试矩阵、原生缺口与仍待客户端验收的范围见[共存验证](bms-coexistence.md)。
 
 2026-10-05 已在正式版 2026.1005.0 二进制上重新验证全部 26 项安装、常规行为与 BMS
 两种载入顺序；发布版没有提供可替代现有私有接缝的新增接口。本轮未增加或重写补丁，

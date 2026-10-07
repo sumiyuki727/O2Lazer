@@ -1,9 +1,9 @@
 # BMSRuleset 共存验证
 
-维护状态（2026-10-06）：现行共存边界；指定 BMS 两种独立载入顺序通过，完整客户端链路边界保留。
+维护状态（2026-10-07）：现行共存边界；指定 BMS 两种独立载入顺序通过，完整客户端链路边界保留。
 文档职责与最新状态入口见[索引](README.md)。
 
-首次验证：2026-09-24；本轮复核：2026-10-05。当前目标宿主为 osu!lazer 2026.1005.0；实际安装并参与测试的 BMSRuleset 程序集版本为 **2026.920.0.0**。`D:/rulesets/BmsRuleset` 只读源码检出仍对应较早的 2026.804 配置，不能代替已安装 DLL 的行为依据。升级 BMS 或宿主后须重新执行本页矩阵。
+首次验证：2026-09-24；本轮复核：2026-10-07。当前目标宿主为 osu!lazer 2026.1005.0；实际安装并参与测试的 BMSRuleset 程序集版本为 **2026.920.0.0**。`D:/rulesets/BmsRuleset` 只读源码检出仍对应较早的 2026.804 配置，不能代替已安装 DLL 的行为依据。升级 BMS 或宿主后须重新执行本页矩阵。
 
 2026-10-05 新版宿主下重新运行两种独立进程载入顺序，均通过本页矩阵所列检查。
 26 项 O2Lazer 补丁也全部安装成功；没有新增共存适配。
@@ -21,9 +21,12 @@
 
 2026-10-03 新增可选 O2Lazer 原生难度持久化适配后，使用实际安装 DLL 再次以两个独立进程检查两种载入顺序，均通过。新增 StarRating setter 适配只消费同线程、已验证的 O2Lazer 基线结果，不修改其他 ruleset 的原生写入；另有临时 Realm 的其他规则集拒绝测试。此结果不替代下方仍待完成的完整客户端链路。
 
-两个 ruleset 都合入 Harmony 时，同一原生方法可能被两份 Harmony 运行时改写。`Host/Compatibility/O2JamBmsHarmonyCompatibility` 是**明确限定 BMSRuleset** 的兼容适配器：BMS 已加载时，O2Lazer 将共用方法的钩子注册到 BMS 的 Harmony；BMS 后加载时，在程序集载入事件中补注册。回滚按 O2Lazer 自己的 Harmony ID 撤销，不撤销 BMS 的 ID。该类不是未来所有 ruleset 的通用补丁协调器；添加第三个 ruleset 时需重新审视运行时、所有者和载入顺序。
+两个 ruleset 都合入 Harmony 时，同一原生方法可能被两份 Harmony 运行时改写。`Host/Compatibility/O2JamBmsHarmonyCompatibility` 是**明确限定 BMSRuleset** 的提供方适配器，运行时登记、后加载和所有者回滚已分离到 `O2JamPatchCoordinator`，见[协调设计](ruleset-compatibility-design.md)。BMS 已加载时，O2Lazer 将共用方法的钩子注册到 BMS 的 Harmony；BMS 后加载时，在程序集载入事件中补注册。回滚按 O2Lazer 自己的 Harmony ID 撤销，不撤销 BMS 的 ID。BMS 适配器不自动覆盖其他 ruleset；添加第三个 ruleset 时需重新审视运行时、所有者和载入顺序。
 
 参与补注册的 O2Lazer 入口：`BeatmapTitleWedge.DifficultyDisplay.updateCountStatistics`、`DifficultyIcon.getRulesetIcon`、`Player.ImportScore`、`ScoreImporter.GetScore`、`ScoreImporter.CreateModel`、`ScreenStack.Push`。这些仍是宿主私有方法；原生的 `DifficultyIcon` 对社区 ruleset 的负在线 ID 返回问号，原生 replay 导入也没有满足 O2Jam 存档格式的公开扩展点，故当前无法移除相应补丁。`O2JamWorkingBeatmapHook` 使用不同的 manager 入口，BMS 的包装器使用自己的缓存入口；测试验证两者未互相替换。
+
+2026-10-07 提取通用协调器后，两种独立进程加载顺序再次通过，新增真实 BMS Harmony
+登记、只读所有者查询与按 O2Lazer 所有者回滚验证通过；常规过滤测试 1,390 项通过。
 
 ## 当前版本的测试矩阵
 
@@ -47,3 +50,14 @@ dotnet test $project -c Release "-p:OsuBinaryDirectory=$lazerBinaries" --filter 
 ```
 
 首次诊断暴露了 O2Lazer → BMS 顺序下 O2Jam 回放落回原生 `LegacyScoreDecoder.Parse` 的问题。补注册后两种顺序的回放读取均通过，BMS 单曲结算图标也已完成客户端验收。旧 BMS 成绩/replay 的完整导入、真实客户端里 BMS 与 O2Jam 的完整游玩→结算→回放链路，以及未来 BMS/宿主版本仍需单独验收；这张矩阵不声称覆盖这些流程。
+
+## 启动诊断核对（2026-10-07 14:07 JST）
+
+客户端日志 `1791349656.runtime.log` 第 43–48 行确认六个协调入口均为 Registered，
+使用 BMSRuleset 2026.920.0.0 的 Harmony，查询错误均为 none；未见安装、登记或回滚失败。
+当时 Player.ImportScore、ScoreImporter.GetScore、ScreenStack.Push 的元数据同时列出双方
+所有者；DifficultyIcon.getRulesetIcon、updateCountStatistics、ScoreImporter.CreateModel 仅列出
+O2Lazer 所有者。因此六个协调入口不等于当前版本存在六个实际重叠点。这份启动证据只
+确认登记和读取成功，不替代真实游玩、结算及回放验收，也不证明所有 detour 都在执行。
+
+用户随后确认此前游玩未发现问题，本轮兼容设施调整按现有范围验收关闭；不据此关闭所有组合的完整客户端验证。
