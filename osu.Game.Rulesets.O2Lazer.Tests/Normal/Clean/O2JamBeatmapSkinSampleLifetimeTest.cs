@@ -125,6 +125,29 @@ public class O2JamBeatmapSkinSampleLifetimeTest
         Assert.That(() => first.GetChannel(), Throws.Nothing);
     }
 
+    [Test]
+    public void OjmSampleStoreFollowsNativeMasterDimmingButIgnoresEffectVolume()
+    {
+        using var fixture = new SampleFixture();
+        var inactive = new BindableDouble(1);
+        fixture.Manager.Volume.Value = 0.8;
+        fixture.Manager.VolumeTrack.Value = 0.5;
+        fixture.Manager.VolumeSample.Value = 0;
+        fixture.Manager.AddAdjustment(AdjustableProperty.Volume, inactive);
+        Assert.That(fixture.Skin.IsReadyForScheduling, Is.True);
+        var store = (AdjustableAudioComponent)typeof(O2JamBeatmapSkin)
+            .GetField("samples", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(fixture.Skin)!;
+        Assert.That(store.AggregateVolume.Value, Is.EqualTo(0.4).Within(0.000001));
+        inactive.Value = 0.25;
+        Assert.That(store.AggregateVolume.Value, Is.EqualTo(0.1).Within(0.000001));
+        fixture.Manager.VolumeSample.Value = 1;
+        Assert.That(store.AggregateVolume.Value, Is.EqualTo(0.1).Within(0.000001));
+        fixture.GetSample();
+        Assert.That(store.AggregateVolume.Value, Is.EqualTo(0.1).Within(0.000001), "Creating new audio must not restore foreground gain.");
+        inactive.Value = 1;
+        Assert.That(store.AggregateVolume.Value, Is.EqualTo(0.4).Within(0.000001));
+    }
+
     private sealed class SampleFixture : IDisposable
     {
         private readonly AudioThread audioThread = new();
@@ -132,6 +155,7 @@ public class O2JamBeatmapSkinSampleLifetimeTest
         private readonly AudioManager manager;
         private readonly List<Sample> samples = [];
         public O2JamBeatmapSkin Skin { get; }
+        public AudioManager Manager => manager;
 
         public SampleFixture()
         {

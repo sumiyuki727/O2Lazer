@@ -44,6 +44,13 @@
         <Compile Include="Presentation\**\*.cs" />
         <Compile Include="ManiaScore\**\*.cs" />
     </ItemGroup>
+    <!-- Opt-in only: Release alone must never enable local control endpoints. -->
+    <PropertyGroup Condition="'$(O2LazerTestBridge)' == 'true'">
+        <DefineConstants>$(DefineConstants);O2LAZER_TEST_BRIDGE</DefineConstants>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(O2LazerTestBridge)' == 'true'">
+        <Compile Include="TestSupport\**\*.cs" />
+    </ItemGroup>
     <ItemGroup Condition="'$(UseLocalOsu)' != 'true'">
         <PackageReference Include="ppy.osu.Game" Version="$(OsuVersion)"/>
         <PackageReference Include="ppy.osu.Game.Rulesets.Mania" Version="$(OsuVersion)"/>

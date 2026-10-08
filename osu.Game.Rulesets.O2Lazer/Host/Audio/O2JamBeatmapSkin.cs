@@ -37,6 +37,13 @@ public interface IO2JamPlaybackResource
 
     void PrefetchSample(int sampleId) => _ = IsSampleReady(sampleId);
 
+    // False means asynchronous discovery is pending; zero means absent or unsupported.
+    bool TryGetSampleLength(int sampleId, out double length)
+    {
+        length = 0;
+        return true;
+    }
+
     ISample? GetSample(ISampleInfo sampleInfo);
 
     Track? GetBackgroundTrack(int sampleId);
@@ -149,6 +156,29 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
     public void PrefetchBackgroundTrack(int sampleId) => PrefetchBackgroundTracks([sampleId]);
 
     public void PrefetchSample(int sampleId) => PrefetchSamples([sampleId]);
+
+    public bool TryGetSampleLength(int sampleId, out double length)
+    {
+        length = 0;
+        // Use native SampleStore's cached decoder metadata; never decode or wait on the audio thread.
+        PrefetchSamples([sampleId]);
+        lock (resourceLock)
+        {
+            if (!tryEnsureResources())
+                return false;
+            if (!archive!.Samples.ContainsKey(sampleId))
+                return true;
+            if (!prefetchedSamples.TryGetValue(sampleId, out var preparation) || !preparation.Task.IsCompleted)
+                return false;
+            if (!preparation.Task.IsCompletedSuccessfully || preparation.Task.Result == null)
+                return true;
+            var sample = preparation.Task.Result;
+            if (!sample.IsLoaded)
+                return false;
+            length = sample.Length;
+            return true;
+        }
+    }
 
     public ISample? GetSample(ISampleInfo sampleInfo)
     {
@@ -399,7 +429,9 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
         // non-adjustable host so O2Jam music layers never inherit FrameworkSetting.VolumeEffect.
         var parent = (AudioCollectionManager<AdjustableAudioComponent>)audioManager.Samples;
         parent.RemoveItem((AdjustableAudioComponent)samples);
-        samples.AddAdjustment(AdjustableProperty.Volume, audioManager.Volume);
+        // Preserve native master adjustments (including inactive-window dimming), while
+        // bypassing only the global effect store rather than bypassing master policy too.
+        samples.AddAdjustment(AdjustableProperty.Volume, audioManager.AggregateVolume);
         samples.AddAdjustment(AdjustableProperty.Volume, audioManager.VolumeTrack);
         audioManager.AddItem(audioHost = new O2JamDetachedAudioHost((AudioComponent)samples));
     }

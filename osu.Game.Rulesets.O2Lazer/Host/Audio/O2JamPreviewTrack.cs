@@ -39,7 +39,7 @@ public sealed partial class O2JamPreviewTrack : Track
     private IReadOnlyList<O2JamPreviewEvent> automaticKeySoundEvents;
     private IReadOnlyList<O2JamPreviewEvent> playableKeySoundEvents;
     private readonly List<ActiveBackgroundTrack> activeBackgroundTracks = [];
-    private readonly List<(SampleChannel Channel, bool IsAutomatic)> activeKeyChannels = [];
+    private readonly List<(SampleChannel Channel, O2JamPreviewEvent Event)> activeKeyChannels = [];
     private readonly Dictionary<int, double> backgroundTrackLengths = [];
     private readonly List<O2JamPreviewEvent> pendingBackgroundRestores = [];
     private readonly long createdAt = Stopwatch.GetTimestamp();
@@ -65,7 +65,10 @@ public sealed partial class O2JamPreviewTrack : Track
             if (playbackMode == value)
                 return;
 
+            if (restoringReplay)
+                stopRestoredKeyTracks();
             playbackMode = value;
+            clearPendingKeyRestoration();
             nextPlayableKeySoundEventIndex = lowerBound(playableKeySoundEvents, CurrentTime);
             if (value == O2JamPreviewPlaybackMode.Gameplay)
                 stopKeySounds(playableOnly: true);
@@ -145,6 +148,7 @@ public sealed partial class O2JamPreviewTrack : Track
     /// </summary>
     public void ReplaceSchedule(O2JamBeatmap beatmap)
     {
+        var preparationStarted = Stopwatch.GetTimestamp();
         var schedule = O2JamPreviewSchedule.Create(beatmap, true);
         if (!tryCreateEventLists(
                 schedule,
@@ -154,10 +158,22 @@ public sealed partial class O2JamPreviewTrack : Track
             return;
 
         var newLength = calculateLength(beatmap, schedule);
+        var indexStarted = Stopwatch.GetTimestamp();
+        var targetKeyEvents = new Dictionary<O2JamPreviewEvent, int>(newAutomaticKeySoundEvents.Count + newPlayableKeySoundEvents.Count);
+        foreach (var evt in newAutomaticKeySoundEvents.Concat(newPlayableKeySoundEvents))
+        {
+            targetKeyEvents.TryGetValue(evt, out var count);
+            targetKeyEvents[evt] = count + 1;
+        }
+        var indexMilliseconds = Stopwatch.GetElapsedTime(indexStarted).TotalMilliseconds;
+        var preparationMilliseconds = Stopwatch.GetElapsedTime(preparationStarted).TotalMilliseconds;
 
         EnqueueAction(() =>
         {
+            var applicationStarted = Stopwatch.GetTimestamp();
             var currentTime = CurrentTime;
+            releaseOutgoingKeyVoices(all: true);
+            handoffReservations.Clear();
 
             currentSchedule = schedule;
             backgroundEvents = newBackgroundEvents;
@@ -170,12 +186,29 @@ public sealed partial class O2JamPreviewTrack : Track
             nextAutomaticKeySoundEventIndex = upperBound(automaticKeySoundEvents, currentTime);
             nextPlayableKeySoundEventIndex = upperBound(playableKeySoundEvents, currentTime);
             resetPrefetchCursors();
-            stopKeySounds();
+            // The retained track owns the same resource lease. Preserve matching voices at their
+            // real playback position instead of stopping them and trying to reconstruct a tail.
+            var retained = 0;
+            var stopped = activeKeyChannels.Count + restoredKeyTracks.Count;
+            if (PlaybackMode == O2JamPreviewPlaybackMode.Preview)
+            {
+                retained = retainMatchingKeySounds(targetKeyEvents);
+                retained += retainRestoredKeyTracks(targetKeyEvents);
+                prepareKeyHandoffs(targetKeyEvents);
+                queueKeyRestoration(currentTime, targetKeyEvents);
+            }
+            else
+                stopKeySounds();
+            stopped -= retained;
 
             Length = Math.Max(Length, newLength);
             clock.Length = Length;
             lastTime = currentTime;
             traceSyncControl("schedule", null);
+            Logger.Log($"O2Lazer preview schedule transfer: prepare_ms={preparationMilliseconds:F3}; " +
+                       $"match_index_ms={indexMilliseconds:F3}; " +
+                       $"apply_ms={Stopwatch.GetElapsedTime(applicationStarted).TotalMilliseconds:F3}; " +
+                       $"retained={retained}; stopped={stopped - outgoingKeyVoices.Count}; handoff={outgoingKeyVoices.Count}; chart_ms={currentTime:F3}.", level: LogLevel.Verbose);
         });
     }
 
@@ -239,6 +272,7 @@ public sealed partial class O2JamPreviewTrack : Track
         }
 
         prefetchUpcomingAudio(currentTime);
+        updateKeyRestoration(currentTime);
 
         if (!clock.IsRunning && !startRequested)
         {
@@ -314,7 +348,7 @@ public sealed partial class O2JamPreviewTrack : Track
         channel.Balance.Value = evt.Pan;
         channel.BindAdjustments(this);
         channel.Play();
-        activeKeyChannels.Add((channel, evt.IsAutomatic));
+        activeKeyChannels.Add((channel, evt));
     }
 
     private bool tryClassifyCurrentSchedule()
@@ -337,6 +371,7 @@ public sealed partial class O2JamPreviewTrack : Track
         nextPlayableKeySoundEventIndex = lowerBound(playableKeySoundEvents, currentTime);
         resetPrefetchCursors();
         restoreBackgroundLayers(currentTime, nextBackgroundEventIndex);
+        queueKeyRestoration(currentTime);
         return true;
     }
 
@@ -392,6 +427,7 @@ public sealed partial class O2JamPreviewTrack : Track
         nextPlayableKeySoundEventIndex = lowerBound(playableKeySoundEvents, time);
         resetPrefetchCursors();
         restoreBackgroundLayers(time, nextBackgroundEventIndex);
+        queueKeyRestoration(time);
         lastTime = time;
         traceSyncControl("rebuild", time);
     }
@@ -569,10 +605,12 @@ public sealed partial class O2JamPreviewTrack : Track
 
     private void stopKeySounds(bool playableOnly = false)
     {
+        releaseOutgoingKeyVoices(all: true, playableOnly: playableOnly);
+        stopRestoredKeyTracks(playableOnly);
         for (var index = activeKeyChannels.Count - 1; index >= 0; index--)
         {
             var active = activeKeyChannels[index];
-            if (playableOnly && active.IsAutomatic)
+            if (playableOnly && active.Event.IsAutomatic)
                 continue;
 
             active.Channel.Stop();
@@ -589,10 +627,26 @@ public sealed partial class O2JamPreviewTrack : Track
 
         foreach (var active in activeBackgroundTracks)
             active.Track.Stop();
+        foreach (var active in restoredKeyTracks)
+            active.Track.Stop();
+        foreach (var active in outgoingKeyVoices)
+        {
+            if (active.Channel != null)
+                active.Channel.Frequency.Value = 0;
+            active.Track?.Stop();
+        }
     }
 
     private void pruneCompletedSamples()
     {
+        for (var index = restoredKeyTracks.Count - 1; index >= 0; index--)
+        {
+            var track = restoredKeyTracks[index].Track;
+            if (!track.IsDisposed && !track.HasCompleted && track.CurrentTime < track.Length)
+                continue;
+            track.Dispose();
+            restoredKeyTracks.RemoveAt(index);
+        }
         for (var index = activeKeyChannels.Count - 1; index >= 0; index--)
         {
             if (!activeKeyChannels[index].Channel.Playing)
@@ -671,6 +725,7 @@ public sealed partial class O2JamPreviewTrack : Track
 
     private void synchroniseBackgroundTracks(double currentTime)
     {
+        synchroniseRestoredKeyTracks(currentTime);
         for (var index = activeBackgroundTracks.Count - 1; index >= 0; index--)
         {
             var active = activeBackgroundTracks[index];
@@ -689,6 +744,11 @@ public sealed partial class O2JamPreviewTrack : Track
 
     private void startBackgroundTracks()
     {
+        foreach (var active in restoredKeyTracks)
+        {
+            if (!active.Track.IsDisposed)
+                active.Track.Start();
+        }
         foreach (var active in activeBackgroundTracks)
         {
             if (!active.Track.IsDisposed)
@@ -698,12 +758,28 @@ public sealed partial class O2JamPreviewTrack : Track
 
     private void resumeKeySounds()
     {
+        foreach (var active in outgoingKeyVoices)
+        {
+            if (active.Channel != null)
+                active.Channel.Frequency.Value = 1;
+            active.Track?.Start();
+        }
         foreach (var active in activeKeyChannels)
             active.Channel.Frequency.Value = 1;
     }
 
     private void disposeAllAudio(bool stopBeforeDisposal = true)
     {
+        if (stopBeforeDisposal)
+            releaseOutgoingKeyVoices(all: true);
+        else
+        {
+            foreach (var active in outgoingKeyVoices)
+                active.Track?.Dispose();
+            outgoingKeyVoices.Clear();
+        }
+        clearPendingKeyRestoration();
+        stopRestoredKeyTracks();
         if (stopBeforeDisposal)
             stopKeySounds();
         else
@@ -789,6 +865,26 @@ public sealed partial class O2JamPreviewTrack : Track
         Background,
         AutomaticKeySound,
         PlayableKeySound,
+    }
+
+    private int retainMatchingKeySounds(Dictionary<O2JamPreviewEvent, int> targetEvents)
+    {
+        var retained = 0;
+        for (var index = activeKeyChannels.Count - 1; index >= 0; index--)
+        {
+            var active = activeKeyChannels[index];
+            // Consume occurrences, not just sample IDs: simultaneous duplicates are separate voices.
+            if (active.Channel.Playing && targetEvents.TryGetValue(active.Event, out var count) && count > 0)
+            {
+                targetEvents[active.Event] = count - 1;
+                retained++;
+                continue;
+            }
+
+            unmatchedKeyVoices.Add((active.Channel, null, active.Event));
+            activeKeyChannels.RemoveAt(index);
+        }
+        return retained;
     }
 
     private readonly record struct ActiveBackgroundTrack(Track Track, int SampleId, double EventTime);

@@ -40,6 +40,9 @@ public sealed class O2LazerRuleset : Ruleset
     public O2LazerRuleset()
     {
         O2JamCompatibilityPatches.InstallOnce();
+#if O2LAZER_TEST_BRIDGE
+        TestSupport.O2LazerTestBridge.StartOnce();
+#endif
     }
 
     public override string Description => O2LazerStrings.RulesetName.ToString();

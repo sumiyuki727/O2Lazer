@@ -60,9 +60,8 @@ public partial class O2JamDrawableRuleset
         RevertResult += revertSyncHit;
     }
 
-    protected override void UpdateAfterChildren()
+    partial void sampleSyncDiagnostics()
     {
-        base.UpdateAfterChildren();
         if (syncSession == null || syncTrack == null)
             return;
 

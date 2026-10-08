@@ -122,6 +122,7 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
             gameplaySampleSkin.AllowJudgementKeySounds = gameplayTrack == null || !AutomaticallyPlayKeySounds;
         }
         hitSoundRateAdjustments.BindSeek(gameplayClock);
+        bindReplayAudio();
 
         currentSkin.SourceChanged += onSkinChange;
         updateSkinPosition();
@@ -202,6 +203,7 @@ public partial class O2JamDrawableRuleset : DrawableScrollingRuleset<ManiaHitObj
     protected override void Dispose(bool isDisposing)
     {
         disposeSyncDiagnostics();
+        unbindReplayAudio();
         if (gameplaySampleSkin != null)
             gameplaySampleSkin.AllowJudgementKeySounds = true;
         O2JamPreviewCoordinator.ExitGameplay(gameplayTrack);

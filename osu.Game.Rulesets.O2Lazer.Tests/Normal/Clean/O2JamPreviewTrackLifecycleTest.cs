@@ -836,6 +836,346 @@ public class O2JamPreviewTrackLifecycleTest
         task.GetAwaiter().GetResult();
     }
 
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(3)]
+    [TestCase(4)]
+    [TestCase(5)]
+    public void DifficultyTransferPreservesOnlyIdenticalActiveSampleEvents(int difference)
+    {
+        var first = transferBeatmap();
+        var second = transferBeatmap(automatic: difference != 5, sampleId: difference == 1 ? 8 : 7,
+                                     time: difference == 2 ? 1 : 0, volume: difference == 3 ? 90 : 100,
+                                     pan: difference == 4 ? 0.5f : 0);
+        var resources = new SamplePlaybackResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(first, resources, clock);
+        start(preview);
+        clock.Seek(400);
+        preview.Update();
+        var channel = resources.Sample.Channel!;
+        preview.ReplaceSchedule(second);
+        preview.Update();
+        Assert.Multiple(() =>
+        {
+            Assert.That(preview.CurrentTime, Is.EqualTo(400));
+            Assert.That(resources.Sample.Channels, Has.Count.EqualTo(1), "Transfer must not replay past samples.");
+            Assert.That(channel.StopCount, Is.EqualTo(difference == 0 ? 0 : 1));
+            Assert.That(channel.Playing, Is.EqualTo(difference == 0));
+            Assert.That(resources.Tracks, Is.Empty, "Retaining a voice must not create a seekable track.");
+        });
+    }
+
+    [TestCase(1, 1)]
+    [TestCase(2, 1)]
+    [TestCase(1, 2)]
+    public void DifficultyTransferMatchesDuplicateVoiceCounts(int sourceCount, int targetCount)
+    {
+        var resources = new SamplePlaybackResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(count: sourceCount), resources, clock);
+        start(preview);
+        clock.Seek(400);
+        preview.Update();
+        preview.ReplaceSchedule(transferBeatmap(count: targetCount));
+        preview.Update();
+        var retained = 0;
+        foreach (var channel in resources.Sample.Channels)
+            if (channel.Playing)
+                retained++;
+        Assert.That(retained, Is.EqualTo(Math.Min(sourceCount, targetCount)));
+        Assert.That(resources.Sample.Channels, Has.Count.EqualTo(sourceCount));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void RetainedSampleStaysPausedThenResumesAndStillStopsOnSeek(bool automatic)
+    {
+        var resources = new SamplePlaybackResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(automatic: automatic), resources, clock);
+        start(preview);
+        clock.Seek(400);
+        preview.Update();
+        var channel = resources.Sample.Channel!;
+        stop(preview);
+        preview.Update();
+        preview.ReplaceSchedule(transferBeatmap(automatic: automatic));
+        preview.Update();
+        channel.Update();
+        Assert.That(channel.StopCount, Is.Zero);
+        Assert.That(channel.AggregateFrequency.Value, Is.Zero);
+        start(preview);
+        preview.Update();
+        channel.Update();
+        Assert.That(channel.AggregateFrequency.Value, Is.EqualTo(1));
+        Assert.That(resources.Sample.Channels, Has.Count.EqualTo(1));
+        preview.Seek(450);
+        preview.Update();
+        Assert.That(channel.StopCount, Is.EqualTo(1));
+    }
+
+    [TestCase(O2JamPreviewPlaybackMode.Gameplay)]
+    [TestCase(O2JamPreviewPlaybackMode.GameplayAutomatic)]
+    public void GameplayScheduleReplacementStillStopsExistingSampleVoices(O2JamPreviewPlaybackMode mode)
+    {
+        var resources = new SamplePlaybackResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(), resources, clock) { PlaybackMode = mode };
+        start(preview);
+        clock.Seek(400);
+        preview.Update();
+        var channel = resources.Sample.Channel!;
+        preview.ReplaceSchedule(transferBeatmap());
+        preview.Update();
+        Assert.That(channel.StopCount, Is.EqualTo(1));
+        Assert.That(resources.Sample.Channels, Has.Count.EqualTo(1));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void TransferRestoresMissingLiveSampleWithoutHoldingClock(bool automatic)
+    {
+        var resources = new RestorablePlaybackResource { DurationReady = false };
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(count: 0), resources, clock);
+        start(preview);
+        clock.Seek(400);
+        preview.Update();
+        preview.ReplaceSchedule(transferBeatmap(automatic: automatic, time: 100, volume: 80, pan: 0.25f));
+        preview.Update();
+        Assert.That(clock.IsRunning, Is.True);
+        Assert.That(resources.Tracks, Is.Empty);
+        clock.Seek(450);
+        resources.DurationReady = true;
+        preview.Update();
+        Assert.That(resources.Tracks, Has.Count.EqualTo(1));
+        var restored = resources.Tracks[0];
+        Assert.That(restored.LastSeek, Is.EqualTo(350));
+        Assert.That(restored.IsRunning, Is.True);
+        Assert.That(restored.Volume.Value, Is.EqualTo(0.8));
+        Assert.That(restored.Balance.Value, Is.EqualTo(0.25));
+        stop(preview);
+        Assert.That(restored.IsRunning, Is.False);
+        start(preview);
+        Assert.That(restored.IsRunning, Is.True);
+        preview.ReplaceSchedule(transferBeatmap(automatic: automatic, time: 100, volume: 80, pan: 0.25f));
+        preview.Update();
+        Assert.That(resources.Tracks, Has.Count.EqualTo(1), "Retain the reconstructed voice rather than duplicate it.");
+    }
+
+    [Test]
+    public void ExpiredSampleDoesNotCreateRestorationStream()
+    {
+        var resources = new RestorablePlaybackResource { SampleLength = 100 };
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(count: 0), resources, clock);
+        start(preview);
+        clock.Seek(400);
+        preview.Update();
+        preview.ReplaceSchedule(transferBeatmap());
+        preview.Update();
+        Assert.That(resources.Tracks, Is.Empty);
+    }
+
+    [Test]
+    public void SupersedingScheduleCancelsPendingRestoration()
+    {
+        var resources = new RestorablePlaybackResource { DurationReady = false };
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(count: 0), resources, clock);
+        start(preview);
+        clock.Seek(400);
+        preview.Update();
+        preview.ReplaceSchedule(transferBeatmap());
+        preview.Update();
+        preview.ReplaceSchedule(transferBeatmap(count: 0));
+        preview.Update();
+        resources.DurationReady = true;
+        preview.Update();
+        Assert.That(resources.Tracks, Is.Empty);
+    }
+
+    [TestCase(O2JamPreviewPlaybackMode.Gameplay)]
+    [TestCase(O2JamPreviewPlaybackMode.GameplayAutomatic)]
+    public void GameplayDoesNotReconstructPastPlayableSamples(O2JamPreviewPlaybackMode mode)
+    {
+        var resources = new RestorablePlaybackResource();
+        using var preview = new O2JamPreviewTrack(transferBeatmap(automatic: false), resources, new FakeTrack(10_000)) { PlaybackMode = mode };
+        preview.Seek(400);
+        start(preview);
+        preview.Update();
+        Assert.That(resources.Tracks, Is.Empty);
+    }
+
+    [Test]
+    public void PreviewSeekRestoresPastSampleButDoesNotDuplicateExactCursorEvent()
+    {
+        var resources = new RestorablePlaybackResource();
+        using var preview = new O2JamPreviewTrack(transferBeatmap(time: 100), resources, new FakeTrack(10_000));
+        preview.Seek(400);
+        preview.Update();
+        Assert.That(resources.Tracks, Has.Count.EqualTo(1));
+        Assert.That(resources.Tracks[0].LastSeek, Is.EqualTo(300));
+        Assert.That(resources.Tracks[0].IsRunning, Is.False);
+        preview.Seek(100);
+        preview.Update();
+        Assert.That(resources.Tracks, Has.Count.EqualTo(1));
+        start(preview);
+        Assert.That(resources.SampleRequests, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void RestoredDuplicateEventsRemainIndependentVoices()
+    {
+        var resources = new RestorablePlaybackResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(count: 0), resources, clock);
+        start(preview);
+        clock.Seek(400);
+        preview.Update();
+        preview.ReplaceSchedule(transferBeatmap(count: 2));
+        preview.Update();
+        Assert.That(resources.Tracks, Has.Count.EqualTo(2));
+        preview.ReplaceSchedule(transferBeatmap(count: 1));
+        preview.Update();
+        foreach (var track in resources.Tracks)
+            track.Update();
+        Assert.That(resources.Tracks.FindAll(track => !track.IsDisposed).Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void NearbyRetimedVoiceStopsOnlyAfterReplacementIsReady()
+    {
+        var resources = new RestorablePlaybackResource { VoiceSample = new CapturingSample(), BackgroundReady = false };
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(), resources, clock);
+        start(preview);
+        clock.Seek(400);
+        preview.Update();
+        var oldChannel = resources.VoiceSample.Channel!;
+        preview.ReplaceSchedule(transferBeatmap(time: 15));
+        preview.Update();
+        Assert.That(oldChannel.StopCount, Is.Zero);
+        Assert.That(resources.Tracks, Is.Empty);
+        Assert.That(clock.IsRunning, Is.True);
+        resources.BackgroundReady = true;
+        preview.Update();
+        Assert.That(resources.Tracks, Has.Count.EqualTo(1));
+        Assert.That(resources.Tracks[0].LastSeek, Is.EqualTo(385));
+        Assert.That(oldChannel.StopCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ReplayRestoresSuppliedHitsWithGameplayOffsetAndPause()
+    {
+        var resources = new RestorablePlaybackResource();
+        using var track = new O2JamPreviewTrack(transferBeatmap(automatic: false), resources, new FakeTrack(10_000)) { PlaybackMode = O2JamPreviewPlaybackMode.Gameplay };
+        track.Seek(400);
+        track.Update();
+        Assert.That(resources.Tracks, Is.Empty);
+        track.RestoreReplayKeySounds([new O2JamPreviewEvent(100, 9, 80, 0.25f, true, false)], 350);
+        track.Update();
+        Assert.That(resources.Tracks, Has.Count.EqualTo(1));
+        Assert.That(resources.Tracks[0].LastSeek, Is.EqualTo(250));
+        Assert.That(resources.Tracks[0].Volume.Value, Is.EqualTo(0.8));
+        Assert.That(resources.Tracks[0].Balance.Value, Is.EqualTo(0.25));
+        Assert.That(resources.Tracks[0].IsRunning, Is.False);
+        start(track);
+        Assert.That(resources.Tracks[0].IsRunning, Is.True);
+        stop(track);
+        Assert.That(resources.Tracks[0].IsRunning, Is.False);
+    }
+
+    [Test]
+    public void ReplaySeekCancelsPendingAndActiveRestoration()
+    {
+        var resources = new RestorablePlaybackResource { DurationReady = false };
+        using var track = new O2JamPreviewTrack(transferBeatmap(count: 0), resources, new FakeTrack(10_000)) { PlaybackMode = O2JamPreviewPlaybackMode.Gameplay };
+        track.Seek(400);
+        track.RestoreReplayKeySounds([new O2JamPreviewEvent(100, 9, 100, 0, true, false)], 400);
+        track.Update();
+        track.Seek(50);
+        track.Update();
+        resources.DurationReady = true;
+        track.Update();
+        Assert.That(resources.Tracks, Is.Empty);
+        track.Seek(400);
+        track.RestoreReplayKeySounds([new O2JamPreviewEvent(100, 9, 100, 0, true, false)], 400);
+        track.Update();
+        Assert.That(resources.Tracks, Has.Count.EqualTo(1));
+        track.Seek(50);
+        track.Update();
+        resources.Tracks[0].Update();
+        Assert.That(resources.Tracks[0].IsDisposed, Is.True);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void NewNativeHitReplacesRestoredReplayVoice(bool pending)
+    {
+        var resources = new RestorablePlaybackResource { DurationReady = !pending };
+        using var track = new O2JamPreviewTrack(transferBeatmap(count: 0), resources, new FakeTrack(10_000)) { PlaybackMode = O2JamPreviewPlaybackMode.Gameplay };
+        track.Seek(400);
+        track.RestoreReplayKeySounds([new O2JamPreviewEvent(100, 9, 100, 0, true, false)], 400);
+        track.Update();
+        track.ReplaceRestoredReplaySample(9);
+        resources.DurationReady = true;
+        track.Update();
+        if (pending)
+            Assert.That(resources.Tracks, Is.Empty);
+        else
+        {
+            resources.Tracks[0].Update();
+            Assert.That(resources.Tracks[0].IsDisposed, Is.True);
+        }
+    }
+    [Test]
+    public void ReplayCatchUpKeepsNewAutomaticVoicesWithoutDuplicates()
+    {
+        var resources = new RestorablePlaybackResource { VoiceSample = new CapturingSample() };
+        var clock = new FakeTrack(10_000);
+        using var track = new O2JamPreviewTrack(transferBeatmap(time: 400), resources, clock) { PlaybackMode = O2JamPreviewPlaybackMode.Gameplay };
+        track.Seek(400);
+        start(track);
+        clock.Seek(450);
+        track.Update();
+        Assert.That(resources.VoiceSample.Channels, Has.Count.EqualTo(1));
+        track.RestoreReplayKeySounds([], 450);
+        track.Update();
+        Assert.That(resources.Tracks, Is.Empty);
+        Assert.That(resources.VoiceSample.Channels, Has.Count.EqualTo(1));
+    }
+    private sealed class RestorablePlaybackResource : FakePlaybackResource, IO2JamPlaybackResource
+    {
+        public bool DurationReady { get; set; } = true;
+        public double SampleLength { get; set; } = 5000;
+        public CapturingSample? VoiceSample { get; init; }
+        public bool BackgroundReady { get; set; } = true;
+        public override ISample? GetSample(ISampleInfo info) => VoiceSample ?? base.GetSample(info);
+        public override bool IsBackgroundTrackReady(int id) => BackgroundReady;
+        public bool TryGetSampleLength(int sampleId, out double length)
+        {
+            length = SampleLength;
+            return DurationReady;
+        }
+    }
+
+    private static O2JamBeatmap transferBeatmap(bool automatic = true, int count = 1, int sampleId = 7,
+                                               double time = 0, int volume = 100, float pan = 0)
+    {
+        var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
+        for (var index = 0; index < count; index++)
+        {
+            if (automatic)
+                beatmap.AutomaticAudioEvents.Add(new O2JamAudioEvent(time, sampleId, volume, pan, O2JamAudioEventKind.KeySound));
+            else
+                beatmap.HitObjects.Add(new O2JamNote { StartTime = time, Samples = [new O2JamHitSampleInfo(sampleId, volume, pan)] });
+        }
+        return beatmap;
+    }
+
     private class FakePlaybackResource : IO2JamPlaybackResource
     {
         public virtual bool IsReadyForScheduling => true;

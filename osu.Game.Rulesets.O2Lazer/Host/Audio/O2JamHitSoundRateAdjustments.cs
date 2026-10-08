@@ -30,6 +30,7 @@ internal sealed class O2JamHitSoundRateAdjustments
     private GameplayClockContainer? gameplayClock;
     private double fixedFrequency = 1;
     private bool optionalPitchAdjustment;
+    internal Action<int>? ReplaceRestoredSample { get; set; }
 
     public O2JamHitSoundRateAdjustments()
     {
@@ -133,6 +134,8 @@ internal sealed class O2JamHitSoundRateAdjustments
                 && previous.TryGetTarget(out var oldChannel) && !oldChannel.IsDisposed)
                 oldChannel.Stop();
             owner.latestKeySounds[channel.Name] = new WeakReference<SampleChannel>(channel);
+            if (int.TryParse(channel.Name.AsSpan("o2jam/".Length), out var sampleId))
+                owner.ReplaceRestoredSample?.Invoke(sampleId);
             return;
         }
     }

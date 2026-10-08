@@ -1,6 +1,6 @@
 # O2Lazer 文档索引
 
-更新：2026-10-07。当前目标 osu!lazer 2026.1005.0 / Framework 2026.921.1。
+更新：2026-10-08。当前目标 osu!lazer 2026.1005.0 / Framework 2026.921.1。
 原版客户端对齐阶段按用户决定结束，未选差异暂缓。这是选定范围的结束，不表示全项目
 重构、所有原版功能或全部客户端验收均已完成。当前曲库更新版本的审查、清理和验证见
 [版本冻结复核](library-refresh-release-review.md)；后续收藏通知、LN 补绘及 CI 整理见
@@ -39,7 +39,10 @@
 | [原版客户端功能与实现覆盖检查](original-client-feature-audit.md) | F01–F18 观察与范围表；已选方案结束；其余暂缓，归属建议不是当前开发队列。 |
 | [特殊随机与零血处理的静态追踪](original-random-and-failure-analysis.md) | 原版算法/指令历史证据；随机与 EX 新契约现状分别见专项规范。 |
 | [产品表现与曲库功能归属](product-layer-inventory.md) | 现行表现功能归属；锁血/计分和存档资格不归产品绘制层。 |
-| [变速 Mod 与 OJM 音频契约](rate-mod-audio-readiness.md) | 现行音频/速率契约；保留已确认 KS 行为及小型 KS 中段尾音限制。 |
+| [变速 Mod 与 OJM 音频契约](rate-mod-audio-readiness.md) | 现行音频/速率契约；预览及回放补播、原生后台音量衰减。 |
+| [预览采样补播](preview-sample-restoration.md) | 同曲难度切换保留声部、有界衔接和原生 Track 中途补播。 |
+| [回放采样补播](replay-sample-restoration.md) | 基于实际命中与撤销记录的跳转恢复、生命周期及验收边界。 |
+| [本地 lazer 测试桥](lazer-test-bridge.md) | 显式测试构建专用；启动、原生退出、模式和选曲控制；正式构建排除。 |
 | [当前 Realm 存储边界](realm-isolation.md) | 现行具体存储边界；直接类型隔离不等于后端已可无修改替换。 |
 | [O2Lazer 重构路线图](refactor-roadmap.md) | 现行阶段状态；原版对齐已结束，暂缓功能不再作为自动推进项。 |
 | [Remix O2Jam 与 O2Lazer 对照](remix-client-comparison.md) | 历史交叉证据；不覆盖韩服主参考及后续用户选定规则。 |
