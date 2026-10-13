@@ -109,7 +109,7 @@ URL 指向可信 ZIP（官方 Windows 完整 nupkg 也是 ZIP），摘要必须�
 本轮固定[官方完整包](https://github.com/ppy/osu/releases/download/2026.1005.0-lazer/osulazer-2026.1005.0-lazer-full.nupkg)，
 官方 SHA-256 为 d23d47d63ccb9c7d157b25cf5ac465d0e4d4cb17bab67c83f1ac112afd3e6cfa。
 更新宿主时先重新核对发布身份和实际引用，再同步两个变量。
-本轮变量已配置；远程结果以[收尾记录](maintenance-closeout-2026-10-14.md)的实际运行链接为准。
+本轮变量已配置，七组 1941 项完整远程回归已通过；具体提交、运行链接和报告核对见[收尾记录](maintenance-closeout-2026-10-14.md)。
 
 摘要读取实际 TRX 总数/通过/失败/未执行数。
 只上传七组 TRX 与语义报告，保留 14 天；允许指定的隐藏 .artifacts 路径，

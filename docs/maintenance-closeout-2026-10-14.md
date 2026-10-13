@@ -48,7 +48,11 @@ Realm/replay/旧设置不混跑。没有运行 benchmark、全曲库扫描、客
 仓库 URL/摘要变量已设置为上述固定官方包。
 工作流下载摘要校验先于解压；已有版本/引用检查和分离的常规、Realm、replay 路线保留，
 增加旧设置兼容的独立过滤组。actionlint 和原生 PowerShell 语法检查通过。
-远程完整执行待本次提交推送后的实际 GitHub Actions 结果；本机成功不冒充远程通过。
+源码维护提交 8fca3ded7f4e1203255a5ca1276238eeb901ed65 已推送至 master；
+[完整 GitHub Actions 验证](https://github.com/sumiyuki727/O2Lazer/actions/runs/38423039181)通过，下载的七组 TRX 合计 1941 项，
+均通过、无跳过，200 份正式源码语义图无错误/越层/失效例外。
+宿主步骤实际执行，不是仅 Portable 通过；远程报告另存，未将本机结果冒充远程结果。
+此后文档记录更新不改变上述生产源码或验证入口。
 
 ## 实际验收与剩余边界
 
