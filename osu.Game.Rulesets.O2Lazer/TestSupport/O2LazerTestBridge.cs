@@ -21,7 +21,7 @@ using osu.Game.Screens.Select;
 namespace osu.Game.Rulesets.O2Lazer.TestSupport;
 
 /// <summary>Local test instrumentation, excluded from normal compilation.</summary>
-internal static class O2LazerTestBridge
+internal static partial class O2LazerTestBridge
 {
     private const string owner = "osu.Game.Rulesets.O2Lazer.TestBridge";
     private static readonly object sync = new();
@@ -140,7 +140,7 @@ internal static class O2LazerTestBridge
     {
         var command = request.GetProperty("command").GetString();
         if (command == "capabilities")
-            return new { commands = new[] { "status", "difficulties", "select", "play", "pause", "seek", "rulesets", "set-ruleset", "open-song-select", "exit", "exit-state", "confirm-exit" }, processId = Environment.ProcessId };
+            return new { commands = new[] { "status", "difficulties", "select", "play", "pause", "seek", "rulesets", "set-ruleset", "open-song-select", "exit", "exit-state", "confirm-exit", "inspect-data", "library-state", "refresh-library", "read-replay", "export-replay", "import-replay", "job-status" }, processId = Environment.ProcessId };
         if (command is "exit" or "open-song-select" or "exit-state" or "confirm-exit")
             return await dispatchNavigation(command, cancellation).ConfigureAwait(false);
         NativeSongSelect screen;
@@ -161,6 +161,11 @@ internal static class O2LazerTestBridge
             {
                 if (!screen.IsCurrentScreen())
                     throw new InvalidOperationException("Commands require current song select.");
+                if (tryDispatchAcceptance(screen, command, request, out var acceptanceResult))
+                {
+                    completion.TrySetResult(acceptanceResult!);
+                    return;
+                }
                 var working = screen.Beatmap.Value;
                 var music = screen.Dependencies.Get<MusicController>();
                 if (command == "rulesets")

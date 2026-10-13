@@ -1,5 +1,10 @@
 # O2Lazer 1.0.0-test2
 
+Frozen release record: this page describes the published `1.0.0-test2` build, not current master.
+The later compatibility coordinator, test bridge, inactive-volume fix and preview/replay tail
+restoration are master changes; they are not retroactively included in this release's validation
+or DLL. See the [current documentation review](documentation-audit-2026-10-08.md).
+
 The second 1.0.0 test release targets **osu!lazer 2026.1005.0**. The assembly version remains
 **1.0.0** to preserve ruleset identity; the release tag identifies this test build.
 

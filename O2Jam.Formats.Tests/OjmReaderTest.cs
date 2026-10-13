@@ -11,7 +11,7 @@ using O2Jam.Formats.Ojn;
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 [TestFixture]
-public class OjmReaderTest
+public partial class OjmReaderTest
 {
     [Test]
     public void ReadsUnencryptedWaveAndBackgroundOgg()

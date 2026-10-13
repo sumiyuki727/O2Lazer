@@ -65,7 +65,7 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
     private readonly object resourceLock = new();
     private readonly CancellationTokenSource preloadCancellation = new();
     private readonly Dictionary<int, O2JamPreloadScheduler.Preparation<Track?>> prefetchedBackgroundTracks = [];
-    private readonly Dictionary<int, O2JamPreloadScheduler.Preparation<Sample>> prefetchedSamples = [];
+    private readonly Dictionary<int, SamplePreparation> prefetchedSamples = [];
     private readonly HashSet<int> requestedBackgroundTracks = [];
     private readonly HashSet<int> requestedSamples = [];
     private readonly HashSet<int> requestedAutomaticSamples = [];
@@ -75,7 +75,9 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
     private OjmArchive? archive;
     private ISampleStore? samples;
     private ITrackStore? backgroundTracks;
-    private O2JamDetachedAudioHost? audioHost;
+    private O2JamAudioPreparationHost? audioHost;
+    private O2JamPreviewSchedule? pendingPreview;
+    private double pendingPreviewHorizon;
 
     private int playbackLeases;
     private bool disposeRequested;
@@ -134,8 +136,7 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
 
             return !archive!.Samples.ContainsKey(sampleId)
                    || prefetchedSamples.TryGetValue(sampleId, out var preparation)
-                   && preparation.Task.IsCompleted
-                   && (!preparation.Task.IsCompletedSuccessfully || preparation.Task.Result?.IsLoaded != false);
+                   && preparation.Task.IsCompleted;
         }
     }
 
@@ -174,7 +175,7 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
                 return true;
             var sample = preparation.Task.Result;
             if (!sample.IsLoaded)
-                return false;
+                return true;
             length = sample.Length;
             return true;
         }
@@ -190,7 +191,7 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
             // Returning null here would cache permanent silence in the drawable hit object.
             PrefetchSamples([o2Sample.SampleId], true);
 
-            O2JamPreloadScheduler.Preparation<Sample>? prefetched;
+            SamplePreparation? prefetched;
             lock (resourceLock)
                 prefetchedSamples.TryGetValue(o2Sample.SampleId, out prefetched);
 
@@ -198,7 +199,7 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
             {
                 try
                 {
-                    var prepared = prefetched.Task.GetAwaiter().GetResult();
+                    var prepared = prefetched.Acquired.GetAwaiter().GetResult();
                     // Native DrawableSample owns and disposes the sample returned by skin lookup.
                     // Keep the readiness probe private; SampleStore.Get creates an independent
                     // instance backed by the already-preloaded factory, without decoding again.
@@ -280,33 +281,44 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
     {
         lock (resourceLock)
         {
-            var startupEnd = schedule.PreviewEvents.FirstOrDefault(evt => evt.Volume > 0).Time + 500;
-            foreach (var evt in schedule.BackgroundEvents.TakeWhile(evt => evt.Time <= endTime))
-            {
-                requestedBackgroundTracks.Add(evt.SampleId);
-                if (evt.Time <= startupEnd)
-                    urgentBackgroundTracks.Add(evt.SampleId);
-            }
-
-            foreach (var evt in schedule.PreviewEvents.TakeWhile(evt => evt.Time <= endTime).Where(evt => evt.IsKeySound))
-            {
-                if (evt.IsAutomatic)
-                    requestedAutomaticSamples.Add(evt.SampleId);
-                else
-                    requestedSamples.Add(evt.SampleId);
-
-                if (evt.Time <= startupEnd)
-                {
-                    urgentSamples.Add(evt.SampleId);
-                    if (evt.IsAutomatic)
-                        urgentBackgroundTracks.Add(evt.SampleId);
-                }
-            }
-
+            pendingPreview = schedule;
+            pendingPreviewHorizon = endTime;
             observeArchiveCompletion();
 
             if (tryEnsureResources())
                 startRequestedPrefetches();
+        }
+    }
+
+    private void collectPreviewPrefetches()
+    {
+        if (pendingPreview == null)
+            return;
+        var schedule = pendingPreview;
+        pendingPreview = null;
+        // Missing slots and muted events cannot choose the urgent window. Resolve the first
+        // real opening after indexing, including charts whose lead-in exceeds ten seconds.
+        var first = schedule.PreviewEvents.FirstOrDefault(evt => evt.Volume > 0 && archive!.Samples.ContainsKey(evt.SampleId));
+        var startupEnd = first.Time + 500;
+        var endTime = Math.Max(pendingPreviewHorizon, first.Time + pendingPreviewHorizon);
+        foreach (var evt in schedule.BackgroundEvents.TakeWhile(evt => evt.Time <= endTime))
+        {
+            requestedBackgroundTracks.Add(evt.SampleId);
+            if (evt.Volume > 0 && evt.Time <= startupEnd)
+                urgentBackgroundTracks.Add(evt.SampleId);
+        }
+        foreach (var evt in schedule.PreviewEvents.TakeWhile(evt => evt.Time <= endTime).Where(evt => evt.IsKeySound))
+        {
+            if (evt.IsAutomatic)
+                requestedAutomaticSamples.Add(evt.SampleId);
+            else
+                requestedSamples.Add(evt.SampleId);
+            if (evt.Volume > 0 && evt.Time <= startupEnd)
+            {
+                urgentSamples.Add(evt.SampleId);
+                if (evt.IsAutomatic)
+                    urgentBackgroundTracks.Add(evt.SampleId);
+            }
         }
     }
 
@@ -354,8 +366,7 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
             }
 
             preloadCancellation.Cancel();
-            backgroundTracks?.Dispose();
-            audioHost?.Dispose();
+            audioHost?.Close();
             preloadCancellation.Dispose();
         }
 
@@ -433,7 +444,7 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
         // bypassing only the global effect store rather than bypassing master policy too.
         samples.AddAdjustment(AdjustableProperty.Volume, audioManager.AggregateVolume);
         samples.AddAdjustment(AdjustableProperty.Volume, audioManager.VolumeTrack);
-        audioManager.AddItem(audioHost = new O2JamDetachedAudioHost((AudioComponent)samples));
+        audioManager.AddItem(audioHost = new O2JamAudioPreparationHost(samples, backgroundTracks));
     }
 
     private void startRequestedPrefetches()
@@ -441,48 +452,75 @@ public sealed class O2JamBeatmapSkin : ISkin, IO2JamPlaybackResource, IO2JamPlay
         if (backgroundTracks == null || samples == null)
             return;
 
+        collectPreviewPrefetches();
         classifyAutomaticSamples();
 
-        foreach (var sampleId in requestedBackgroundTracks)
+        using var batch = preloads.BeginBatch();
+        for (var priority = 1; priority >= 0; priority--)
         {
-            if (!archive!.Samples.ContainsKey(sampleId))
-                continue;
+            var prioritise = priority == 1;
 
-            if (prefetchedBackgroundTracks.TryGetValue(sampleId, out var existing))
+            foreach (var sampleId in requestedBackgroundTracks)
             {
-                if (urgentBackgroundTracks.Contains(sampleId))
-                    existing.Prioritise();
-                continue;
-            }
+                if (urgentBackgroundTracks.Contains(sampleId) != prioritise)
+                    continue;
+                if (!archive!.Samples.ContainsKey(sampleId))
+                    continue;
 
-            var preparation = preloads.Schedule(
-                token => O2JamTrackPreparation.LoadAsync(backgroundTracks, $"o2jam/{sampleId}", token),
-                preloadCancellation.Token, urgentBackgroundTracks.Contains(sampleId));
-            prefetchedBackgroundTracks[sampleId] = preparation;
-            observeFailure(preparation.Task);
+                if (prefetchedBackgroundTracks.TryGetValue(sampleId, out var existing))
+                {
+                    if (urgentBackgroundTracks.Contains(sampleId))
+                        existing.Prioritise();
+                    continue;
+                }
+
+                var preparation = preloads.Schedule(
+                    token => audioHost!.PrepareTrackAsync($"o2jam/{sampleId}", token),
+                    preloadCancellation.Token, urgentBackgroundTracks.Contains(sampleId));
+                prefetchedBackgroundTracks[sampleId] = preparation;
+                observeFailure(preparation.Task);
+            }
+            foreach (var sampleId in requestedSamples)
+            {
+                if (urgentSamples.Contains(sampleId) != prioritise)
+                    continue;
+                if (!archive!.Samples.ContainsKey(sampleId))
+                    continue;
+
+                if (prefetchedSamples.TryGetValue(sampleId, out var existing))
+                {
+                    if (urgentSamples.Contains(sampleId))
+                        existing.Prioritise();
+                    continue;
+                }
+
+                var acquired = new TaskCompletionSource<Sample?>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var preparation = preloads.Schedule(token => audioHost!.PrepareSampleAsync($"o2jam/{sampleId}", token, acquired),
+                    preloadCancellation.Token, urgentSamples.Contains(sampleId));
+                prefetchedSamples[sampleId] = new SamplePreparation(acquired.Task, preparation);
+                // Queued cancellation must settle lookup too, even if the native host was never entered.
+                _ = preparation.Task.ContinueWith(completed =>
+                {
+                    if (completed.IsCanceled)
+                        acquired.TrySetCanceled();
+                    else if (completed.IsFaulted)
+                        acquired.TrySetException(completed.Exception!.InnerExceptions);
+                }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                observeFailure(acquired.Task);
+                observeFailure(preparation.Task);
+            }
         }
         requestedBackgroundTracks.Clear();
         urgentBackgroundTracks.Clear();
-
-        foreach (var sampleId in requestedSamples)
-        {
-            if (!archive!.Samples.ContainsKey(sampleId))
-                continue;
-
-            if (prefetchedSamples.TryGetValue(sampleId, out var existing))
-            {
-                if (urgentSamples.Contains(sampleId))
-                    existing.Prioritise();
-                continue;
-            }
-
-            var preparation = preloads.Schedule(token => samples.GetAsync($"o2jam/{sampleId}", token),
-                preloadCancellation.Token, urgentSamples.Contains(sampleId));
-            prefetchedSamples[sampleId] = preparation;
-            observeFailure(preparation.Task);
-        }
         requestedSamples.Clear();
         urgentSamples.Clear();
+    }
+
+    private sealed class SamplePreparation(Task<Sample?> acquired, O2JamPreloadScheduler.Preparation<Sample?> ready)
+    {
+        internal Task<Sample?> Acquired => acquired;
+        internal Task<Sample?> Task => ready.Task;
+        internal void Prioritise() => ready.Prioritise();
     }
 
     private void classifyAutomaticSamples()

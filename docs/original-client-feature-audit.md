@@ -78,16 +78,16 @@ ConsecutiveCoolProgress、Pills、Life 等状态。当前皮肤新增组件主�
 
 ### F02：统计翻译没有覆盖游玩判定组件
 
-当前 `O2LazerRuleset.GetDisplayNameForHitResult()` 已将 Perfect/Good/Ok/Miss
+当前 `O2LazerRuleset.GetDisplayNameForHitResult()` 已将 Perfect/Good/Meh/Miss
 映射为 COOL/GOOD/BAD/MISS，统计适配会过滤多余 Mania 判定项。但原生
 `DrawableManiaJudgement` 的默认组件为 `DefaultManiaJudgementPiece`；它与 Argon
 继承的 `TextJudgementPiece` 直接使用 `Result.GetDescription().ToUpperInvariant()`。
-因此该默认文本路径仍是 PERFECT/GOOD/OK/MISS，不读 ruleset 的上述翻译。
+因此该默认文本路径仍是 PERFECT/GOOD/MEH/MISS，不读 ruleset 的上述翻译。2026-10-06 BAD 已从 Ok 改为原生 Meh/50 黄色；这不等于中央文本的 O2Jam 名称适配已经完成。
 
 Argon 与 Triangles 的上述判定名称由 `OsuSpriteText` 渲染，不是整词图片素材。
 Argon Pro 沿用文字组件，但原生会隐藏 Great/Perfect 判定；这项显隐策略也应保留。
 
-Legacy 路径则读取 `mania-hit300g`、`mania-hit200`、`mania-hit100`、`mania-hit0`
+Legacy 路径则读取 `mania-hit300g`、`mania-hit200`、`mania-hit50`、`mania-hit0`
 对应贴图，贴图写什么取决于皮肤。这不是判定算法出错；也不能说任意皮肤都一定显示
 同一文字。当前 O2JamSkinTransformer 只包装 legacy LN 部件，没有改中央判定组件。
 
@@ -226,8 +226,7 @@ F18 暂停续播、回放跳转、全局预览生命周期按用户需求复用 
 当前复用 lazer 重试，不需要复制房间权限逻辑。原版是否具备当前同等的回放跳转功能
 没有取得证据，不能将项目新功能当成“与原版回放不一致”的 bug。
 
-已触发 KS 跳转进其中段无法恢复尾音的局限、判后 KS 不再触发的用户选定策略，以及
-连续不对称判定与原版整数位置的边界差异仍沿用既定契约，不因本次检查改变。
+2026-10-08 已实现并获本轮确认的[预览补播](preview-sample-restoration.md)与[命中驱动回放补播](replay-sample-restoration.md)，替代此前“已开始 KS 无法恢复尾音”的暂缓状态；冷缓存准备仍可能暂缺声音。判后 KS 不再触发及连续不对称判定与原版整数位置的边界差异仍沿用用户选定契约。
 
 ## 已暂缓项目的归属参考
 

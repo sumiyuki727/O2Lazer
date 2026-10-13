@@ -29,20 +29,24 @@ public sealed class O2JamTimingMap
         InitialBpm = initialBpm;
 
         var normalisedEvents = (events ?? [])
-                               .Select((e, index) => (Event: e, Index: index))
+                               .Select((e, index) =>
+                               {
+                                   if (!double.IsFinite(e.Position) || e.Position < 0)
+                                       throw new ArgumentOutOfRangeException(nameof(events), "BPM event positions must be finite and non-negative.");
+
+                                   return (Event: e, Index: index);
+                               })
                                .OrderBy(e => e.Event.Position)
                                .ThenBy(e => e.Index)
                                .GroupBy(e => e.Event.Position)
                                .Select(group => group.Last().Event)
                                .ToArray();
 
-        Events = normalisedEvents;
-
-        if (normalisedEvents.Any(e => e.Position < 0))
-            throw new ArgumentOutOfRangeException(nameof(events), "BPM event positions cannot be negative.");
-
         foreach (var bpmEvent in normalisedEvents)
             validateBpm(bpmEvent.Bpm, nameof(events));
+
+        // Beatmap copies rebuild from Events, so callers must not change this snapshot independently of segments.
+        Events = Array.AsReadOnly(normalisedEvents);
 
         var result = new List<Segment>();
         var position = 0d;

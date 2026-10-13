@@ -73,7 +73,7 @@ public class O2JamLocalisationBindingTest
         manager.AddLanguage("en", english);
         manager.AddLanguage("zh-CN", chinese);
         config.SetValue(FrameworkSetting.Locale, "zh-CN");
-        var binding = manager.GetLocalisedBindableString(O2LazerStrings.ImportInitialising);
+        var binding = manager.GetLocalisedBindableString(O2LazerStrings.CheckingBeatmaps);
         try
         {
             binding.Text = O2LazerStrings.RefreshingProgress(3, 10);
@@ -116,7 +116,6 @@ public class O2JamLocalisationBindingTest
                 Assert.That(attributes.Select(attribute => attribute.Acronym), Is.EqualTo(expectedAcronyms));
                 Assert.That(O2LazerStrings.DifficultyName("EX", 75).ToString(), Is.EqualTo("EX Lv.75"));
                 Assert.That(collections.Single().Name, Is.EqualTo("O2Lazer: Pack"));
-                Assert.That(O2LazerStrings.SourceFolderCollectionPrefix.ToString(), Is.EqualTo("O2Lazer: "));
             });
         }
         finally

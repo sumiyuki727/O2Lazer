@@ -1,13 +1,16 @@
 [CmdletBinding()]
 param(
     [int]$LazerProcessId,
-    [ValidateSet('start', 'exit', 'exit-state', 'confirm-exit', 'open-song-select', 'capabilities', 'status', 'difficulties', 'select', 'play', 'pause', 'seek', 'rulesets', 'set-ruleset')]
+    [ValidateSet('start', 'exit', 'exit-state', 'confirm-exit', 'open-song-select', 'capabilities', 'status', 'difficulties', 'select', 'play', 'pause', 'seek', 'rulesets', 'set-ruleset', 'inspect-data', 'library-state', 'refresh-library', 'read-replay', 'export-replay', 'import-replay', 'job-status')]
     [string]$Command = 'status',
-    [Guid]$ExpectedBeatmapId,
-    [Guid]$BeatmapId,
+    [Guid]$ExpectedBeatmapId = [Guid]::Empty,
+    [Guid]$BeatmapId = [Guid]::Empty,
     [double]$TimeMs,
     [string]$Ruleset,
     [string]$ExpectedRuleset,
+    [Guid]$ScoreId = [Guid]::Empty,
+    [Guid]$JobId = [Guid]::Empty,
+    [string]$ReplayPath,
     [string]$ExecutablePath = "$env:LOCALAPPDATA\osulazer\current\osu!.exe"
 )
 
@@ -45,6 +48,18 @@ if ($Command -eq 'set-ruleset') {
     if (-not $Ruleset -or -not $ExpectedRuleset) { throw 'Ruleset and ExpectedRuleset are required.' }
     $request.ruleset = $Ruleset
     $request.expectedRuleset = $ExpectedRuleset
+}
+if ($Command -in @('read-replay', 'export-replay')) {
+    if ($ScoreId -eq [Guid]::Empty) { throw 'ScoreId is required.' }
+    $request.scoreId = $ScoreId.ToString()
+}
+if ($Command -eq 'import-replay') {
+    if (-not $ReplayPath) { throw 'ReplayPath is required.' }
+    $request.path = (Resolve-Path -LiteralPath $ReplayPath).Path
+}
+if ($Command -eq 'job-status') {
+    if ($JobId -eq [Guid]::Empty) { throw 'JobId is required.' }
+    $request.jobId = $JobId.ToString()
 }
 $pipe = [System.IO.Pipes.NamedPipeClientStream]::new('.', "o2lazer-test-$LazerProcessId", [System.IO.Pipes.PipeDirection]::InOut)
 try {

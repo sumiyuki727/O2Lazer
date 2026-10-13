@@ -1,9 +1,9 @@
 # O2Jam gameplay behaviour specification
 
-Maintenance status (2026-10-06): current gameplay contract; remaining original-client features are deferred.
+Maintenance status (2026-10-09): current gameplay contract; remaining original-client features are deferred.
 See the [documentation index](README.md) for current scope and evidence ownership.
 
-Updated 2026-10-06 (alignment scope closed, EX full recording/zero-life lock/F and current native integrations). This specification records
+Updated 2026-10-09 (trusted gameplay snapshot restoration; judgement rules/version unchanged). This specification records
 the current implemented O2Jam gameplay policy and evidence for its revision; the
 [architecture audit](architecture-audit.md) tracks implementation risks and acceptance gaps. It separates confirmed
 reverse-engineered behaviour from compatibility choices. The reference implementations are not
@@ -83,6 +83,16 @@ inside lazer. The detailed precedence and patch constraints are recorded in the
 [architecture document](clean-rewrite-architecture.md#design-intent-and-decision-precedence).
 
 ## Position and judgement
+
+`O2JamTimingMap` owns a snapshot of its BPM events. The public `Events` collection is a
+.NET read-only view of the normalised snapshot; caller-owned input changes and writes through
+collection interfaces cannot alter it or make a converted beatmap disagree with its source.
+Event positions must be finite and non-negative, checked during the existing input enumeration
+before sorting; BPM values remain finite and positive. Events at position zero are valid, and the
+last authored event at the same position wins. Negative finite time/position queries still
+extrapolate the first segment; this construction rule does not restrict early input or replay time.
+The segment integration, rate semantics and binary-search queries are unchanged. R05 adds one
+read-only wrapper, without another event snapshot, source enumeration, file read or database pass.
 
 One full measure is 192 O2Jam ticks. Judgement compares the current integrated chart position with
 the endpoint's chart position; it is not a fixed millisecond window stored on the note.
@@ -171,6 +181,8 @@ No historical judgement branch or position-quantised clock is retained.
 
 ### Current audio policy versus selected clients
 
+Audio contract updated on 2026-10-08; judgement rules/version remain unchanged.
+
 Player-triggered gameplay KeySounds share one active voice per OJM sample identity within the
 current gameplay. An early empty hit on an unresolved tap/LN head remains allowed. Another eligible
 trigger stops the previous voice and starts a new native SampleChannel at the sample beginning;
@@ -184,16 +196,22 @@ use separate instances. Host.Audio coordinates only OJM channels under the curre
 ruleset, using native Stop and new-channel playback. It does not implement judgement or change
 note/sample mapping, zero/missing samples, volume or pan. Weak voice references are cleared on
 seek and gameplay disposal. Pausing freezes the latest active voice at its position; resume does
-not restart it or revive a replaced voice. Replay seek discards old tails and native lifetime
-rewind restores object eligibility.
+not restart it or revive a replaced voice. Replay seek discards stale channels and native lifetime
+rewind restores object eligibility. Once native replay catch-up is stable, Host.Audio restores
+still-active tails from actual successful judgement history through native seekable tracks;
+missed notes do not gain a KeySound.
 
 This is the user's selected C06 policy, not full original-client equivalence: the original client
 can retrigger judged objects, while O2Lazer intentionally rejects them. Scheduled preview,
 background and future automatic-KS paths keep their existing concurrency and synchronisation.
 O2Lazer still translates authored volume/pan into linear gain/Balance; the selected binaries use
 DirectSound attenuation (deferred C07). Effect-volume independence and faithful replay input
-remain separate host contracts. Native small samples still cannot restore an already-started
-tail when seeking into its middle; that accepted limitation is unchanged.
+remain separate host contracts. Native SampleChannel itself has no seek API; since 2026-10-08,
+preview and replay adapters use native TrackStore/Track.Seek to reconstruct eligible historical
+tails. Cold asynchronous preparation may temporarily leave a tail absent. Live gameplay and the
+reserved automatic-KS mode do not reconstruct past playable events. KS inherits native aggregate
+master volume, including inactive-window dimming, plus music volume; it bypasses effect volume.
+See [preview restoration](preview-sample-restoration.md) and [replay restoration](replay-sample-restoration.md).
 
 ## Hit error display
 
@@ -345,6 +363,21 @@ progress against `50 * (current Jam + 1)` without storing host-specific presenta
 
 The domain snapshot permanently exposes Jam progress, Jam Combo, maximum Jam Combo, consecutive
 COOL progress and pill count even before a dedicated HUD is implemented.
+
+## Gameplay snapshot restoration
+
+`O2JamGameplayState.Restore` restores all score, combo/maxima, Jam, raw-COOL progress,
+pills, life, scoring/failure and zero-life-lock fields from a previously emitted snapshot.
+The caller must use the same difficulty and life-depletion policy. This is a trusted in-memory
+state contract, not an external replay deserialiser or a new historical judgement policy.
+Restoration emits one completed state change, keeps the same state source instance, and
+subsequent Apply calls behave as if that snapshot's history had just been played.
+
+Native result identities and rollback order belong to Integration. It reuses existing snapshots
+for tail rollback and recomputes requested accuracies only in a suffix affected by unordered
+native rollback. Already applied native result facts remain frozen for their own undo;
+corrected core snapshots are kept separately. The [rollback contract](replay-timing-boundary.md#判定历史恢复契约r072026-10-09)
+describes this boundary. The core has no osu objects, playback clock or result-history cache.
 
 ## Score
 

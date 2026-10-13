@@ -41,6 +41,10 @@ internal sealed class O2JamExternalChartResources
     {
         get
         {
+            // A loaded Lazy document survives independently of the shared cache. Do not
+            // reuse its decoded OJM path after the source or used directory context changes.
+            if (document.IsValueCreated && !OjnDocumentCache.Shared.IsCurrent(chartPath, difficulty, document.Value))
+                return false;
             if (!archive.IsValueCreated)
                 return true;
 

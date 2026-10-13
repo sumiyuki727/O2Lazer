@@ -58,9 +58,6 @@
   <data name="level_filter_value" xml:space="preserve">
     <value>{0}</value>
   </data>
-  <data name="beatmap_statistic_count" xml:space="preserve">
-    <value>{0}</value>
-  </data>
   <data name="star_rating" xml:space="preserve">
     <value>mania stars</value>
   </data>
@@ -75,9 +72,6 @@
   </data>
   <data name="sync_source_folder_collections" xml:space="preserve">
     <value>Create local collections by source folder</value>
-  </data>
-  <data name="source_folder_collection_prefix" xml:space="preserve">
-    <value>O2Lazer: </value>
   </data>
   <data name="source_folder_collection_name" xml:space="preserve">
     <value>O2Lazer: {0}</value>
@@ -118,18 +112,6 @@
   <data name="delete_all_confirmation" xml:space="preserve">
     <value>All imported O2Jam beatmaps will be cleared from the in-game library. Beatmap files in the source folder will not be deleted.</value>
   </data>
-  <data name="import_selected_file" xml:space="preserve">
-    <value>Import selected file</value>
-  </data>
-  <data name="import_current_folder" xml:space="preserve">
-    <value>Import all in current folder</value>
-  </data>
-  <data name="import_directory_recursive" xml:space="preserve">
-    <value>Import all from directory (recursive)</value>
-  </data>
-  <data name="import_directory_recursive_tooltip" xml:space="preserve">
-    <value>Imports all OJN files from the selected directory and subdirectories</value>
-  </data>
   <data name="cool" xml:space="preserve">
     <value>COOL</value>
   </data>
@@ -145,27 +127,6 @@
   <data name="good" xml:space="preserve">
     <value>GOOD</value>
   </data>
-  <data name="import_initialising" xml:space="preserve">
-    <value>O2Jam import is initialising...</value>
-  </data>
-  <data name="import_failed" xml:space="preserve">
-    <value>O2Jam import failed! Check logs for more information.</value>
-  </data>
-  <data name="set_already_imported" xml:space="preserve">
-    <value>O2Jam set is already imported.</value>
-  </data>
-  <data name="all_sets_already_imported" xml:space="preserve">
-    <value>All {0} O2Jam sets are already imported.</value>
-  </data>
-  <data name="imported_sets" xml:space="preserve">
-    <value>Imported {0} O2Jam sets!</value>
-  </data>
-  <data name="updated_sets" xml:space="preserve">
-    <value>Updated metadata for {0} O2Jam sets.</value>
-  </data>
-  <data name="imported_and_updated_sets" xml:space="preserve">
-    <value>Imported {0} O2Jam sets and updated metadata for {1}.</value>
-  </data>
   <data name="refreshing_progress" xml:space="preserve">
     <value>Updating O2Jam beatmaps {0}/{1}</value>
   </data>
@@ -175,62 +136,11 @@
   <data name="refresh_complete" xml:space="preserve">
     <value>Update complete.</value>
   </data>
-  <data name="import_completed_with_failures" xml:space="preserve">
-    <value>Imported {0} of {1} O2Jam sets; {2} files could not be read</value>
-  </data>
   <data name="ruleset_unavailable" xml:space="preserve">
     <value>O2Jam ruleset is not available</value>
   </data>
-  <data name="action_key_1" xml:space="preserve">
-    <value>Key 1</value>
-  </data>
-  <data name="action_key_2" xml:space="preserve">
-    <value>Key 2</value>
-  </data>
-  <data name="action_key_3" xml:space="preserve">
-    <value>Key 3</value>
-  </data>
-  <data name="action_key_4" xml:space="preserve">
-    <value>Key 4</value>
-  </data>
-  <data name="action_key_5" xml:space="preserve">
-    <value>Key 5</value>
-  </data>
-  <data name="action_key_6" xml:space="preserve">
-    <value>Key 6</value>
-  </data>
-  <data name="action_key_7" xml:space="preserve">
-    <value>Key 7</value>
-  </data>
   <data name="seven_keys" xml:space="preserve">
     <value>7 keys</value>
-  </data>
-  <data name="scroll_direction" xml:space="preserve">
-    <value>Scroll direction</value>
-  </data>
-  <data name="scroll_speed" xml:space="preserve">
-    <value>Scroll speed</value>
-  </data>
-  <data name="scroll_speed_value" xml:space="preserve">
-    <value>{0:N0} ms · {1:0.0}×</value>
-  </data>
-  <data name="ojn_metadata_encoding" xml:space="preserve">
-    <value>OJN metadata encoding</value>
-  </data>
-  <data name="ojn_metadata_encoding_description" xml:space="preserve">
-    <value>Used when importing titles, artists and charter names. Automatic prefers GBK when legacy encodings are ambiguous; choose CP949 for original Korean libraries or UTF-8 for explicitly UTF-8 metadata.</value>
-  </data>
-  <data name="ojn_metadata_encoding_automatic" xml:space="preserve">
-    <value>Automatic (GBK preferred)</value>
-  </data>
-  <data name="ojn_metadata_encoding_gbk" xml:space="preserve">
-    <value>GBK (Simplified Chinese)</value>
-  </data>
-  <data name="ojn_metadata_encoding_cp949" xml:space="preserve">
-    <value>CP949 (Korean)</value>
-  </data>
-  <data name="ojn_metadata_encoding_utf8" xml:space="preserve">
-    <value>UTF-8</value>
   </data>
   <data name="cross_ruleset_conversion_unsupported" xml:space="preserve">
     <value>O2Jam charts do not support cross-ruleset conversion.</value>
@@ -393,4 +303,7 @@
   </data>
   <data name="synchronising_collections" xml:space="preserve"><value>Synchronising collections...</value></data>
   <data name="collection_sync_complete" xml:space="preserve"><value>Collection synchronisation complete.</value></data>
+  <data name="replay_read_limit_exceeded" xml:space="preserve"><value>Unable to read this O2Lazer replay: it exceeds the supported resource limits. Existing scores and replay files have been kept.</value></data>
+  <data name="replay_save_limit_exceeded" xml:space="preserve"><value>Your score was saved, but its replay exceeds the supported resource limits and was not saved.</value></data>
+  <data name="replay_save_failed" xml:space="preserve"><value>Your score was saved, but its replay could not be saved.</value></data>
 </root>

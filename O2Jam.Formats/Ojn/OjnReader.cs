@@ -18,6 +18,7 @@ public sealed class OjnReader
 
     private readonly OjnMetadataEncoding metadataEncoding;
     private readonly Func<OjnMetadataEncoding>? encodingFallback;
+    private readonly OjnReadLimits limits;
 
     static OjnReader()
     {
@@ -32,9 +33,15 @@ public sealed class OjnReader
     }
 
     internal OjnReader(OjnMetadataEncoding metadataEncoding, Func<OjnMetadataEncoding>? encodingFallback)
+        : this(metadataEncoding, encodingFallback, OjnReadLimits.Default)
+    {
+    }
+
+    internal OjnReader(OjnMetadataEncoding metadataEncoding, Func<OjnMetadataEncoding>? encodingFallback, OjnReadLimits limits)
     {
         this.metadataEncoding = metadataEncoding;
         this.encodingFallback = encodingFallback;
+        this.limits = limits;
     }
 
     internal static bool RequiresLegacyEncodingMigration(string path)
@@ -57,9 +64,7 @@ public sealed class OjnReader
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        using var memory = new MemoryStream();
-        stream.CopyTo(memory);
-        return Read(memory.ToArray());
+        return Read(limits.ReadSource(stream));
     }
 
     /// <summary>
@@ -75,28 +80,27 @@ public sealed class OjnReader
         var source = stream;
         if (!source.CanSeek)
         {
-            buffered = new MemoryStream();
-            source.CopyTo(buffered);
+            buffered = limits.BufferSource(source);
             source = buffered;
         }
+        else
+            limits.CheckSourceLength(source.Length);
 
         try
         {
             source.Position = 0;
             Span<byte> prefix = stackalloc byte[3];
-            var prefixLength = source.Read(prefix);
+            var prefixLength = source.ReadAtLeast(prefix, prefix.Length, throwOnEndOfStream: false);
             source.Position = 0;
 
             if (prefixLength == prefix.Length && prefix.SequenceEqual("new"u8))
             {
-                using var encrypted = new MemoryStream();
-                source.CopyTo(encrypted);
-                return readChart(decryptIfNeeded(encrypted.ToArray()), difficulty);
+                return readChart(decryptIfNeeded(buffered?.ToArray() ?? limits.ReadSource(source)), difficulty);
             }
 
             using var reader = new BinaryReader(source, Encoding.UTF8, leaveOpen: true);
             var header = readHeader(reader, null);
-            var chart = readChart(reader, header, (int)difficulty);
+            var chart = readChart(reader, header, (int)difficulty, new OjnReadBudget(limits));
             return new OjnDocument(header.Metadata, [chart]);
         }
         finally
@@ -108,6 +112,7 @@ public sealed class OjnReader
     public OjnDocument Read(byte[] source)
     {
         ArgumentNullException.ThrowIfNull(source);
+        limits.CheckSourceLength(source.LongLength);
         var data = decryptIfNeeded(source);
 
         if (data.Length < headerSize)
@@ -116,9 +121,10 @@ public sealed class OjnReader
         using var reader = new BinaryReader(new MemoryStream(data, writable: false), Encoding.UTF8, leaveOpen: false);
         var header = readHeader(reader, data);
         var charts = new List<OjnChart>(3);
+        var budget = new OjnReadBudget(limits);
 
         for (var index = 0; index < 3; index++)
-            charts.Add(readChart(reader, header, index));
+            charts.Add(readChart(reader, header, index, budget));
 
         return new OjnDocument(header.Metadata, charts);
     }
@@ -130,7 +136,7 @@ public sealed class OjnReader
 
         using var reader = new BinaryReader(new MemoryStream(source, writable: false), Encoding.UTF8, leaveOpen: false);
         var header = readHeader(reader, null);
-        var chart = readChart(reader, header, (int)difficulty);
+        var chart = readChart(reader, header, (int)difficulty, new OjnReadBudget(limits));
         return new OjnDocument(header.Metadata, [chart]);
     }
 
@@ -191,7 +197,7 @@ public sealed class OjnReader
         return new Header(metadata, eventCounts, noteCounts, measureCounts, blockCounts, blockOffsets, coverOffset);
     }
 
-    private static OjnChart readChart(BinaryReader reader, Header header, int difficultyIndex)
+    private static OjnChart readChart(BinaryReader reader, Header header, int difficultyIndex, OjnReadBudget budget)
     {
         var offset = header.BlockOffsets[difficultyIndex];
         var blockCount = header.BlockCounts[difficultyIndex];
@@ -239,10 +245,16 @@ public sealed class OjnReader
                     if (channel == 0)
                     {
                         if (value > 0)
+                        {
+                            budget.AddEvent();
                             fractions[checked((int)measure + 1)] = value;
+                        }
                     }
                     else if (value > 0)
+                    {
+                        budget.AddEvent();
                         bpmEvents.Add(new OjnBpmEvent(position, value));
+                    }
 
                     continue;
                 }
@@ -255,6 +267,7 @@ public sealed class OjnReader
                 if (rawId == 0)
                     continue;
 
+                budget.AddEvent();
                 var volumeNibble = (audio >> 4) & 0x0f;
                 var volume = volumeNibble == 0 ? 100 : (int)Math.Round(volumeNibble / 16d * 100);
                 var panNibble = audio & 0x0f;

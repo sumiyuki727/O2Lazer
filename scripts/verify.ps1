@@ -1,85 +1,83 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
     [string]$OsuBinaryDirectory,
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Release',
     [string]$DotNet = 'dotnet',
+    [ValidateSet('All', 'Portable', 'Host')]
+    [string]$Scope = 'All',
     [switch]$NoBuild
 )
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-& (Join-Path $PSScriptRoot 'check-module-boundary.ps1')
-& (Join-Path $PSScriptRoot 'check-storage-boundary.ps1')
-& (Join-Path $PSScriptRoot 'check-scoring-boundary.ps1')
-$binaryDirectory = (Resolve-Path -LiteralPath $OsuBinaryDirectory).Path
-foreach ($assemblyName in @('osu.Game.dll', 'osu.Game.Rulesets.Mania.dll')) {
-    if (-not (Test-Path -LiteralPath (Join-Path $binaryDirectory $assemblyName) -PathType Leaf)) {
-        throw "Missing $assemblyName in $binaryDirectory. See docs/development.md."
+$resultsDirectory = Join-Path $repositoryRoot '.artifacts/test-results'
+# New fixtures must not turn routine checks into benchmarks or private-library scans.
+$routineFilter = 'TestCategory!=Benchmark&TestCategory!=LocalDiagnostics&TestCategory!=Isolated'
+$binaryDirectory = $null
+if ($Scope -ne 'Portable') {
+    if ([string]::IsNullOrWhiteSpace($OsuBinaryDirectory)) {
+        throw 'All and Host verification require OsuBinaryDirectory. Use -Scope Portable for independent checks.'
+    }
+    $binaryDirectory = (Resolve-Path -LiteralPath $OsuBinaryDirectory).Path
+    foreach ($assemblyName in @('osu.Game.dll', 'osu.Game.Rulesets.Mania.dll', 'osu.Game.Resources.dll')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $binaryDirectory $assemblyName) -PathType Leaf)) {
+            throw "Missing $assemblyName in $binaryDirectory. See docs/development.md."
+        }
     }
 }
 
-& (Join-Path $PSScriptRoot 'check-architecture.ps1') -OsuBinaryDirectory $binaryDirectory -Configuration $Configuration -DotNet $DotNet
-
-# Corpus scans and diagnostic tests need private data or process isolation, not a routine check.
-$testArguments = @(
-    'test',
-    (Join-Path $repositoryRoot 'osu.Game.Rulesets.O2Lazer.Tests/osu.Game.Rulesets.O2Lazer.Tests.csproj'),
-    '-c', $Configuration,
-    "-p:OsuBinaryDirectory=$binaryDirectory",
-    '-p:O2JamSyncDiagnostics=false',
-    '--filter', 'FullyQualifiedName~.Normal.&TestCategory!=LocalDiagnostics&TestCategory!=Isolated&FullyQualifiedName!~O2JamLegacyLibraryMigrationTest&FullyQualifiedName!~O2JamReplayImportTest',
-    '--logger', 'trx;LogFileName=normal.trx',
-    '--results-directory', (Join-Path $repositoryRoot '.artifacts/test-results')
-)
-if ($NoBuild) {
-    $testArguments += '--no-build'
+& (Join-Path $PSScriptRoot 'check-module-boundary.ps1')
+& (Join-Path $PSScriptRoot 'check-storage-boundary.ps1')
+& (Join-Path $PSScriptRoot 'check-scoring-boundary.ps1')
+if ($Scope -ne 'Portable') {
+    & (Join-Path $PSScriptRoot 'check-architecture.ps1') -OsuBinaryDirectory $binaryDirectory -Configuration $Configuration -DotNet $DotNet
 }
 
 Push-Location $repositoryRoot
 try {
-    $formatArguments = @(
-        'test',
-        (Join-Path $repositoryRoot 'O2Jam.Formats.Tests/O2Jam.Formats.Tests.csproj'),
-        '-c', $Configuration,
-        '--filter', 'FullyQualifiedName~.Normal.',
-        '--logger', 'trx;LogFileName=formats.trx',
-        '--results-directory', (Join-Path $repositoryRoot '.artifacts/test-results')
-    )
-    if ($NoBuild) {
-        $formatArguments += '--no-build'
-    }
-    & $DotNet @formatArguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "Format verification failed (exit code $LASTEXITCODE)."
+    if ($Scope -ne 'Host') {
+        $portableGroups = @(
+            @{ Project = 'O2Jam.Formats.Tests/O2Jam.Formats.Tests.csproj'; Filter = "FullyQualifiedName~.Normal.&$routineFilter"; Report = 'formats.trx' },
+            @{ Project = 'O2Jam.Core.Tests/O2Jam.Core.Tests.csproj'; Filter = "FullyQualifiedName~.Normal.Core.&$routineFilter"; Report = 'core.trx' },
+            @{ Project = 'scripts/Architecture.Tests/Architecture.Tests.csproj'; Filter = "FullyQualifiedName~.Normal.&$routineFilter"; Report = 'architecture.trx' }
+        )
+        foreach ($group in $portableGroups) {
+            $arguments = @(
+                'test', (Join-Path $repositoryRoot $group.Project), '-c', $Configuration,
+                '--filter', $group.Filter,
+                '--logger', "trx;LogFileName=$($group.Report)",
+                '--results-directory', $resultsDirectory
+            )
+            if ($NoBuild) { $arguments += '--no-build' }
+            & $DotNet @arguments
+            if ($LASTEXITCODE -ne 0) { throw "$($group.Report) verification failed (exit code $LASTEXITCODE)." }
+        }
     }
 
-    $coreArguments = @(
-        'test', (Join-Path $repositoryRoot 'O2Jam.Core.Tests/O2Jam.Core.Tests.csproj'),
-        '-c', $Configuration, '--filter', 'FullyQualifiedName~.Normal.Core.',
-        '--logger', 'trx;LogFileName=core.trx',
-        '--results-directory', (Join-Path $repositoryRoot '.artifacts/test-results')
-    )
-    if ($NoBuild) { $coreArguments += '--no-build' }
-    & $DotNet @coreArguments
-    if ($LASTEXITCODE -ne 0) { throw "Core verification failed (exit code $LASTEXITCODE)." }
-
-    & $DotNet test (Join-Path $PSScriptRoot 'Architecture.Tests/Architecture.Tests.csproj') -c $Configuration --filter 'FullyQualifiedName~.Normal.'
-    if ($LASTEXITCODE -ne 0) { throw "Architecture checker tests failed (exit code $LASTEXITCODE)." }
-
-    & $DotNet @testArguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "Verification failed (exit code $LASTEXITCODE)."
-    }
-    # Native Realm lifetime tests require separate test-host processes.
-    foreach ($fixture in @('O2JamLegacyLibraryMigrationTest', 'O2JamReplayImportTest')) {
-        & $DotNet test (Join-Path $repositoryRoot 'osu.Game.Rulesets.O2Lazer.Tests/osu.Game.Rulesets.O2Lazer.Tests.csproj') `
-            -c $Configuration --no-build "-p:OsuBinaryDirectory=$binaryDirectory" `
-            --filter "FullyQualifiedName~$fixture&TestCategory!=Isolated&TestCategory!=LocalDiagnostics" `
-            --logger "trx;LogFileName=$fixture.trx" `
-            --results-directory (Join-Path $repositoryRoot '.artifacts/test-results')
-        if ($LASTEXITCODE -ne 0) { throw "$fixture failed (exit code $LASTEXITCODE)." }
+    if ($Scope -ne 'Portable') {
+        $hostProject = Join-Path $repositoryRoot 'osu.Game.Rulesets.O2Lazer.Tests/osu.Game.Rulesets.O2Lazer.Tests.csproj'
+        # Native Realm lifetime tests require separate test-host processes.
+        $hostGroups = @(
+            @{ Filter = "FullyQualifiedName~.Normal.&$routineFilter&FullyQualifiedName!~O2JamLegacyLibraryMigrationTest&FullyQualifiedName!~O2JamReplayImportTest"; Report = 'normal.trx'; ReuseBuild = $false },
+            @{ Filter = "FullyQualifiedName~O2JamLegacyLibraryMigrationTest&$routineFilter"; Report = 'O2JamLegacyLibraryMigrationTest.trx'; ReuseBuild = $true },
+            @{ Filter = "FullyQualifiedName~O2JamReplayImportTest&$routineFilter"; Report = 'O2JamReplayImportTest.trx'; ReuseBuild = $true }
+            # This fixture is intentionally isolated from the routine Realm group.
+            @{ Filter = 'FullyQualifiedName~O2JamLegacyLibraryMigrationTest.LegacySettingsRemainReadableWithoutRevivingManualEncoding&TestCategory!=Benchmark&TestCategory!=LocalDiagnostics'; Report = 'legacy-settings.trx'; ReuseBuild = $true }
+        )
+        foreach ($group in $hostGroups) {
+            $arguments = @(
+                'test', $hostProject, '-c', $Configuration,
+                "-p:OsuBinaryDirectory=$binaryDirectory",
+                '-p:O2JamSyncDiagnostics=false', '-p:O2LazerTestBridge=false',
+                '--filter', $group.Filter,
+                '--logger', "trx;LogFileName=$($group.Report)",
+                '--results-directory', $resultsDirectory
+            )
+            if ($NoBuild -or $group.ReuseBuild) { $arguments += '--no-build' }
+            & $DotNet @arguments
+            if ($LASTEXITCODE -ne 0) { throw "$($group.Report) verification failed (exit code $LASTEXITCODE)." }
+        }
     }
 }
 finally {

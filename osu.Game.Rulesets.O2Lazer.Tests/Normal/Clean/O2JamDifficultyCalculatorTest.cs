@@ -20,7 +20,7 @@ using osu.Game.Skinning;
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 [TestFixture]
-public class O2JamDifficultyCalculatorTest
+public partial class O2JamDifficultyCalculatorTest
 {
     [Test]
     public void NativeCalculatorKeepsManiaStarsForPersistence()

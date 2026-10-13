@@ -8,7 +8,7 @@ using osu.Game.Rulesets.O2Lazer.Integration.Formats.Ojm;
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 [TestFixture]
-public class OjmArchiveCacheTest
+public partial class OjmArchiveCacheTest
 {
     [Test]
     public void ReusesUnchangedArchiveAndInvalidatesChangedFile()

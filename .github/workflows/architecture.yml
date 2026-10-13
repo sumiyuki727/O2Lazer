@@ -14,6 +14,7 @@ jobs:
     runs-on: windows-latest
     env:
       OSU_BINARY_ARCHIVE_URL: ${{ vars.OSU_BINARY_ARCHIVE_URL }}
+      OSU_BINARY_ARCHIVE_SHA256: ${{ vars.OSU_BINARY_ARCHIVE_SHA256 }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -21,35 +22,54 @@ jobs:
           dotnet-version: |
             10.0.x
             8.0.x
-      - name: Source boundaries
+      - name: Portable modules and source boundaries
         shell: pwsh
-        run: |
-          ./scripts/check-module-boundary.ps1
-          ./scripts/check-storage-boundary.ps1
-          ./scripts/check-scoring-boundary.ps1
-      - name: Portable modules and semantic checker
-        shell: pwsh
-        run: |
-          dotnet test O2Jam.Core.Tests/O2Jam.Core.Tests.csproj -c Release --filter 'FullyQualifiedName~.Normal.Core.'
-          if ($LASTEXITCODE -ne 0) { throw 'Core tests failed.' }
-          dotnet test O2Jam.Formats.Tests/O2Jam.Formats.Tests.csproj -c Release --filter 'FullyQualifiedName~.Normal.'
-          if ($LASTEXITCODE -ne 0) { throw 'Format tests failed.' }
-          dotnet test scripts/Architecture.Tests/Architecture.Tests.csproj -c Release --filter 'FullyQualifiedName~.Normal.'
-          if ($LASTEXITCODE -ne 0) { throw 'Architecture tests failed.' }
+        run: ./scripts/verify.ps1 -Scope Portable
       - name: Host reference coverage
-        if: env.OSU_BINARY_ARCHIVE_URL == ''
+        if: always() && env.OSU_BINARY_ARCHIVE_URL == ''
         shell: pwsh
         run: |
-          'Portable checks ran. Full host dependency analysis requires OSU_BINARY_ARCHIVE_URL with binaries matching Directory.Build.props; it has not run in this job.' >> $env:GITHUB_STEP_SUMMARY
-      - name: Full host dependency graph
+          'Host dependency analysis, regular host tests, Realm migration/recovery and replay import tests have NOT run: OSU_BINARY_ARCHIVE_URL is missing. Supply trusted binaries matching Directory.Build.props, including Game, Mania and Resources in one directory.' >> $env:GITHUB_STEP_SUMMARY
+      - name: Host dependencies and isolated regressions
         if: env.OSU_BINARY_ARCHIVE_URL != ''
         shell: pwsh
         run: |
+          if ($env:OSU_BINARY_ARCHIVE_SHA256 -notmatch '^[a-fA-F0-9]{64}$') {
+            throw 'Host verification requires the trusted archive SHA-256 in OSU_BINARY_ARCHIVE_SHA256.'
+          }
           New-Item -Path .artifacts -ItemType Directory -Force | Out-Null
           Invoke-WebRequest -Uri $env:OSU_BINARY_ARCHIVE_URL -OutFile .artifacts/host-binaries.zip
+          if ((Get-FileHash -LiteralPath .artifacts/host-binaries.zip -Algorithm SHA256).Hash -ne $env:OSU_BINARY_ARCHIVE_SHA256) {
+            throw 'Host reference archive SHA-256 does not match the pinned digest.'
+          }
           Expand-Archive -LiteralPath .artifacts/host-binaries.zip -DestinationPath .artifacts/host-binaries
           $candidates = @(Get-ChildItem .artifacts/host-binaries -Recurse -Filter osu.Game.dll | Where-Object {
-            Test-Path -LiteralPath (Join-Path $_.DirectoryName 'osu.Game.Rulesets.Mania.dll')
+            (Test-Path -LiteralPath (Join-Path $_.DirectoryName 'osu.Game.Rulesets.Mania.dll')) -and
+            (Test-Path -LiteralPath (Join-Path $_.DirectoryName 'osu.Game.Resources.dll'))
           })
-          if ($candidates.Count -ne 1) { throw 'The archive must contain one matching Game/Mania binary directory.' }
-          ./scripts/check-architecture.ps1 -OsuBinaryDirectory $candidates[0].DirectoryName
+          if ($candidates.Count -ne 1) { throw 'The archive must contain one matching Game/Mania/Resources binary directory.' }
+          ./scripts/verify.ps1 -Scope Host -OsuBinaryDirectory $candidates[0].DirectoryName
+      - name: Verification results
+        if: always()
+        shell: pwsh
+        run: |
+          '| Report | Total | Passed | Failed | Not executed |' >> $env:GITHUB_STEP_SUMMARY
+          '|---|---:|---:|---:|---:|' >> $env:GITHUB_STEP_SUMMARY
+          foreach ($path in Get-ChildItem .artifacts/test-results -Filter '*.trx' -ErrorAction SilentlyContinue) {
+            [xml]$document = Get-Content -LiteralPath $path.FullName -Raw
+            $ns = [System.Xml.XmlNamespaceManager]::new($document.NameTable)
+            $ns.AddNamespace('t', 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010')
+            $counts = $document.SelectSingleNode('//t:ResultSummary/t:Counters', $ns)
+            "| $($path.Name) | $($counts.total) | $($counts.passed) | $($counts.failed) | $($counts.notExecuted) |" >> $env:GITHUB_STEP_SUMMARY
+          }
+      - name: Upload verification reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-reports
+          path: |
+            .artifacts/test-results/*.trx
+            .artifacts/architecture/dependencies.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14

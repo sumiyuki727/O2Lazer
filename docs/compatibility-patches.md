@@ -25,7 +25,7 @@
 | `O2JamFileVerificationPatch` | 可选 | 原生 RealmFileStore.Add 会校验并修复文件，但不返回修复结果；观察本 ruleset 当前写入的校验结果，避免为缓存失效通知提前再读一次文件。 |
 | `O2JamStarRatingDisplayPatch` | 可选 | 原生星级文本无法按 O2Jam 的 LV 规则显示。 |
 | `O2JamStarRatingPresentationPatch` | 可选 | 原生难度组件不能直接绑定 LV 与 Mania 星级的两种颜色来源。 |
-| `O2JamCarouselTransitionPatch` | 可选 | 原生曲库过渡时序没有 O2Jam 模式切换所需的入场触发点。 |
+| `O2JamCarouselTransitionPatch` | 可选 | 原生曲库过渡时序没有 O2Jam 模式切换所需的入场触发点；筛选完成时旧模式待选项可推迟原生校验，随后被拒绝而只清队列。限定原生 SoloSongSelect 切入 O2Lazer 且当前/待选均为外来谱面时补调原生校验，有效待选、其他模式与筛选中不介入。 |
 | `O2JamModeSwitchDirectionPatch` | 可选 | 原生音轨方向推断会在跨模式切换时重复扫描曲库。 |
 | `O2JamLevelFilterPatch` | 可选 | 原生筛选面板没有 LV 条件及其显示。 |
 | `O2JamLevelSortPatch` | 可选 | 原生曲库排序没有 LV 顺序。 |
@@ -35,6 +35,12 @@
 | `O2JamEditorAccessPatch` | 可选 | 原生入口仍可尝试打开 O2Jam 谱面编辑器；原生 `Editor` 只允许 `ILegacyRuleset` 保存，因此该补丁用于提前拦截并给出明确提示。 |
 
 文件校验观察器仅在 O2Lazer 的同步 Add 调用内按线程、实例和预期 Hash 生效；其他文件库操作保持原生路径。它不改变校验布尔值，也不接管写入。安装失败保留原先提前校验；检查未被观察或回调失败时保守通知本 ruleset 的活动所有者。升级宿主须复核私有校验方法签名和调用路径；若原生提供修复结果入口，应删除该观察器。2026-10-03 已通过 121 项迁移/文件恢复回归和 BMS 两种载入顺序检查。
+
+2026-10-08 回放保存子项继续使用原有 Player prefix/postfix，没有增加安装目标。
+新增缓存的 `Player.DrawableRuleset` 属性用于保留原生观看回放时不重复保存的分支；
+升级时与 `Player.scoreManager`、`Drawable.Schedule(Action)` 一起复核。
+归档预算留在 Host/Replays，附件写入及失败通知留在 Persistence/Realm；成绩克隆、
+导入和导出均复用原生，详见[归档资源预算](replay-resource-limits.md)。
 
 安装只尝试一次。必要补丁失败时，ruleset 仍可被宿主枚举，但 `CreateDrawableRulesetWith` 会抛出包含失败补丁名称的 `RulesetLoadException`，阻止进入可能损坏成绩或缺少音色的玩法；可选补丁失败只记录日志。安装器在异常时按独立 Harmony ID 撤销本项已经安装的钩子，包含协调器实际登记的外部 Harmony 运行时。BMSRuleset 携带独立 Harmony 时，`Host/Compatibility/O2JamBmsHarmonyCompatibility` 为重叠方法按载入顺序登记 O2Lazer 钩子；只以 O2Lazer 的 Harmony ID 回滚。BMS 适配器只服务已知组合；注册、后加载与回滚由通用 O2JamPatchCoordinator 处理，见[协调设计](ruleset-compatibility-design.md)。安装及已知提供方后加载完成时输出一次协调器 Verbose 清单，查询失败仅作为诊断证据，不改变玩法可用性。指定版本的测试矩阵、原生缺口与仍待客户端验收的范围见[共存验证](bms-coexistence.md)。
 
@@ -73,3 +79,14 @@ LoadComplete 的入场动画，不能用缩放整棵树来改变图标或标记�
 2026-10-05，用户确认 COOL 基准和 MS 变速修复表现正常，临时误差条监听及
 其构建开关已移除。2026-10-06 BAD 改为 Meh 判定及统计键并删除取色补丁；两种表的实际色区和
 标记、MS/Mania 隔离及 BMS 双顺序已通过定向测试，见[显示验收](hit-error-display-validation.md)。
+
+## 2026-10-13 选曲完成边界候选
+
+列表过渡适配新增私有钩子 SongSelect.newItemsPresented 的 postfix 和
+ensureGlobalBeatmapValid 的调用；安装时同时验证 debounceQueuedSelection 字段。
+依旧使用该安装器的原子失败/回滚策略，没有新增安装器、Realm 查询、手写随机选曲或 BMS 专用分支。
+原因是原生完成回调把校验交给待选项，但跨模式拒绝待选项只会清队列。
+适配范围限定 O2Lazer、原生 SoloSongSelect 和已完成筛选；有效 O2Lazer 待选项保留原生 debounce。
+六项边界回归及组合回归已通过。本轮客户端多次切换正常，用户反馈原问题不一定能复现；
+没有运行中待选项分支的触发记录，因此仍按偶发观察项保留，不能由一次未复现宣布彻底修复。
+见[本轮构建验证](current-build-validation.md#本轮验收反馈修复候选2026-10-13)。

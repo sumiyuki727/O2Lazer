@@ -65,7 +65,8 @@ internal sealed class OjmArchiveCache
         lock (cacheLock)
             return entries.TryGetValue(key, out var entry)
                    && entry.Archive.IsValueCreated
-                   && ReferenceEquals(entry.Archive.Value, archive);
+                   && ReferenceEquals(entry.Archive.Value, archive)
+                   && !archive.IsSourceInvalidated;
     }
 
     private OjmArchive get(string sourcePath, string archivePath, IReadOnlySet<int>? sampleIds)
@@ -81,7 +82,8 @@ internal sealed class OjmArchiveCache
         lock (cacheLock)
         {
             if (!entries.TryGetValue(key, out entry!)
-                || !entry.Matches(canonicalArchive, sourceSnapshot, archiveSnapshot, requestedSamples))
+                || !entry.Matches(canonicalArchive, sourceSnapshot, archiveSnapshot, requestedSamples)
+                || (entry.Archive.IsValueCreated && entry.Archive.Value.IsSourceInvalidated))
             {
                 entry = new Entry(
                     key,

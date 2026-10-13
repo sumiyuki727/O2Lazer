@@ -1147,6 +1147,101 @@ public class O2JamPreviewTrackLifecycleTest
         Assert.That(resources.Tracks, Is.Empty);
         Assert.That(resources.VoiceSample.Channels, Has.Count.EqualTo(1));
     }
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void ReturningFromGameplayRestoresMissingPreviewTail(bool replay, bool paused)
+    {
+        var resources = new RestorablePlaybackResource();
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(automatic: false, time: 100, volume: 80, pan: 0.25f), resources, clock)
+        {
+            PlaybackMode = O2JamPreviewPlaybackMode.Gameplay,
+        };
+        preview.Seek(400);
+        preview.Update();
+        if (replay)
+        {
+            preview.RestoreReplayKeySounds([new O2JamPreviewEvent(150, 7, 80, 0.25f, true, false)], 400);
+            preview.Update();
+        }
+        if (!paused)
+            start(preview);
+
+        preview.PlaybackMode = O2JamPreviewPlaybackMode.Preview;
+        preview.Update();
+        var restored = resources.Tracks[^1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.LastSeek, Is.EqualTo(300), "Preview uses chart timing rather than a recorded late hit.");
+            Assert.That(restored.IsRunning, Is.EqualTo(!paused));
+            Assert.That(restored.Volume.Value, Is.EqualTo(0.8));
+            Assert.That(restored.Balance.Value, Is.EqualTo(0.25));
+            Assert.That(clock.CurrentTime, Is.EqualTo(400));
+        });
+        if (replay)
+        {
+            resources.Tracks[0].Update();
+            Assert.That(resources.Tracks[0].IsDisposed, Is.True, "Recorded hit timing cannot leak into the preview.");
+        }
+        var voiceCount = resources.Tracks.Count;
+        preview.PlaybackMode = O2JamPreviewPlaybackMode.Preview;
+        preview.Update();
+        Assert.That(resources.Tracks, Has.Count.EqualTo(voiceCount));
+        if (paused)
+        {
+            start(preview);
+            Assert.That(restored.IsRunning, Is.True);
+        }
+    }
+
+    [Test]
+    public void ReturningToPreviewKeepsLiveAutomaticSampleWithoutDuplicatingIt()
+    {
+        var resources = new RestorablePlaybackResource { VoiceSample = new CapturingSample() };
+        var clock = new FakeTrack(10_000);
+        using var preview = new O2JamPreviewTrack(transferBeatmap(time: 100), resources, clock)
+        {
+            PlaybackMode = O2JamPreviewPlaybackMode.Gameplay,
+        };
+        start(preview);
+        clock.Seek(100);
+        preview.Update();
+        clock.Seek(400);
+        preview.Update();
+        var channel = resources.VoiceSample.Channel!;
+        preview.PlaybackMode = O2JamPreviewPlaybackMode.Preview;
+        preview.Update();
+        Assert.Multiple(() =>
+        {
+            Assert.That(resources.Tracks, Is.Empty);
+            Assert.That(resources.VoiceSample.Channels, Has.Count.EqualTo(1));
+            Assert.That(channel.StopCount, Is.Zero);
+            Assert.That(preview.CurrentTime, Is.EqualTo(400));
+        });
+    }
+
+    [Test]
+    public void LeavingPreviewCancelsPendingReturnRestoration()
+    {
+        var resources = new RestorablePlaybackResource { DurationReady = false };
+        using var preview = new O2JamPreviewTrack(transferBeatmap(automatic: false), resources, new FakeTrack(10_000))
+        {
+            PlaybackMode = O2JamPreviewPlaybackMode.Gameplay,
+        };
+        preview.Seek(400);
+        preview.Update();
+        preview.PlaybackMode = O2JamPreviewPlaybackMode.Preview;
+        preview.Update();
+        Assert.That(resources.Tracks, Is.Empty);
+        preview.PlaybackMode = O2JamPreviewPlaybackMode.Gameplay;
+        preview.Update();
+        resources.DurationReady = true;
+        preview.Update();
+        Assert.That(resources.Tracks, Is.Empty);
+    }
+
     private sealed class RestorablePlaybackResource : FakePlaybackResource, IO2JamPlaybackResource
     {
         public bool DurationReady { get; set; } = true;

@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -69,5 +70,34 @@ public class OjnBeatmapFactoryTest
         var document = new OjnReader().Read(bytes);
         var automaticAudio = new OjnBeatmapFactory().Create(document, OjnDifficulty.EX).AutomaticAudioEvents.Single();
         Assert.That(automaticAudio.Kind, Is.EqualTo(O2JamAudioEventKind.Background));
+    }
+
+    [Test]
+    public void ConverterPreservesTimingAfterRejectedEventMutation()
+    {
+        var document = new OjnReader().Read(OjnTestData.CreateChart());
+        var source = new OjnBeatmapFactory().Create(document, O2JamDifficulty.EX);
+        var originalChange = source.TimingMap.Events[0];
+        Assert.Throws<NotSupportedException>(() =>
+            ((IList<O2JamBpmEvent>)source.TimingMap.Events)[0] = new O2JamBpmEvent(originalChange.Position, 60));
+        var converted = (O2JamBeatmap)new O2JamBeatmapConverter(source, new O2LazerRuleset()).Convert();
+        double[] positions = [-0.5, 0, 0.25, 0.5, 1, 2];
+        double[] rates = [0.75, 1, 1.5];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(converted.TimingMap.Events, Is.EqualTo(source.TimingMap.Events));
+            Assert.That(source.TimingMap.Events[0], Is.EqualTo(originalChange));
+            foreach (var rate in rates)
+            {
+                foreach (var position in positions)
+                {
+                    Assert.That(converted.TimingMap.TimeAt(position, rate),
+                        Is.EqualTo(source.TimingMap.TimeAt(position, rate)).Within(1e-7));
+                    Assert.That(converted.TimingMap.EffectiveBpmAtPosition(position, rate),
+                        Is.EqualTo(source.TimingMap.EffectiveBpmAtPosition(position, rate)));
+                }
+            }
+        });
     }
 }

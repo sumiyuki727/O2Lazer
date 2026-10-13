@@ -30,31 +30,35 @@ internal sealed class O2JamWorkingBeatmapCache
         if (working.BeatmapInfo.ID == Guid.Empty)
             return new O2JamWorkingBeatmap(working, audioManager, chartPath);
 
+        CacheEntry? inspected;
+        lock (entries)
+            entries.TryGetValue(working.BeatmapInfo.ID, out inspected);
+
+        // Native invalidation can run while source/context checks perform I/O. Check outside
+        // the cache lock and only reuse if the same entry survives that inspection.
+        var reusable = inspected != null
+            && string.Equals(inspected.ChartPath, chartPath, StringComparison.OrdinalIgnoreCase)
+            && inspected.Wrapper.CanReuse;
         lock (entries)
         {
-            if (entries.TryGetValue(working.BeatmapInfo.ID, out var cached)
-                && string.Equals(cached.ChartPath, chartPath, StringComparison.OrdinalIgnoreCase)
-                && cached.Wrapper.CanReuse)
+            entries.TryGetValue(working.BeatmapInfo.ID, out var current);
+            if (reusable && ReferenceEquals(current, inspected))
             {
-                accessOrder.Remove(cached.AccessNode);
-                accessOrder.AddLast(cached.AccessNode);
-                return cached.Wrapper;
+                accessOrder.Remove(current!.AccessNode);
+                accessOrder.AddLast(current.AccessNode);
+                return current.Wrapper;
             }
-
-            if (cached != null)
-                remove(cached);
-
+            if (current != null)
+                remove(current);
             while (entries.Count >= max_wrappers)
             {
                 var oldest = accessOrder.First;
                 if (oldest == null)
                     break;
-
                 accessOrder.RemoveFirst();
                 if (entries.Remove(oldest.Value, out var evicted))
                     evicted.Wrapper.DisposeCachedResources();
             }
-
             var wrapper = new O2JamWorkingBeatmap(working, audioManager, chartPath);
             var node = accessOrder.AddLast(working.BeatmapInfo.ID);
             entries[working.BeatmapInfo.ID] = new CacheEntry(chartPath, wrapper, node);

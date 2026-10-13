@@ -25,9 +25,7 @@ public sealed partial class O2JamPreviewTrack
                 return;
             clearPendingKeyRestoration();
             restoringReplay = true;
-            var active = activeKeyChannels.Select(voice => voice.Event)
-                                          .Concat(restoredKeyTracks.Select(voice => voice.Event))
-                                          .GroupBy(evt => evt).ToDictionary(group => group.Key, group => group.Count());
+            var active = getActiveKeyOccurrences();
             var candidates = new List<O2JamPreviewEvent>();
             foreach (var evt in automaticKeySoundEvents)
             {
@@ -68,6 +66,7 @@ public sealed partial class O2JamPreviewTrack
         if (playbackMode != O2JamPreviewPlaybackMode.Preview)
             return;
         var candidates = new List<O2JamPreviewEvent>();
+        var active = remaining == null ? getActiveKeyOccurrences() : null;
         foreach (var evt in automaticKeySoundEvents.Concat(playableKeySoundEvents))
         {
             // Events exactly at the cursor belong to normal scheduling after seek/rebuild.
@@ -79,11 +78,23 @@ public sealed partial class O2JamPreviewTrack
                     continue;
                 remaining[evt] = count - 1;
             }
+            else if (active!.TryGetValue(evt, out var count) && count > 0)
+            {
+                // Automatic voices may survive gameplay exit. Consume their exact
+                // occurrences so restoring the preview does not double the same stem.
+                active[evt] = count - 1;
+                continue;
+            }
             candidates.Add(evt);
         }
         // Recent events are most likely still audible; query their metadata before distant history.
         enqueueRestoreGroups(candidates);
     }
+
+    private Dictionary<O2JamPreviewEvent, int> getActiveKeyOccurrences() =>
+        activeKeyChannels.Select(voice => voice.Event)
+                         .Concat(restoredKeyTracks.Select(voice => voice.Event))
+                         .GroupBy(evt => evt).ToDictionary(group => group.Key, group => group.Count());
 
     private void enqueueRestoreGroups(IEnumerable<O2JamPreviewEvent> candidates)
     {

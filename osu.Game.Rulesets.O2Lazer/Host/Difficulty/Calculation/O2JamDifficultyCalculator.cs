@@ -129,10 +129,8 @@ public sealed class O2JamDifficultyCalculator : DifficultyCalculator
             // Difficulty needs the committed OJN only. Gameplay decoding also indexes OJM
             // and follows the external path, neither of which belongs in startup calculation.
             using var stream = source.GetStream(storagePath);
-            using var data = new MemoryStream();
-            stream.CopyTo(data);
+            var bytes = OjnReadLimits.Default.ReadSource(stream);
             token.ThrowIfCancellationRequested();
-            var bytes = data.ToArray();
             sourceHash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
             if (!string.Equals(info.Hash, O2JamBeatmapIdentity.FromSource(sourceHash, projection.Difficulty), StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(info.MD5Hash, O2JamBeatmapIdentity.Md5FromSource(bytes, projection.Difficulty), StringComparison.OrdinalIgnoreCase))

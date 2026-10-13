@@ -11,6 +11,7 @@ using osu.Game.Graphics.Carousel;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.O2Lazer.Audio;
 using osu.Game.Screens.Select;
+using NativeSongSelect = osu.Game.Screens.Select.SongSelect;
 
 namespace osu.Game.Rulesets.O2Lazer.SongSelect;
 
@@ -25,6 +26,7 @@ internal static class O2JamCarouselTransitionPatch
     private static FieldInfo currentCriteriaField = null!;
     private static MethodInfo schedulerGetter = null!;
     private static FieldInfo loadingDebounceField = null!;
+    private static MethodInfo ensureGlobalBeatmapValid = null!;
 
     internal static bool IsInstalled { get; private set; }
 
@@ -46,15 +48,20 @@ internal static class O2JamCarouselTransitionPatch
                 currentCriteriaField = AccessTools.Field(typeof(FilterControl), "currentCriteria");
                 schedulerGetter = AccessTools.PropertyGetter(typeof(Drawable), "Scheduler");
                 loadingDebounceField = AccessTools.Field(typeof(BeatmapCarousel), "loadingDebounce");
+                var itemsPresented = AccessTools.Method(typeof(NativeSongSelect), "newItemsPresented");
+                ensureGlobalBeatmapValid = AccessTools.Method(typeof(NativeSongSelect), "ensureGlobalBeatmapValid");
+                var pendingSelection = AccessTools.Field(typeof(NativeSongSelect), "debounceQueuedSelection");
                 if (filter == null || acquire == null || completion == null
                     || updateCriteria == null || rulesetGetter == null || currentCriteriaField == null
-                    || schedulerGetter == null || loadingDebounceField == null)
+                    || schedulerGetter == null || loadingDebounceField == null
+                    || itemsPresented == null || ensureGlobalBeatmapValid == null || pendingSelection == null)
                     throw new MissingMemberException("The native carousel transition API has changed.");
 
                 harmony.Patch(filter, prefix: new HarmonyMethod(typeof(O2JamCarouselTransitionPatch), nameof(beginFilter)));
                 harmony.Patch(completion, prefix: new HarmonyMethod(typeof(O2JamCarouselTransitionPatch), nameof(completeFilter)));
                 harmony.Patch(acquire, postfix: new HarmonyMethod(typeof(O2JamCarouselTransitionPatch), nameof(prepareEntrance)));
                 harmony.Patch(updateCriteria, prefix: new HarmonyMethod(typeof(O2JamCarouselTransitionPatch), nameof(coalesceCriteria)));
+                harmony.Patch(itemsPresented, postfix: new HarmonyMethod(typeof(O2JamCarouselTransitionPatch), nameof(validateRejectedSelection)));
                 IsInstalled = true;
                 return true;
             }
@@ -173,6 +180,21 @@ internal static class O2JamCarouselTransitionPatch
 
         state.Pending = false;
         return true;
+    }
+
+    private static void validateRejectedSelection(NativeSongSelect __instance, BeatmapInfo? ___debounceQueuedSelection)
+    {
+        if (__instance is not SoloSongSelect || __instance.IsFiltering
+            || __instance.Ruleset.Value.ShortName != O2LazerIdentity.ShortName
+            || __instance.Beatmap.Value.BeatmapInfo.Ruleset.ShortName == O2LazerIdentity.ShortName
+            || ___debounceQueuedSelection == null
+            || ___debounceQueuedSelection.Ruleset.ShortName == O2LazerIdentity.ShortName)
+            return;
+
+        // Native completion defers validation to a pending selection, but rejecting a
+        // foreign pending item only clears the queue. Reuse the native fallback now;
+        // valid pending O2Lazer selections retain their normal selection debounce.
+        ensureGlobalBeatmapValid.Invoke(__instance, null);
     }
 
     private static void prepareEntrance(BeatmapCarousel __instance, Drawable __result)

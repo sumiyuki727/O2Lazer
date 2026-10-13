@@ -4,7 +4,7 @@ using O2Jam.Core;
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Core;
 
 [TestFixture]
-public class O2JamGameplayStateTest
+public partial class O2JamGameplayStateTest
 {
     [Test]
     public void FirstSuccessfulEndpointDisplaysZeroCombo()

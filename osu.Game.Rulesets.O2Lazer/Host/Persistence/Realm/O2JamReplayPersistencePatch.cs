@@ -1,10 +1,7 @@
 using System;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using HarmonyLib;
-using osu.Framework.Extensions;
 using osu.Framework.Graphics;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
@@ -13,8 +10,10 @@ using osu.Game.Extensions;
 using osu.Game.IO.Archives;
 using osu.Game.Models;
 using osu.Game.Online.API.Requests.Responses;
+using osu.Game.Overlays.Notifications;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.O2Lazer.Beatmaps;
+using osu.Game.Rulesets.O2Lazer.Localisation;
 using osu.Game.Scoring;
 using osu.Game.Screens.Play;
 
@@ -23,13 +22,14 @@ namespace osu.Game.Rulesets.O2Lazer.Replays;
 /// <summary>
 /// Bridges the two replay persistence seams which osu! currently exposes only to its legacy rulesets.
 /// </summary>
-internal static class O2JamReplayPersistencePatch
+internal static partial class O2JamReplayPersistencePatch
 {
     private const string player_harmony_id = "osu.Game.Rulesets.O2Lazer.Replay.Player";
     private const string importer_harmony_id = "osu.Game.Rulesets.O2Lazer.Replay.Importer";
 
     private static readonly object installLock = new();
     private static PropertyInfo? playerScoreManagerProperty;
+    private static PropertyInfo? playerDrawableRulesetProperty;
     private static FieldInfo? scoreImporterFilesField;
     private static FieldInfo? scoreImporterRealmField;
     private static FieldInfo? scoreImporterRulesetsField;
@@ -55,6 +55,7 @@ internal static class O2JamReplayPersistencePatch
                 var createModelPrefix = AccessTools.Method(typeof(O2JamReplayPersistencePatch), nameof(readO2JamReplayMetadata));
 
                 playerScoreManagerProperty = AccessTools.Property(typeof(Player), "scoreManager");
+                playerDrawableRulesetProperty = AccessTools.Property(typeof(Player), "DrawableRuleset");
                 scoreImporterFilesField = AccessTools.Field(typeof(RealmArchiveModelImporter<ScoreInfo>), "Files");
                 scoreImporterRealmField = AccessTools.Field(typeof(RealmArchiveModelImporter<ScoreInfo>), "Realm");
                 scoreImporterRulesetsField = AccessTools.Field(typeof(ScoreImporter), "rulesets");
@@ -62,7 +63,7 @@ internal static class O2JamReplayPersistencePatch
 
                 if (importScoreTarget == null || importScorePrefix == null || importScorePostfix == null
                     || getScoreTarget == null || getScorePrefix == null || createModelTarget == null || createModelPrefix == null
-                    || playerScoreManagerProperty == null || scoreImporterFilesField == null
+                    || playerScoreManagerProperty == null || playerDrawableRulesetProperty == null || scoreImporterFilesField == null
                     || scoreImporterRealmField == null || scoreImporterRulesetsField == null || drawableScheduleMethod == null)
                     return false;
 
@@ -106,55 +107,6 @@ internal static class O2JamReplayPersistencePatch
         }
     }
 
-    // Harmony state transports the exact bytes hashed before ScoreInfo.DeepClone() to the postfix which attaches the file.
-    private static void prepareReplayArchive(Score score, out byte[]? __state)
-    {
-        __state = null;
-        if (!isO2JamScore(score.ScoreInfo) || score.Replay.Frames.Count == 0)
-            return;
-
-        __state = O2JamReplayArchive.Create(score);
-        using var replayStream = new MemoryStream(__state, writable: false);
-        score.ScoreInfo.Hash = replayStream.ComputeSHA2Hash();
-    }
-
-    private static void attachReplayArchive(Player __instance, Score score, byte[]? __state, ref Task __result)
-    {
-        if (__state == null)
-            return;
-
-        __result = attachAfterImport(__instance, score, __state, __result);
-    }
-
-    private static async Task attachAfterImport(Player player, Score score, byte[] replayData, Task originalImport)
-    {
-        await originalImport.ConfigureAwait(false);
-
-        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        drawableScheduleMethod!.Invoke(player,
-        [
-            () =>
-            {
-                try
-                {
-                    if (playerScoreManagerProperty!.GetValue(player) is ScoreManager scoreManager)
-                    {
-                        using var replayStream = new MemoryStream(replayData, writable: false);
-                        scoreManager.AddFile(score.ScoreInfo, replayStream, nativeReplayFilename(score.ScoreInfo));
-                    }
-
-                    completion.SetResult();
-                }
-                catch (Exception exception)
-                {
-                    completion.SetException(exception);
-                }
-            },
-        ]);
-
-        await completion.Task.ConfigureAwait(false);
-    }
-
     private static bool readO2JamReplay(ScoreInfo score, ScoreImporter __instance, ref Score __result)
     {
         if (!isO2JamScore(score))
@@ -174,11 +126,10 @@ internal static class O2JamReplayPersistencePatch
             if (stream == null)
                 return false;
 
-            using var buffer = new MemoryStream();
-            stream.CopyTo(buffer);
-            var bytes = buffer.ToArray();
-            if (O2JamReplayArchive.TryReadScore(score, bytes, out var restored))
+            if (O2JamReplayArchive.TryReadScore(score, stream, out var restored, out var failure))
                 __result = restored;
+            else if (failure.ResourceLimitExceeded)
+                notifyReplayLimit(__instance);
             return false;
         }
         catch (Exception exception)
@@ -197,11 +148,25 @@ internal static class O2JamReplayPersistencePatch
         if (replayFilename == null)
             return true;
 
-        var bytes = archive.Get(replayFilename);
-        // Pre-rewrite JSON/gzip envelopes are also used by BMSRuleset. Only claim a validated
-        // current O2Jam payload; osu!'s importer rejects unknown headers before creating a model.
-        if (!O2JamReplayArchive.TryReadMetadata(bytes, out var metadata))
+        using var stream = archive.GetStream(replayFilename);
+        if (stream == null)
             return true;
+
+        // JSON/gzip envelopes are also used by foreign rulesets. Their data must keep
+        // using the existing importer until a current O2Jam marker has been identified.
+        if (!O2JamReplayArchive.TryReadMetadata(stream, out var metadata, out var failure))
+        {
+            // Unknown envelopes still belong to the native/foreign importer. Once the
+            // v5 O2Jam marker is known, invalid data must not retry legacy decoding.
+            if (failure.IdentifiedO2JamEnvelope)
+            {
+                __result = null;
+                if (failure.ResourceLimitExceeded)
+                    notifyReplayLimit(__instance);
+                return false;
+            }
+            return true;
+        }
 
         if (scoreImporterRealmField!.GetValue(__instance) is not RealmAccess realm
             || scoreImporterRulesetsField!.GetValue(__instance) is not RulesetStore rulesets)
@@ -240,6 +205,9 @@ internal static class O2JamReplayPersistencePatch
 
     private static string nativeReplayFilename(ScoreInfo scoreInfo) =>
         $"{scoreInfo.GetDisplayString()} ({scoreInfo.Date.LocalDateTime:yyyy-MM-dd_HH-mm}).osr".GetValidFilename();
+
+    private static void notifyReplayLimit(ScoreImporter importer) =>
+        importer.PostNotification?.Invoke(new SimpleNotification { Text = O2LazerStrings.ReplayReadLimitExceeded });
 
     private static bool isO2JamScore(ScoreInfo score) =>
         string.Equals(score.Ruleset.ShortName, O2LazerIdentity.ShortName, StringComparison.Ordinal);

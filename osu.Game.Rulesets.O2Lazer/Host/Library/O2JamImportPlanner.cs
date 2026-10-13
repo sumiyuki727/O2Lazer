@@ -14,10 +14,22 @@ namespace osu.Game.Rulesets.O2Lazer.Import;
 /// </summary>
 public sealed class O2JamImportPlanner
 {
+    private readonly OjnReadLimits limits;
+
+    public O2JamImportPlanner()
+        : this(OjnReadLimits.Default)
+    {
+    }
+
+    internal O2JamImportPlanner(OjnReadLimits limits)
+    {
+        this.limits = limits;
+    }
+
     public O2JamImportPlan Create(string sourcePath, O2JamImportedSource? importedSource = null)
     {
         var fullPath = Path.GetFullPath(sourcePath);
-        var snapshot = O2JamSourceSnapshot.Read(fullPath);
+        var snapshot = O2JamSourceSnapshot.Read(fullPath, limits);
         var sourceData = snapshot.Data;
         var sourceHash = snapshot.Hash;
         OjnMetadataEncoding? encodingFallback = null;
@@ -26,7 +38,7 @@ public sealed class O2JamImportPlanner
             var encoding = OjnDirectoryEncoding.Shared.GetForFile(fullPath);
             encodingFallback = encoding;
             return encoding;
-        }).Read(sourceData);
+        }, limits).Read(sourceData);
 
         var charts = document.Charts
                              .Where(chart => chart.Notes.Any(note => note.IsPlayable))

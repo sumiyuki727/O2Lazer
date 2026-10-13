@@ -147,6 +147,27 @@ public sealed class O2JamGameplayState : IO2JamGameplayStateSource
             snapshot);
     }
 
+    /// <summary>
+    /// Restores a previously emitted snapshot without replaying intermediate judgements.
+    /// The snapshot must come from the same difficulty and life-depletion policy.
+    /// </summary>
+    public void Restore(O2JamGameplaySnapshot snapshot)
+    {
+        score = snapshot.Score;
+        combo = snapshot.Combo;
+        maximumCombo = snapshot.MaximumCombo;
+        jamProgress = snapshot.JamProgress;
+        jamCombo = snapshot.JamCombo;
+        maximumJamCombo = snapshot.MaximumJamCombo;
+        consecutiveCoolProgress = snapshot.ConsecutiveCoolProgress;
+        pills = snapshot.Pills;
+        life = snapshot.Life;
+        scoringEnabled = snapshot.ScoringEnabled;
+        hasFailed = snapshot.HasFailed;
+        lifeLockedAtZero = snapshot.LifeLockedAtZero;
+        StateChanged?.Invoke(snapshot);
+    }
+
     public void Reset()
     {
         score = 0;

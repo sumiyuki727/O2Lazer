@@ -7,7 +7,7 @@ using osu.Game.Rulesets.O2Lazer.Scoring;
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 [TestFixture]
-public class O2JamJudgementHistoryTest
+public partial class O2JamJudgementHistoryTest
 {
     [Test]
     public void RewindingPillConsumptionRestoresPreviousState()

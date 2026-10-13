@@ -193,7 +193,7 @@ Classic 的预览字符串为 `mms://media.talesrunner.com/o2jam_soundtrack/%d.w
    再次播放 KS 的用户验收仍保留。
 4. 音频实际响度、叠音、输入延迟、帧稳定性，以及在线更新/启动参数改变的路径。
 5. 异常网格、非整 tick 小节、异常 LN、缺失资源与正式回放重判的边界。
-   跳转到已开始但未结束的 KS 中段不能恢复其尾音，是用户已同意暂缓的现有局限。
+   此报告当时记录的 KS 中段尾音限制已由 2026-10-08 的[预览](preview-sample-restoration.md)与[回放](replay-sample-restoration.md)原生 Track 补播适配处理；冷缓存准备、不同设备与异常资源覆盖仍有边界。
 
 ## 后续修改的位置与顺序
 

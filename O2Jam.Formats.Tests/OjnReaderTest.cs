@@ -9,7 +9,7 @@ using O2Jam.Formats.Ojn;
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 [TestFixture]
-public class OjnReaderTest
+public partial class OjnReaderTest
 {
     [TestCase(false)]
     [TestCase(true)]

@@ -10,7 +10,7 @@ using osu.Game.Rulesets.O2Lazer.Import;
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 [TestFixture]
-public class O2JamImportServiceTest
+public partial class O2JamImportServiceTest
 {
     private string directory = null!;
 

@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using NUnit.Framework;
 using osu.Game.Database;
+using osu.Game.Collections;
 using osu.Game.Beatmaps;
 using osu.Game.Scoring;
 using osu.Game.Models;
+using osu.Game.Extensions;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
 using osu.Game.Rulesets.O2Lazer.Import;
 
@@ -14,6 +17,38 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 public partial class O2JamLegacyLibraryMigrationTest
 {
+    [Test]
+    public void ClearAndNativeRestartKeepScoreIdentityAndReplayAttachment() => runProjectionTest((realm, storage) =>
+    {
+        var saved = seedRecoveryLibrary(realm, storage);
+        Assert.That(new O2JamLibraryWriter(realm, storage).DeleteAll(), Is.EqualTo(1));
+        realm.Dispose();
+        using var restarted = new RealmAccess(storage, "client.realm");
+        new RealmFileStore(restarted, storage).Cleanup();
+        restarted.Run(database =>
+        {
+            var score = database.Find<ScoreInfo>(saved.ScoreId)!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(database.Find<BeatmapSetInfo>(saved.SetId), Is.Null);
+                Assert.That(database.Find<BeatmapInfo>(saved.BeatmapId), Is.Null);
+                Assert.That(score, Is.Not.Null);
+                Assert.That(score.DeletePending, Is.False);
+                Assert.That(score.BeatmapInfo, Is.Null);
+                Assert.That(score.BeatmapHash, Is.EqualTo(saved.BeatmapHash));
+                Assert.That(score.TotalScore, Is.EqualTo(12345));
+                Assert.That(score.MaxCombo, Is.EqualTo(123));
+                Assert.That(score.Files.Single().File.Hash, Is.EqualTo(saved.ReplayHash));
+                Assert.That(database.All<BeatmapCollection>().Single().BeatmapMD5Hashes, Is.EqualTo(new[] { saved.Md5 }));
+            });
+        });
+        using var stream = new RealmFileStore(restarted, storage).Store.GetStream(new RealmFile { Hash = saved.ReplayHash }.GetStoragePath());
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+        Assert.That(memory.ToArray(), Is.EqualTo(recovery_replay));
+        Assert.That(File.Exists(saved.Plan.SourcePath), Is.True);
+    });
+
     [TestCase(false)]
     [TestCase(true)]
     public void ClearReportsCommittedBatchesAndCancellationPreservesScores(bool cancel) => runProjectionTest((realm, storage) =>

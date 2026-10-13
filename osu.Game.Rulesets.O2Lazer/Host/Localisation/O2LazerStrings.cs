@@ -1,5 +1,4 @@
 using osu.Framework.Localisation;
-using osu.Game.Localisation;
 
 namespace osu.Game.Rulesets.O2Lazer.Localisation;
 
@@ -9,11 +8,11 @@ public static class O2LazerStrings
         typeof(O2LazerStrings).Assembly, "osu.Game.Rulesets.O2Lazer.Resources.Localisation.O2LazerStrings");
 
     public static LocalisableString LibraryOperationFailed => get("library_operation_failed");
+    public static LocalisableString ReplayReadLimitExceeded => get("replay_read_limit_exceeded");
+    public static LocalisableString ReplaySaveLimitExceeded => get("replay_save_limit_exceeded");
+    public static LocalisableString ReplaySaveFailed => get("replay_save_failed");
     public static LocalisableString RulesetName => get("ruleset_name");
     public static LocalisableString EditorUnavailable => get("editor_unavailable");
-    public static LocalisableString NativeNotes => BeatmapStatisticStrings.Notes;
-    public static LocalisableString NativeHoldNotes => BeatmapStatisticStrings.HoldNotes;
-    public static LocalisableString BeatmapStatisticCount(int count) => get("beatmap_statistic_count", count);
     public static LocalisableString O2Ma => get("o2ma");
     public static LocalisableString O2JamLevel => get("o2jam_level");
     public static LocalisableString Level => get("level");
@@ -28,19 +27,10 @@ public static class O2LazerStrings
     public static LocalisableString ManiaStarRatingDescription => get("mania_star_rating_description");
     public static LocalisableString Layout => get("layout");
     public static LocalisableString SevenKeys => get("seven_keys");
-    public static LocalisableString ScrollDirection => get("scroll_direction");
-    public static LocalisableString ScrollSpeed => get("scroll_speed");
     public static LocalisableString SyncSourceFolderCollections => get("sync_source_folder_collections");
     public static LocalisableString SynchronisingCollections => get("synchronising_collections");
     public static LocalisableString CollectionSyncComplete => get("collection_sync_complete");
-    public static LocalisableString SourceFolderCollectionPrefix => get("source_folder_collection_prefix");
     public static LocalisableString SourceFolderCollectionName(string folder) => get("source_folder_collection_name", folder);
-    public static LocalisableString MetadataEncoding => get("ojn_metadata_encoding");
-    public static LocalisableString MetadataEncodingDescription => get("ojn_metadata_encoding_description");
-    public static LocalisableString MetadataEncodingAutomatic => get("ojn_metadata_encoding_automatic");
-    public static LocalisableString MetadataEncodingGbk => get("ojn_metadata_encoding_gbk");
-    public static LocalisableString MetadataEncodingCp949 => get("ojn_metadata_encoding_cp949");
-    public static LocalisableString MetadataEncodingUtf8 => get("ojn_metadata_encoding_utf8");
     public static LocalisableString O2JamLongNoteVisual => get("o2jam_long_note_visual");
     public static LocalisableString O2JamLongNoteVisualDescription => get("o2jam_long_note_visual_description");
     public static LocalisableString PercyLongNoteBodyRepeat => get("percy_long_note_body_repeat");
@@ -65,35 +55,14 @@ public static class O2LazerStrings
     public static LocalisableString RefreshUpdatesPending => get("refresh_updates_pending");
     public static LocalisableString RefreshStopped(int imported, int updated) => get("refresh_stopped", imported, updated);
     public static LocalisableString RefreshWithFailures(int imported, int updated, int failed) => get("refresh_with_failures", imported, updated, failed);
-    public static LocalisableString ImportSelectedFile => get("import_selected_file");
-    public static LocalisableString ImportCurrentFolder => get("import_current_folder");
-    public static LocalisableString ImportDirectoryRecursive => get("import_directory_recursive");
-    public static LocalisableString ImportDirectoryRecursiveTooltip => get("import_directory_recursive_tooltip");
-    public static LocalisableString ImportInitialising => get("import_initialising");
-    public static LocalisableString ImportFailed => get("import_failed");
-    public static LocalisableString SetAlreadyImported => get("set_already_imported");
     public static LocalisableString RulesetUnavailable => get("ruleset_unavailable");
-    public static LocalisableString AllSetsAlreadyImported(int count) => get("all_sets_already_imported", count);
-    public static LocalisableString ImportedSets(int count) => get("imported_sets", count);
-    public static LocalisableString UpdatedSets(int count) => get("updated_sets", count);
-    public static LocalisableString ImportedAndUpdatedSets(int imported, int updated) => get("imported_and_updated_sets", imported, updated);
-    public static LocalisableString ImportCompletedWithFailures(int imported, int total, int failed) =>
-        get("import_completed_with_failures", imported, total, failed);
     public static LocalisableString Cool => get("cool");
     public static LocalisableString Good => get("good");
     public static LocalisableString Bad => get("bad");
     public static LocalisableString Miss => get("miss");
     public static LocalisableString DifficultyName(object difficulty, int level) => get("difficulty_name", difficulty, level);
-    public static LocalisableString ScrollSpeedValue(double milliseconds, double speed) => get("scroll_speed_value", milliseconds, speed);
     public static LocalisableString ScrollSpeedTooltipWithO2JamGrade(int milliseconds, double speed, double multiplier) =>
         get("scroll_speed_tooltip_with_o2jam_grade", milliseconds, speed, multiplier);
-    public static LocalisableString ActionKey1 => get("action_key_1");
-    public static LocalisableString ActionKey2 => get("action_key_2");
-    public static LocalisableString ActionKey3 => get("action_key_3");
-    public static LocalisableString ActionKey4 => get("action_key_4");
-    public static LocalisableString ActionKey5 => get("action_key_5");
-    public static LocalisableString ActionKey6 => get("action_key_6");
-    public static LocalisableString ActionKey7 => get("action_key_7");
     public static LocalisableString CrossRulesetConversionUnsupported => get("cross_ruleset_conversion_unsupported");
     public static LocalisableString ModNoFailDescription => get("mod_no_fail_description");
     public static LocalisableString ModHalfTimeDescription => get("mod_half_time_description");

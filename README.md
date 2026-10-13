@@ -77,6 +77,13 @@ updates; disabling the option removes the collections managed by this feature, n
 Song-select preview always mixes BGM and playable keysounds. Compatible difficulties share playback;
 difficulties with different background arrangements start their own preview. LN tails are silent.
 
+Current master also restores still-active sample tails during compatible preview transfers and
+replay seeks using native seekable tracks. Replay restoration follows successful judgement history;
+misses do not play keysounds. KS follows native master/music volume and inactive-window dimming,
+independently of effect volume. Cold asynchronous preparation may temporarily omit a tail. These
+latest audio changes are not included in the published test2 build; see the
+[audio contract](docs/rate-mod-audio-readiness.md).
+
 ## Gameplay and skin options
 
 Scroll speed uses mania's visual scale and also shows an O2Jam-equivalent multiplier. Constant Speed

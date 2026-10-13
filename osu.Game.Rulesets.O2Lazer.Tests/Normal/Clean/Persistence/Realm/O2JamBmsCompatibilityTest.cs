@@ -108,6 +108,9 @@ public partial class O2JamBmsCompatibilityTest
                 Assert.That(resultsEntryPatcher.GetProperty("IsInstalled", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null), Is.True);
                 assertBmsResultsScreenSurvivesO2Lazer(bms, beatmap);
                 assertO2JamReplaySurvivesBms(storage, realm, bms, o2Lazer);
+                O2JamReplayImportTest.AssertPlayerReplaySavingWithInstalledPatches();
+                O2JamReplayImportTest.AssertPlayerEncodingFailureWithInstalledPatches();
+                O2JamReplayImportTest.AssertPlayerReplayGuardWithInstalledPatches();
             }
             catch (Exception exception)
             {

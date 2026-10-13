@@ -58,9 +58,6 @@
   <data name="level_filter_value" xml:space="preserve">
     <value>{0}</value>
   </data>
-  <data name="beatmap_statistic_count" xml:space="preserve">
-    <value>{0}</value>
-  </data>
   <data name="star_rating" xml:space="preserve">
     <value>mania 星数</value>
   </data>
@@ -75,9 +72,6 @@
   </data>
   <data name="sync_source_folder_collections" xml:space="preserve">
     <value>按源文件夹设置本地收藏</value>
-  </data>
-  <data name="source_folder_collection_prefix" xml:space="preserve">
-    <value>O2Lazer: </value>
   </data>
   <data name="source_folder_collection_name" xml:space="preserve">
     <value>O2Lazer: {0}</value>
@@ -118,18 +112,6 @@
   <data name="delete_all_confirmation" xml:space="preserve">
     <value>将从游戏谱面库中清空所有已导入的 O2Jam 谱面。源文件夹中的谱面文件不会被删除。</value>
   </data>
-  <data name="import_selected_file" xml:space="preserve">
-    <value>导入所选文件</value>
-  </data>
-  <data name="import_current_folder" xml:space="preserve">
-    <value>导入当前文件夹中的全部文件</value>
-  </data>
-  <data name="import_directory_recursive" xml:space="preserve">
-    <value>导入目录中的全部文件（含子目录）</value>
-  </data>
-  <data name="import_directory_recursive_tooltip" xml:space="preserve">
-    <value>导入所选目录及其子目录中的所有 OJN 文件</value>
-  </data>
   <data name="cool" xml:space="preserve">
     <value>COOL</value>
   </data>
@@ -145,89 +127,17 @@
   <data name="good" xml:space="preserve">
     <value>GOOD</value>
   </data>
-  <data name="import_initialising" xml:space="preserve">
-    <value>正在初始化 O2Jam 导入...</value>
-  </data>
-  <data name="import_failed" xml:space="preserve">
-    <value>O2Jam 导入失败！请查看日志了解详情。</value>
-  </data>
-  <data name="set_already_imported" xml:space="preserve">
-    <value>该 O2Jam 谱面组已导入。</value>
-  </data>
-  <data name="all_sets_already_imported" xml:space="preserve">
-    <value>全部 {0} 个 O2Jam 谱面组均已导入。</value>
-  </data>
-  <data name="imported_sets" xml:space="preserve">
-    <value>已导入 {0} 个 O2Jam 谱面组！</value>
-  </data>
-  <data name="updated_sets" xml:space="preserve">
-    <value>已更新 {0} 个 O2Jam 谱面组的元数据。</value>
-  </data>
-  <data name="imported_and_updated_sets" xml:space="preserve">
-    <value>已导入 {0} 个 O2Jam 谱面组，并更新 {1} 个谱面组的元数据。</value>
-  </data>
   <data name="refreshing_progress" xml:space="preserve">
     <value>正在更新 O2Jam 谱面 {0}/{1}</value>
   </data>
   <data name="refresh_complete" xml:space="preserve">
     <value>更新完成。</value>
   </data>
-  <data name="import_completed_with_failures" xml:space="preserve">
-    <value>已导入 {0}/{1} 个 O2Jam 谱面组；{2} 个文件无法读取</value>
-  </data>
   <data name="ruleset_unavailable" xml:space="preserve">
     <value>O2Jam 规则集不可用</value>
   </data>
-  <data name="action_key_1" xml:space="preserve">
-    <value>按键 1</value>
-  </data>
-  <data name="action_key_2" xml:space="preserve">
-    <value>按键 2</value>
-  </data>
-  <data name="action_key_3" xml:space="preserve">
-    <value>按键 3</value>
-  </data>
-  <data name="action_key_4" xml:space="preserve">
-    <value>按键 4</value>
-  </data>
-  <data name="action_key_5" xml:space="preserve">
-    <value>按键 5</value>
-  </data>
-  <data name="action_key_6" xml:space="preserve">
-    <value>按键 6</value>
-  </data>
-  <data name="action_key_7" xml:space="preserve">
-    <value>按键 7</value>
-  </data>
   <data name="seven_keys" xml:space="preserve">
     <value>7 键</value>
-  </data>
-  <data name="scroll_direction" xml:space="preserve">
-    <value>滚动方向</value>
-  </data>
-  <data name="scroll_speed" xml:space="preserve">
-    <value>滚动速度</value>
-  </data>
-  <data name="scroll_speed_value" xml:space="preserve">
-    <value>{0:N0} 毫秒 · {1:0.0}×</value>
-  </data>
-  <data name="ojn_metadata_encoding" xml:space="preserve">
-    <value>OJN 元数据编码</value>
-  </data>
-  <data name="ojn_metadata_encoding_description" xml:space="preserve">
-    <value>用于导入标题、艺术家和谱师名称。旧编码无法区分时，“自动”优先选择 GBK；原版韩服谱库请选择 CP949，明确使用 UTF-8 的谱库请选择 UTF-8。</value>
-  </data>
-  <data name="ojn_metadata_encoding_automatic" xml:space="preserve">
-    <value>自动（优先 GBK）</value>
-  </data>
-  <data name="ojn_metadata_encoding_gbk" xml:space="preserve">
-    <value>GBK（简体中文）</value>
-  </data>
-  <data name="ojn_metadata_encoding_cp949" xml:space="preserve">
-    <value>CP949（韩文）</value>
-  </data>
-  <data name="ojn_metadata_encoding_utf8" xml:space="preserve">
-    <value>UTF-8</value>
   </data>
   <data name="cross_ruleset_conversion_unsupported" xml:space="preserve">
     <value>O2Jam 谱面不支持跨规则集转换。</value>
@@ -393,4 +303,7 @@
   </data>
   <data name="synchronising_collections" xml:space="preserve"><value>正在同步收藏夹…</value></data>
   <data name="collection_sync_complete" xml:space="preserve"><value>收藏夹同步完成。</value></data>
+  <data name="replay_read_limit_exceeded" xml:space="preserve"><value>无法读取此 O2Lazer 回放：已超过支持的资源上限。已有成绩和回放文件已保留。</value></data>
+  <data name="replay_save_limit_exceeded" xml:space="preserve"><value>成绩已保存，但回放超过支持的资源上限，未能保存。</value></data>
+  <data name="replay_save_failed" xml:space="preserve"><value>成绩已保存，但回放未能保存。</value></data>
 </root>

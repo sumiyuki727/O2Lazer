@@ -14,6 +14,23 @@ internal sealed class O2JamPreloadScheduler(int concurrency)
     private readonly LinkedList<Job> urgent = new();
     private readonly LinkedList<Job> normal = new();
     private int running;
+    private int batchDepth;
+
+    internal IDisposable BeginBatch()
+    {
+        lock (sync)
+            batchDepth++;
+        return new Batch(this);
+    }
+
+    private void endBatch()
+    {
+        lock (sync)
+        {
+            batchDepth--;
+            dispatch();
+        }
+    }
 
     internal Preparation<T> Schedule<T>(Func<CancellationToken, Task<T>> load, CancellationToken token, bool prioritise)
     {
@@ -81,6 +98,9 @@ internal sealed class O2JamPreloadScheduler(int concurrency)
 
     private void dispatch()
     {
+        // Collect every imminent request before any speculative job can occupy a free slot.
+        if (batchDepth > 0)
+            return;
         while (running < concurrency && (urgent.Count > 0 || normal.Count > 0))
         {
             var queue = urgent.Count > 0 ? urgent : normal;
@@ -114,6 +134,12 @@ internal sealed class O2JamPreloadScheduler(int concurrency)
         public Func<Task> Load { get; } = load;
         public bool Started { get; set; }
         public LinkedListNode<Job>? Node { get; set; }
+    }
+
+    private sealed class Batch(O2JamPreloadScheduler owner) : IDisposable
+    {
+        private O2JamPreloadScheduler? owner = owner;
+        public void Dispose() => Interlocked.Exchange(ref owner, null)?.endBatch();
     }
 
     internal sealed class Preparation<T>(Task<T> task, Action prioritise)

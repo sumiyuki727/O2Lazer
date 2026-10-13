@@ -9,6 +9,14 @@ namespace O2Jam.Formats.Ojm;
 public sealed class OjmReader
 {
     private const uint maximumSampleCount = 2_000_000;
+    private readonly OjmReadLimits limits;
+
+    public OjmReader()
+        : this(OjmReadLimits.Default)
+    {
+    }
+
+    internal OjmReader(OjmReadLimits limits) => this.limits = limits;
 
     private static readonly byte[] waveRearrangeTable = Convert.FromHexString(
         "100E02090400070106080F0A050C030D0B07020A0B03050D0804000C060F0E1001090C0D030006090A01070810020B0E040F050803040D06050B10020C07090A0F0E00010F020C0D0004010507030910060B0A080E00040B100F0D0C06050701020308090A0E0310080706090E0D000A0B04050C02010F040E100F0508070B000106020C09030A0D060D0E07100A0B00010C0F0203080904050A0C0008090D030405100E0F01020B060705060C040D0F070E08010902100A0B00030B0F040E030100020D0C0607051009080A03020100040C0D0B1005060F0E07090A08090A000708061003040102050B0E0F0D0C0A06090C0B100708000F030102050D0E040D00010E0203080B070C09050A0F040610010E02030D0B0700080C09060F10050A0400");
@@ -23,19 +31,24 @@ public sealed class OjmReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
+        path = Path.GetFullPath(path);
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 16 * 1024, FileOptions.RandomAccess);
+        var source = new OjmLazySource(path, stream);
+        var budget = new OjmLazyReadBudget(limits);
         using var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
         if (stream.Length < 4)
             throw new InvalidDataException("The OJM header is truncated.");
 
         var signature = Encoding.ASCII.GetString(reader.ReadBytes(3));
         _ = reader.ReadByte();
-        return signature switch
+        var archive = signature switch
         {
-            "OMC" or "OJM" => readOmcLazy(reader, path, signature == "OMC", sampleIds),
-            "M30" => readM30Lazy(reader, path, sampleIds),
+            "OMC" or "OJM" => readOmcLazy(reader, source, signature == "OMC", sampleIds, budget),
+            "M30" => readM30Lazy(reader, source, sampleIds, budget),
             _ => throw new InvalidDataException("The file does not contain a supported OJM signature."),
         };
+        source.Validate(stream);
+        return archive;
     }
 
     public OjmArchive Read(Stream stream, IReadOnlySet<int>? sampleIds)
@@ -46,8 +59,7 @@ public sealed class OjmReader
         var source = stream;
         if (!source.CanSeek)
         {
-            buffered = new MemoryStream();
-            source.CopyTo(buffered);
+            buffered = limits.BufferSource(source);
             source = buffered;
         }
 
@@ -62,8 +74,8 @@ public sealed class OjmReader
             _ = reader.ReadByte();
             return signature switch
             {
-                "OMC" or "OJM" => readOmc(reader, signature == "OMC", sampleIds),
-                "M30" => readM30(reader, sampleIds),
+                "OMC" or "OJM" => readOmc(reader, signature == "OMC", sampleIds, new OjmReadBudget(limits)),
+                "M30" => readM30(reader, sampleIds, new OjmReadBudget(limits)),
                 _ => throw new InvalidDataException("The file does not contain a supported OJM signature."),
             };
         }
@@ -81,8 +93,7 @@ public sealed class OjmReader
         var source = stream;
         if (!source.CanSeek)
         {
-            buffered = new MemoryStream();
-            source.CopyTo(buffered);
+            buffered = limits.BufferSource(source);
             source = buffered;
         }
 
@@ -108,7 +119,7 @@ public sealed class OjmReader
         }
     }
 
-    private static OjmArchive readOmc(BinaryReader reader, bool encryptedWave, IReadOnlySet<int>? sampleIds)
+    private static OjmArchive readOmc(BinaryReader reader, bool encryptedWave, IReadOnlySet<int>? sampleIds, OjmReadBudget budget)
     {
         var effectCount = reader.ReadUInt16();
         var backgroundCount = reader.ReadUInt16();
@@ -139,10 +150,11 @@ public sealed class OjmReader
                 continue;
 
             var include = sampleIds == null || sampleIds.Contains(index);
+            if (include)
+                budget.AddSample((long)chunkSize + 44);
             if (encryptedWave)
             {
-                // OMC wave encryption carries state across effect entries. Unreferenced entries
-                // still need decoding to advance that state, but no WAV container is allocated.
+                // OMC encryption carries state across entries, including unreferenced effects.
                 if (include)
                 {
                     var encoded = reader.ReadBytes(checked((int)chunkSize));
@@ -173,6 +185,7 @@ public sealed class OjmReader
             var id = index + 1000;
             if (size > 0 && (sampleIds == null || sampleIds.Contains(id)))
             {
+                budget.AddSample(size);
                 var sample = reader.ReadBytes(checked((int)size));
                 samples[id] = new OjmSample(id, name, ".ogg", sample);
             }
@@ -183,7 +196,7 @@ public sealed class OjmReader
         return new OjmArchive(samples);
     }
 
-    private static OjmArchive readOmcLazy(BinaryReader reader, string path, bool encryptedWave, IReadOnlySet<int>? sampleIds)
+    private static OjmArchive readOmcLazy(BinaryReader reader, OjmLazySource source, bool encryptedWave, IReadOnlySet<int>? sampleIds, OjmLazyReadBudget budget)
     {
         var effectCount = reader.ReadUInt16();
         var backgroundCount = reader.ReadUInt16();
@@ -217,7 +230,7 @@ public sealed class OjmReader
             {
                 samples[index] = new OjmSample(index, name, ".wav", checked((long)chunkSize + 44), () =>
                 {
-                    var payload = readRange(path, payloadOffset, chunkSize);
+                    var payload = source.ReadRange(payloadOffset, chunkSize);
                     if (encryptedWave)
                     {
                         var sampleKey = initialKey;
@@ -226,7 +239,7 @@ public sealed class OjmReader
                     }
 
                     return buildWave(audioFormat, channelCount, sampleRate, byteRate, blockAlign, bitsPerSample, payload);
-                });
+                }, budget);
             }
 
             if (encryptedWave)
@@ -245,14 +258,14 @@ public sealed class OjmReader
             var id = index + 1000;
             var payloadOffset = reader.BaseStream.Position;
             if (size > 0 && (sampleIds == null || sampleIds.Contains(id)))
-                samples[id] = new OjmSample(id, name, ".ogg", size, () => readRange(path, payloadOffset, size));
+                samples[id] = new OjmSample(id, name, ".ogg", size, () => source.ReadRange(payloadOffset, size), budget);
             skip(reader, size);
         }
 
-        return new OjmArchive(samples);
+        return new OjmArchive(samples, source);
     }
 
-    private static OjmArchive readM30(BinaryReader reader, IReadOnlySet<int>? sampleIds)
+    private static OjmArchive readM30(BinaryReader reader, IReadOnlySet<int>? sampleIds, OjmReadBudget budget)
     {
         _ = reader.ReadUInt32();
         var encodingCode = reader.ReadUInt32();
@@ -284,8 +297,9 @@ public sealed class OjmReader
                 break;
 
             var id = reference + (codecCode == 0 ? 1000 : 0);
-            if (size > 0 && codecCode is 0 or 5 && (sampleIds == null || sampleIds.Contains(id)))
+            if (size > 0 && codecCode is 0 or 5 && (sampleIds == null || sampleIds.Contains(id)) && !samples.ContainsKey(id))
             {
+                budget.AddSample(size);
                 var sample = reader.ReadBytes(checked((int)size));
                 applyM30Encryption(sample, encodingCode);
                 samples.TryAdd(id, new OjmSample(id, name, ".ogg", sample));
@@ -297,7 +311,7 @@ public sealed class OjmReader
         return new OjmArchive(samples);
     }
 
-    private static OjmArchive readM30Lazy(BinaryReader reader, string path, IReadOnlySet<int>? sampleIds)
+    private static OjmArchive readM30Lazy(BinaryReader reader, OjmLazySource source, IReadOnlySet<int>? sampleIds, OjmLazyReadBudget budget)
     {
         _ = reader.ReadUInt32();
         var encodingCode = reader.ReadUInt32();
@@ -332,16 +346,16 @@ public sealed class OjmReader
             {
                 samples.TryAdd(id, new OjmSample(id, name, ".ogg", size, () =>
                 {
-                    var payload = readRange(path, payloadOffset, size);
+                    var payload = source.ReadRange(payloadOffset, size);
                     applyM30Encryption(payload, encodingCode);
                     return payload;
-                }));
+                }, budget));
             }
 
             skip(reader, size);
         }
 
-        return new OjmArchive(samples);
+        return new OjmArchive(samples, source);
     }
 
     private static OjmArchiveIndex readOmcIndex(BinaryReader reader)
@@ -529,15 +543,6 @@ public sealed class OjmReader
         writer.Write(pcm.Length);
         writer.Write(pcm);
         return stream.ToArray();
-    }
-
-    private static byte[] readRange(string path, long offset, uint length)
-    {
-        var data = new byte[checked((int)length)];
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 16 * 1024, FileOptions.RandomAccess);
-        stream.Position = offset;
-        stream.ReadExactly(data);
-        return data;
     }
 
     private static void seek(BinaryReader reader, uint offset, long totalLength)

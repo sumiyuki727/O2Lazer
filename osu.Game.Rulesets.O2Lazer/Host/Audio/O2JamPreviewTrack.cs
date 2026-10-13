@@ -72,6 +72,12 @@ public sealed partial class O2JamPreviewTrack : Track
             nextPlayableKeySoundEventIndex = lowerBound(playableKeySoundEvents, CurrentTime);
             if (value == O2JamPreviewPlaybackMode.Gameplay)
                 stopKeySounds(playableOnly: true);
+            else if (value == O2JamPreviewPlaybackMode.Preview)
+            {
+                // Returning from gameplay retains the song clock. Future scheduling alone
+                // would omit every charted sample whose attack is before that position.
+                queueKeyRestoration(CurrentTime);
+            }
             traceSyncControl("mode", null);
         });
     }

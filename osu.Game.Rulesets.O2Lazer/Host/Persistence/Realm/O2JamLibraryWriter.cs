@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using O2Jam.Formats.Ojn;
 using osu.Framework.Extensions;
 using osu.Framework.Logging;
 using osu.Framework.Platform;
@@ -48,6 +49,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter, IO2JamLibraryDiffi
     private readonly HashSet<Guid> pendingFileInvalidations = [];
     private int completedBatches;
     private readonly bool observeNativeFileChecks;
+    private readonly OjnReadLimits sourceLimits;
     private bool warnedAboutFileObservation;
 
     public int PendingNotifications => notifications.Count;
@@ -72,9 +74,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter, IO2JamLibraryDiffi
     byte[] IO2JamLibraryDifficultyStore.ReadDifficultySource(O2JamLibraryDifficultySource source)
     {
         using var stream = files.Storage.GetStream(new RealmFile { Hash = source.Source.SourceHash!.ToLowerInvariant() }.GetStoragePath());
-        using var data = new MemoryStream();
-        stream.CopyTo(data);
-        return data.ToArray();
+        return sourceLimits.ReadSource(stream);
     }
 
     O2JamLibraryDifficultySource IO2JamLibraryDifficultyStore.RefreshDifficultySource(O2JamLibraryDifficultySource source,
@@ -220,12 +220,13 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter, IO2JamLibraryDiffi
     }
 
     internal O2JamLibraryWriter(RealmAccess realm, Storage storage, Action<O2JamLibraryWriteStage, int>? checkpoint,
-                               bool observeNativeFileChecks = true)
+                               bool observeNativeFileChecks = true, OjnReadLimits? sourceLimits = null)
     {
         this.realm = realm;
         files = new RealmFileStore(realm, storage);
         this.checkpoint = checkpoint;
         this.observeNativeFileChecks = observeNativeFileChecks;
+        this.sourceLimits = sourceLimits ?? OjnReadLimits.Default;
     }
 
     public O2JamLibraryWriteResult Write(O2JamImportPlan plan) =>
@@ -257,16 +258,22 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter, IO2JamLibraryDiffi
         var canObserve = observeNativeFileChecks && O2JamFileVerificationPatch.IsInstalled;
 
         // The reservation and model transactions must consume the same bytes even if a
-        // caller retains mutable arrays from its plan. Only this bounded batch is copied.
-        requests = requests.Select(request => request with
+        // caller retains mutable arrays from its plan. Reject each captured plan before copying it.
+        requests = requests.Select(request =>
         {
-            Plan = request.Plan with
+            cancellationToken.ThrowIfCancellationRequested();
+            sourceLimits.CheckSourceLength(request.Plan.SourceData.LongLength);
+            sourceLimits.CheckSourceLength(request.Plan.Background.LongLength);
+            return request with
             {
-                SourceData = request.Plan.SourceData.ToArray(),
-                Background = request.Plan.Background.ToArray(),
-                Charts = request.Plan.Charts.ToArray(),
-                Slots = request.Plan.Slots.ToArray(),
-            },
+                Plan = request.Plan with
+                {
+                    SourceData = request.Plan.SourceData.ToArray(),
+                    Background = request.Plan.Background.ToArray(),
+                    Charts = request.Plan.Charts.ToArray(),
+                    Slots = request.Plan.Slots.ToArray(),
+                },
+            };
         }).ToArray();
         var results = Enumerable.Repeat(O2JamLibraryWriteResult.RulesetUnavailable, requests.Count).ToArray();
         var updatedBeatmaps = new List<BeatmapInfo>();
@@ -278,7 +285,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter, IO2JamLibraryDiffi
             foreach (var request in requests)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                sourceGuards.Add(O2JamSourceSnapshot.AcquireGuard(request.Plan));
+                sourceGuards.Add(O2JamSourceSnapshot.AcquireGuard(request.Plan, sourceLimits));
             }
             sourceTime.Stop();
 

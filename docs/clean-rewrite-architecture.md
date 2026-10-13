@@ -1,9 +1,15 @@
 # O2Lazer 当前架构
 
-维护状态（2026-10-06）：现行层级与扩展指引；显式用户政策优先；六条精确例外及两个 partial 仍存在。
+维护状态（2026-10-09）：现行层级与扩展指引；显式用户政策优先；六条精确例外及两个 partial 仍存在。
 文档职责与最新状态入口见[索引](README.md)。
 
-更新：2026-10-06。本文件描述当前 `master` 的责任边界和新增功能指引，不用历史目录名或某次测试数表示架构已全部完成。[全项目审查和待处理问题](architecture-audit.md)、[路线图](refactor-roadmap.md)、[玩法行为规格](o2jam-behaviour-spec.md)分别负责风险、进度和游戏规则。
+更新：2026-10-09。本文件描述当前 `master` 的责任边界和新增功能指引，不用历史目录名或某次测试数表示架构已全部完成。[全项目审查和待处理问题](architecture-audit.md)、[路线图](refactor-roadmap.md)、[玩法行为规格](o2jam-behaviour-spec.md)分别负责风险、进度和游戏规则。
+
+当前预览/回放补播与原生后台音量适配仍归 Host/Audio；判定历史归 Integration.Scoring，两者不混为同一状态恢复器。测试专用控制在 opt-in TestSupport 中，正常 Debug/Release 排除；它不进入 Core/Formats 或正式运行接口。
+
+回放[归档资源预算](replay-resource-limits.md)归 Host/Replays，读写共用政策和 JSON 计量；原生存储认领、附件失败保分及通知接缝归 Host/Persistence/Realm。预算不进入 Core 判定、Integration 历史或音频逐帧调度；正式 v5 与原生 JSON 设置保留。回放读写和[OJN 输入预算](ojn-resource-limits.md)已实现；OJN 政策归独立 Formats，Host 快照/准备和 Persistence 写入前共用，不将 Realm 移入 Formats。[R04 外部成绩元数据校验](replay-score-validation.md)归 Host/Replays，既有持久化 ScoreInfo 仍由原生存储接缝提供，不引入 Core/Formats 数值禁负规则。OJM 载荷/缓冲保护与整包上限政策仍独立评估。
+
+Core 的 BPM 时间图对外提供 .NET 只读的归一化快照，构造输入位置必须有限且非负；负时间查询仍保留。R05 校验和包装只在构造阶段执行，不将宿主、Formats、音频或 Realm 引入 Core；[现行时间契约](o2jam-behaviour-spec.md#position-and-judgement)约束谱面复制的一致性。
 
 ## Design intent and decision precedence
 
@@ -56,7 +62,7 @@ Composition 组装各模块；Persistence 接入具体存储后端
 
 A04-1/2 的导入计划使用字节内容、全部三槽位身份/可玩性、原 Lv、源时间及独立缓存版本，不包含 Realm 对象或第二份音符模型。Host/Library 负责身份公式、源快照与缺失证明，并编解码原生 Tags 载体；该载体属于宿主桥，不是独立格式或未来数据库 schema。Realm 适配器共用新增/刷新赋值，三难度迁移及唯一正式 v5 匹配留在此处；明确集合迁移和对象移除复用原生 TransferCollectionReferences/模型清理，继续复用 CopyTo、DeepClone、RealmFileStore。已知身份/旧成绩及正式 v5 不因元数据版本变化重生成；A04-3 的源内容归组、稳定路径与通知/取消结果归 Host/Library，事务内原生所有者查询留在适配器。原生缓存通知独立重试，不引入永久 outbox。A04-4 的文件预留/模型两事务及故障恢复留在 Realm 适配器，Host/Library 仅传递取消令牌；SHA-256、文件校验/安全写入和零引用清理继续复用原生。A04-5 实机验收仍按[存储矩阵](library-persistence-contract.md#实施顺序与验收矩阵)处理。
 
-批次查询和写入计时也留在存储适配器：当前使用原生 Ruleset 对象链接限定活动 beatmap，路径只查询单字段 AudioFile，旧 Path 回退与 set Hash 检查分开；内容复用原生文件主键和反向关联，最终核对完整路径、归属及歧义。新旧候选都要收集，已知源 ID 也不能覆盖当前的不同路径所有者。候选模型只活在本次事务内，同批修改必须即时可见，不将模型或 ORM 查询泄漏给 Library。Library 仍管理每批最多十六源的准备/提交编排；`lookup_mode=native-link-v1` 只标识日志口径，不成为新存储协议。此前平面父 Files 查询和拆分 set 实验均因实机回退撤回；新设计的真实只读备份比较已核对结果一致，查询中位数减少约 50–54%，完整客户端刷新仍待验收。原生 API 与分层正确不能替代性能证据，见[查询契约](library-persistence-contract.md#批次查询与写入计时)及[重设计验证](library-persistence-contract.md#原生链接查询重设计)。
+批次查询和写入计时也留在存储适配器：当前使用原生 Ruleset 对象链接限定活动 beatmap，路径只查询单字段 AudioFile，旧 Path 回退与 set Hash 检查分开；内容复用原生文件主键和反向关联，最终核对完整路径、归属及歧义。新旧候选都要收集，已知源 ID 也不能覆盖当前的不同路径所有者。候选模型只活在本次事务内，同批修改必须即时可见，不将模型或 ORM 查询泄漏给 Library。Library 仍管理每批最多十六源的准备/提交编排；`lookup_mode=native-link-digit-v2` 只标识日志口径，不成为新存储协议。此前平面父 Files 查询和拆分 set 实验均因实机回退撤回；新设计的真实只读备份比较已核对结果一致，查询中位数减少约 50–54%；后续完整数字组优化保留，部分数字组实验已撤回。已有完整导入约 268 秒、无变化更新约 16–17 秒的日志；完整 A04-5 客户端矩阵仍未关闭。原生 API 与分层正确不能替代性能证据，见[查询契约](library-persistence-contract.md#批次查询与写入计时)及[重设计验证](library-persistence-contract.md#原生链接查询重设计)。
 
 ### 允许依赖矩阵与例外
 
@@ -118,6 +124,11 @@ Integration 可创建原生谱面/判定对象，但不拥有工作谱面的 Tra
 ## 玩法与原生宿主的接缝
 
 Core 接收小节位置与普通规则配置，输出原始/药丸修正后的判定、长条状态和整局快照；它不认识 `HitObject`、Drawable、Mod、Realm 或 osu! 时钟。宿主提供谱面毫秒和输入，`O2JamJudgementBridge` 将它们转成核心所需位置并把最终判定映射为原生结果。Drawable 可以承载原生回调与延后父长条提交，但不能重新定义判定或分数；画面只消费已解析状态。内部 Combo 可为 -1，宿主显示和成绩分别投影。
+
+Core 只提供完整可信快照的 `Restore`，不管理宿主结果身份和撤销顺序。
+Integration 的判定历史复用已有结果快照做尾部恢复；乱序撤销只重算受影响后缀，
+修正快照独立缓存，原生已提交结果保留供原生统计/血量撤销。权威状态实例不替换，
+HUD 每次实际撤销只接收最终状态。细节与复杂度边界见[回退契约](replay-timing-boundary.md#判定历史恢复契约r072026-10-09)。
 
 ### 零血状态与成绩结果边界
 
@@ -208,6 +219,18 @@ A15 已删除未使用的 `IO2JamChartTransform<TChart>`，不增加替代接口
 回放输入沿用原生 `FramedReplayInputHandler` 调度及 ManiaAction，宿主只定义 O2Jam 帧格式。当前归档仅写/读带 `o2lazer` 标记的 v5；新写入携带 `judgement_version=20261005`，已有无规则版本 v5 测试回放按新规则重判，保存成绩不改写；重构前无标记 replay 属于测试实现，明确不兼容。旧成绩关联必须保留；任何重建谱面或存储设计都需先验证 ID 映射。Realm 直接类型集中在 `Host/Persistence/Realm`，但原生模型和两个 partial 组装点仍产生编译耦合；详见 [存储边界](realm-isolation.md) 和 [回放时序](replay-timing-boundary.md)。
 
 音频使用 OJM 资源与原生 Track/Sample 后端。桥接层负责 OJN 到谱面音频事件和采样引用元数据的映射；`Host/Audio` 消费这些数据构造调度，并负责统一事件钟、预览/游玩播放策略、声道生命周期和限定 OJM 的原生采样适配。普通游玩与回放仍由原生命中触发 KS，BGM/KeySound 不受全局效果音量影响。暂停与跳转的边界见[音频契约](rate-mod-audio-readiness.md)；[音频诊断](audio-sync-diagnostics.md)仅用于观测。Native Mania 皮肤、对象池、UI 控件和动画在契约兼容时继续复用。
+
+`Host/Audio/O2JamAudioPreparationHost` 只管理原生 Sample/Track 的获取、准备完成
+与关闭边界；格式读取仍在 Formats/Integration，谱面事件时间线由原音频调度
+消费，不进入 Core。此 ruleset 的四槽准备队列保留到完整原生准备尝试结束，
+不把 SampleStore.GetAsync 返回误作解码结束，也不成为其他 ruleset 的全局队列。
+具体原生缺口、优先级、取消及设备恢复契约见[音频准备边界](rate-mod-audio-readiness.md#原生音频准备边界2026-10-13)。
+
+R02 源一致性归 `Formats/Ojm/OjmLazySource` 与 `Integration/Formats/Ojm`，不依赖
+osu/Realm 来判定载荷来源；Host 只按失效状态管理原生工作谱面和声音。OJN
+目录编码上下文和文档缓存归 Integration；代数、文件戳和每目录四头部并行
+只约束读取/复用，不成为判定模式或持久化版本。具体失效、刷新与测试归属见
+[读取缓存合入](ojm-source-and-resource-plan.md#读取与缓存源码合入2026-10-13)。
 
 ## 扩展时如何放置实现
 

@@ -29,6 +29,7 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 [NonParallelizable]
 public class O2JamNativeTrackPreparationTest
 {
+    private readonly List<O2JamAudioPreparationHost> preparationHosts = [];
     private AudioMixer mixer = null!;
     private ITrackStore store = null!;
     private O2JamArchiveResourceStore resources = null!;
@@ -57,10 +58,21 @@ public class O2JamNativeTrackPreparationTest
     {
         onAudioThread(() =>
         {
-            ((AudioComponent)store).Dispose();
-            ((AudioComponent)store).Update();
-            mixer.Dispose();
-            mixer.Update();
+            foreach (var host in preparationHosts)
+            {
+                if (!host.IsDisposed) { host.Dispose(); host.Update(); }
+            }
+            preparationHosts.Clear();
+            if (!((AudioComponent)store).IsDisposed)
+            {
+                ((AudioComponent)store).Dispose();
+                ((AudioComponent)store).Update();
+            }
+            if (!mixer.IsDisposed)
+            {
+                mixer.Dispose();
+                mixer.Update();
+            }
         });
         resources.Dispose();
         Bass.Free();
@@ -224,7 +236,7 @@ public class O2JamNativeTrackPreparationTest
     public void PreparedNativeTrackCanStartStopAndSeekOnAudioThread()
     {
         var observing = new ObservingStore(store);
-        var prepared = O2JamTrackPreparation.LoadAsync(observing, "o2jam/7", CancellationToken.None);
+        var prepared = prepare(observing, "o2jam/7", CancellationToken.None);
         var created = observing.Created.Task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
 
         Assert.Multiple(() =>
@@ -249,7 +261,7 @@ public class O2JamNativeTrackPreparationTest
     [Test]
     public void PreviewTrackResumesPreparedNativeBackground()
     {
-        var prepared = O2JamTrackPreparation.LoadAsync(store, "o2jam/7", CancellationToken.None);
+        var prepared = prepare(store, "o2jam/7", CancellationToken.None);
         pumpUntil(() => prepared.IsCompleted);
         var background = prepared.GetAwaiter().GetResult()!;
         var beatmap = new O2JamBeatmap(O2JamDifficulty.EX, new O2JamTimingMap(120));
@@ -270,7 +282,7 @@ public class O2JamNativeTrackPreparationTest
     [Test]
     public void FailedNativeDecoderDoesNotLeavePreparationPendingForever()
     {
-        var prepared = O2JamTrackPreparation.LoadAsync(store, "o2jam/8", CancellationToken.None);
+        var prepared = prepare(store, "o2jam/8", CancellationToken.None);
         pumpUntil(() => prepared.IsCompleted);
         Assert.That(prepared.GetAwaiter().GetResult(), Is.Null);
     }
@@ -280,11 +292,21 @@ public class O2JamNativeTrackPreparationTest
     {
         var observing = new ObservingStore(store);
         using var cancellation = new CancellationTokenSource();
-        var prepared = O2JamTrackPreparation.LoadAsync(observing, "o2jam/7", cancellation.Token);
+        var prepared = prepare(observing, "o2jam/7", cancellation.Token);
         var created = observing.Created.Task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
         cancellation.Cancel();
         pumpUntil(() => prepared.IsCompleted && created.IsDisposed);
         Assert.That(prepared.IsCanceled, Is.True);
+    }
+
+    private Task<Track?> prepare(ITrackStore source, string name, CancellationToken token)
+    {
+        // Preserve the existing native playback regressions while exercising the candidate host.
+        var samples = (ISampleStore)Activator.CreateInstance(typeof(Sample).Assembly.GetType("osu.Framework.Audio.Sample.SampleStore")!,
+            BindingFlags.Instance | BindingFlags.NonPublic, null, [resources, mixer], null)!;
+        var host = new O2JamAudioPreparationHost(samples, source);
+        preparationHosts.Add(host);
+        return new O2JamPreloadScheduler(1).Schedule(cancellation => host.PrepareTrackAsync(name, cancellation), token, true).Task;
     }
 
     private void pumpUntil(Func<bool> completed)
@@ -296,6 +318,8 @@ public class O2JamNativeTrackPreparationTest
             {
                 mixer.Update();
                 ((AudioComponent)store).Update();
+                foreach (var host in preparationHosts)
+                    if (host.IsAlive) host.Update();
             });
             Thread.Sleep(1);
         }
@@ -313,6 +337,8 @@ public class O2JamNativeTrackPreparationTest
                 preview.Update();
                 mixer.Update();
                 ((AudioComponent)store).Update();
+                foreach (var host in preparationHosts)
+                    if (host.IsAlive) host.Update();
             });
             Thread.Sleep(1);
         }

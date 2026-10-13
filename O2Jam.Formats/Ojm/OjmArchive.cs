@@ -7,11 +7,19 @@ namespace O2Jam.Formats.Ojm;
 
 public sealed class OjmArchive
 {
+    private readonly OjmLazySource? source;
+    public bool IsSourceInvalidated => source?.IsInvalidated == true;
     public IReadOnlyDictionary<int, OjmSample> Samples { get; }
     public long DecodedByteLength { get; }
 
     public OjmArchive(IReadOnlyDictionary<int, OjmSample> samples)
+        : this(samples, null)
     {
+    }
+
+    internal OjmArchive(IReadOnlyDictionary<int, OjmSample> samples, OjmLazySource? source)
+    {
+        this.source = source;
         Samples = samples.ToImmutableDictionary();
         DecodedByteLength = Samples.Values.Sum(sample => sample.ByteLength);
     }
@@ -48,12 +56,12 @@ public sealed class OjmSample
         ByteLength = ownedData.LongLength;
     }
 
-    internal OjmSample(int id, string name, string extension, long byteLength, System.Func<byte[]> loader)
+    internal OjmSample(int id, string name, string extension, long byteLength, System.Func<byte[]> loader, OjmLazyReadBudget budget)
     {
         Id = id;
         Name = name;
         Extension = extension;
         ByteLength = byteLength;
-        data = new System.Lazy<byte[]>(loader, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+        data = new System.Lazy<byte[]>(() => budget.Load(byteLength, loader), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
     }
 }

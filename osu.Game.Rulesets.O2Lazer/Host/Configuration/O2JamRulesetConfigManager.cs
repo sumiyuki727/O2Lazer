@@ -92,5 +92,6 @@ public enum O2JamRulesetSetting
     SyncSourceFolderCollections,
     O2JamStyleDroppedHold,
     PercyLongNoteBodyRepeat,
+    // Keep the saved key and ordinal readable; automatic directory resolution no longer consumes this setting.
     MetadataEncoding,
 }

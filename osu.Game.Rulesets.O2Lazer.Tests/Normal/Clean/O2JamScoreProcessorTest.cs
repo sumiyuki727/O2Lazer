@@ -11,7 +11,7 @@ using osu.Game.Scoring;
 namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 [TestFixture]
-public class O2JamScoreProcessorTest
+public partial class O2JamScoreProcessorTest
 {
     [Test]
     public void DrawableResolutionDoesNotCommitFrameworkResultEarly()
