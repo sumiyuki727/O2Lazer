@@ -200,3 +200,10 @@ RunAsync 在排队前增加计数，执行体正常结束后才 Signal；排队�
 若现象重复，先核对具体调用和保存结果；宿主缺口优先随上游修复处理，
 不扩大 ruleset 对全局数据库生命周期的控制。私有源码快照、五项显式过滤 TRX、
 重启读取和普通退出记录位于 .artifacts/realm-shutdown-diagnostic-20261014；没有运行 benchmark。
+
+## test3 发布与本地验收包
+
+用户随后授权发布 [1.0.0-test3](release-1.0.0-test3.md)。正式发布单独构建，
+显式关闭 O2LazerTestBridge 和 O2JamSyncDiagnostics，核对编译输入及 DLL 类型后只上传正式包。
+当前本地 0265A6… 基础桥验收包保持不变，不以已安装的测试 DLL 充当发布资产。
+此前各次源码/包身份、实际反馈、原生退出等待和偶发选曲观察继续保留原范围。
