@@ -1,6 +1,9 @@
 # O2Lazer 文档索引
 
 更新：2026-10-14。当前目标 Game/Mania 2026.1005.0、Framework 2026.921.1。
+test3 发布后的成绩关联修复见[持久化契约](library-persistence-contract.md#清理后重新导入的成绩关联2026-10-14)：
+正常更新按唯一同 Hash 恢复清理/重导后的旧成绩；231 项定向过滤回归通过，客户端反馈待补。
+本次 master 增量不改 test3 的 tag 或资产；下述 1941 项是发布基线的整合验证。
 [本轮维护收尾](maintenance-closeout-2026-10-14.md)负责当前源码交付、1941 项本机过滤验证、
 固定官方 CI 参考、1941 项完整远程通过及剩余清单；[客户端验收](current-build-validation.md)负责实际安装/备份身份、
 Reason 回放退出补播、NoMS/MS 游玩及 Mod 视觉已获用户确认通过；

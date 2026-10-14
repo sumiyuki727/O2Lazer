@@ -7,6 +7,7 @@ using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Game.Beatmaps;
 using osu.Game.Database;
+using osu.Game.Rulesets.O2Lazer.Host.Library;
 using osu.Game.Rulesets.O2Lazer.Difficulty;
 
 namespace osu.Game.Rulesets.O2Lazer.Import;
@@ -15,6 +16,7 @@ internal sealed class O2JamRealmLibraryBackend : IO2JamLibraryBackend, IO2JamCon
 {
     private readonly O2JamLibraryWriter writer;
     private readonly O2JamLibraryWriter difficultyWriter;
+    private readonly RulesetLocalScoreRestorer scoreLinks;
     private O2JamLibraryDifficultyPipeline? difficultyWork;
     private readonly O2JamImportService importer;
     private readonly O2JamSourceFolderCollectionService collections;
@@ -36,6 +38,7 @@ internal sealed class O2JamRealmLibraryBackend : IO2JamLibraryBackend, IO2JamCon
         difficultyWriter.BeatmapUpdated += invalidateDifficulty;
         importer = new O2JamImportService(new O2JamImportPlanner(), writer);
         collections = new O2JamSourceFolderCollectionService(realm);
+        scoreLinks = new RulesetLocalScoreRestorer(realm, O2LazerIdentity.ShortName);
     }
 
     public bool DirectoryExists(string path) => Directory.Exists(path);
@@ -51,7 +54,7 @@ internal sealed class O2JamRealmLibraryBackend : IO2JamLibraryBackend, IO2JamCon
         new O2JamLibraryProgress(0, 0, O2JamLibraryStage.ReadingImportedMetadata).Publish(progress);
         var importedSources = writer.GetImportedSources(cancellationToken, progress, mode);
         Logger.Log($"O2Jam refresh: indexed {importedSources.Count} imported sources; starting import.");
-        return importer.Refresh(paths, importedSources,
+        var summary = importer.Refresh(paths, importedSources,
             (processed, total) => progress?.Invoke(new O2JamLibraryProgress(processed, total)),
             (exception, sourcePath) => Logger.Error(exception, $"O2Jam refresh failed for '{sourcePath}'."),
             cancellationToken, progress, mode, requests =>
@@ -61,6 +64,25 @@ internal sealed class O2JamRealmLibraryBackend : IO2JamLibraryBackend, IO2JamCon
                 foreach (var source in writer.GetCommittedDifficultySources(requests))
                     difficultyWork.Offer(source);
             });
+        if (!summary.RulesetUnavailable)
+        {
+            try
+            {
+                var restored = scoreLinks.Restore(cancellationToken);
+                Logger.Log($"O2Jam refresh: restored local score associations; scores={restored}.");
+            }
+            catch (OperationCanceledException) when (summary.Imported + summary.Updated > 0)
+            {
+                throw new O2JamImportCancelledException(summary, cancellationToken);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception exception)
+            {
+                Logger.Error(exception, "O2Jam local score reattachment failed after refreshing the library; retry on the next refresh.");
+                summary = summary with { PendingNotifications = summary.PendingNotifications + 1 };
+            }
+        }
+        return summary;
     }
 
     public void DeleteAll(Action<O2JamLibraryProgress>? progress = null, CancellationToken cancellationToken = default) => writer.DeleteAll(progress, cancellationToken);
