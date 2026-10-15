@@ -253,6 +253,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter, IO2JamLibraryDiffi
         var projectionTime = new Stopwatch();
         var nativeFileChecks = 0;
         var fallbackFileChecks = 0;
+        var pathNames = 0;
         var pathPredicates = 0;
         var pathWildcardGroups = 0;
         var canObserve = observeNativeFileChecks && O2JamFileVerificationPatch.IsInstalled;
@@ -377,6 +378,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter, IO2JamLibraryDiffi
                     throw new IOException("An OJN file reservation was removed before its model transaction; prepare and retry the batch.");
                 lookupTime.Start();
                 var lookup = new O2JamLibraryLookup(database, requests, setQueryTime, legacyQueryTime, pathQueryTime, legacyPathQueryTime, hashQueryTime);
+                pathNames = lookup.PathNameCount;
                 pathPredicates = lookup.PathPredicateCount;
                 pathWildcardGroups = lookup.PathWildcardGroupCount;
                 lookupTime.Stop();
@@ -411,7 +413,7 @@ public sealed class O2JamLibraryWriter : IO2JamLibraryWriter, IO2JamLibraryDiffi
         // callback time separately so native opening/locking/commit costs are not blamed on queries.
         if (++completedBatches == 1 || completedBatches % 16 == 0)
             Logger.Log(string.Create(CultureInfo.InvariantCulture,
-                $"O2Jam write batch {completedBatches}: sources={requests.Count}, lookup_mode=native-link-digit-v2, path_predicates={pathPredicates}, path_wildcard_groups={pathWildcardGroups}, file_check_mode={(observeNativeFileChecks && O2JamFileVerificationPatch.IsInstalled ? "native-observed-v1" : "fallback-v1")}, native_file_checks={nativeFileChecks}, fallback_file_checks={fallbackFileChecks}, total={totalTime.Elapsed.TotalMilliseconds:F1} ms, source={sourceTime.Elapsed.TotalMilliseconds:F1}, reserve={reserveTime.Elapsed.TotalMilliseconds:F1}, verify={verifyTime.Elapsed.TotalMilliseconds:F1}, model={modelTime.Elapsed.TotalMilliseconds:F1}, body={modelBodyTime.Elapsed.TotalMilliseconds:F1}, lookup={lookupTime.Elapsed.TotalMilliseconds:F1}, files={fileTime.Elapsed.TotalMilliseconds:F1}, projection={projectionTime.Elapsed.TotalMilliseconds:F1}, notify={notifyTime.Elapsed.TotalMilliseconds:F1}, set_query={setQueryTime.Elapsed.TotalMilliseconds:F1}, legacy_query={legacyQueryTime.Elapsed.TotalMilliseconds:F1}, path_query={pathQueryTime.Elapsed.TotalMilliseconds:F1}, legacy_path_query={legacyPathQueryTime.Elapsed.TotalMilliseconds:F1}, hash_query={hashQueryTime.Elapsed.TotalMilliseconds:F1}."));
+                $"O2Jam write batch {completedBatches}: sources={requests.Count}, lookup_mode=native-name-membership-v3, path_names={pathNames}, legacy_path_predicates={pathPredicates}, legacy_path_wildcard_groups={pathWildcardGroups}, file_check_mode={(observeNativeFileChecks && O2JamFileVerificationPatch.IsInstalled ? "native-observed-v1" : "fallback-v1")}, native_file_checks={nativeFileChecks}, fallback_file_checks={fallbackFileChecks}, total={totalTime.Elapsed.TotalMilliseconds:F1} ms, source={sourceTime.Elapsed.TotalMilliseconds:F1}, reserve={reserveTime.Elapsed.TotalMilliseconds:F1}, verify={verifyTime.Elapsed.TotalMilliseconds:F1}, model={modelTime.Elapsed.TotalMilliseconds:F1}, body={modelBodyTime.Elapsed.TotalMilliseconds:F1}, lookup={lookupTime.Elapsed.TotalMilliseconds:F1}, files={fileTime.Elapsed.TotalMilliseconds:F1}, projection={projectionTime.Elapsed.TotalMilliseconds:F1}, notify={notifyTime.Elapsed.TotalMilliseconds:F1}, set_query={setQueryTime.Elapsed.TotalMilliseconds:F1}, legacy_query={legacyQueryTime.Elapsed.TotalMilliseconds:F1}, path_query={pathQueryTime.Elapsed.TotalMilliseconds:F1}, legacy_path_query={legacyPathQueryTime.Elapsed.TotalMilliseconds:F1}, hash_query={hashQueryTime.Elapsed.TotalMilliseconds:F1}."));
 
         return results;
     }

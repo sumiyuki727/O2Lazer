@@ -117,7 +117,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                             if (isKnown && lookup.PathWildcardGroupCount == 0)
                                 Assert.Inconclusive("The selected case did not activate grouping.");
                             if (iteration == -1)
-                                TestContext.Out.WriteLine($"digit comparison case={(isKnown ? "existing-group" : "unregistered-paths")}, predicates={lookup.PathPredicateCount}, groups={lookup.PathWildcardGroupCount}");
+                                TestContext.Out.WriteLine($"digit comparison case={(isKnown ? "existing-group" : "unregistered-paths")}, suffix_predicates={lookup.PathPredicateCount}, suffix_groups={lookup.PathWildcardGroupCount}");
                             current = requests.Select(request => (lookup.FindPath(request.Plan.SourcePath)?.ID,
                                 lookup.FindContent(request.Plan.SourceHash)?.ID, lookup.ContainsSetHash(request.Plan.SetHash))).ToArray();
                         }
@@ -131,7 +131,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                 }
                 for (var shape = 0; shape < 2; shape++)
                     TestContext.Out.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                        $"readonly lookup case={(isKnown ? "existing" : "unregistered-paths")}, shape={(shape == 0 ? "native-link-v1" : "native-link-digit-v2")}, sources=16, samples={string.Join(",", samples[shape].Select(value => value.ToString("F1", CultureInfo.InvariantCulture)))}, median={samples[shape].Order().ElementAt(1):F1} ms"));
+                        $"readonly lookup case={(isKnown ? "existing" : "unregistered-paths")}, shape={(shape == 0 ? "native-link-v1" : "current-production")}, sources=16, samples={string.Join(",", samples[shape].Select(value => value.ToString("F1", CultureInfo.InvariantCulture)))}, median={samples[shape].Order().ElementAt(1):F1} ms"));
             }
         }
         Assert.That(readonlyFileHash(copy), Is.EqualTo(copyHash));

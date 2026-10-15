@@ -16,6 +16,7 @@ internal sealed class O2JamLibraryLookup
 {
     private readonly Realm database;
     private readonly Dictionary<Guid, BeatmapSetInfo> candidates = [];
+    internal int PathNameCount { get; private set; }
     internal int PathPredicateCount { get; private set; }
     internal int PathWildcardGroupCount { get; private set; }
 
@@ -37,11 +38,20 @@ internal sealed class O2JamLibraryLookup
         setQueryTime?.Start();
         pathQueryTime?.Start();
         var pathQueries = createPathQueries(names);
+        PathNameCount = names.Length;
         PathPredicateCount = pathQueries.Count;
         PathWildcardGroupCount = pathQueries.Count(query => query.Wildcard);
-        add(owned.Filter(string.Join(" OR ", pathQueries.Select((query, index) =>
-                $"Metadata.AudioFile {(query.Wildcard ? "LIKE[c]" : "ENDSWITH[c]")} ${index}")),
-                pathQueries.Select(query => (QueryArgument)query.Pattern).ToArray())
+        var literals = string.Join(", ", names.Select((_, index) => $"${index}"));
+        var suffixes = string.Join(" OR ", pathQueries.Select((query, index) =>
+            $"Metadata.AudioFile {(query.Wildcard ? "LIKE[c]" : "ENDSWITH[c]")} ${names.Length + index}"));
+        var separatorOffset = names.Length + pathQueries.Count;
+        var legacyPaths = string.Join(" OR ", Enumerable.Range(separatorOffset, 3)
+            .Select(index => $"Metadata.AudioFile CONTAINS ${index}"));
+        // Current projections store a bare filename. Native membership avoids applying
+        // every suffix predicate to those rows while retaining legacy rooted/relative paths.
+        add(owned.Filter($"Metadata.AudioFile IN[c] {{{literals}}} OR (({legacyPaths}) AND ({suffixes}))",
+                names.Concat(pathQueries.Select(query => query.Pattern)).Concat(["\\", "/", ":"])
+                     .Select(value => (QueryArgument)value).ToArray())
             .AsEnumerable()
             // '?' also admits non-digits. Keep the original suffix test before tracking
             // candidates, so grouping cannot invent a path or content owner.

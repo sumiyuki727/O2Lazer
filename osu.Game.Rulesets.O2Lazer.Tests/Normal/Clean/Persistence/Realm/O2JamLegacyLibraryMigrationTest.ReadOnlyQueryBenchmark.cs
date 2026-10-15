@@ -119,7 +119,7 @@ public partial class O2JamLegacyLibraryMigrationTest
                 }
                 for (var shape = 0; shape < 2; shape++)
                     TestContext.Out.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                        $"readonly lookup case={(isKnown ? "existing" : "unregistered-paths")}, shape={(shape == 0 ? "combined-baseline" : "native-link")}, sources=16, samples={string.Join(",", samples[shape].Select(value => value.ToString("F1", CultureInfo.InvariantCulture)))}, median={samples[shape].Order().ElementAt(1):F1} ms"));
+                        $"readonly lookup case={(isKnown ? "existing" : "unregistered-paths")}, shape={(shape == 0 ? "combined-baseline" : "current-production")}, sources=16, samples={string.Join(",", samples[shape].Select(value => value.ToString("F1", CultureInfo.InvariantCulture)))}, median={samples[shape].Order().ElementAt(1):F1} ms"));
             }
         }
         Assert.That(readonlyFileHash(copy), Is.EqualTo(copyHash));

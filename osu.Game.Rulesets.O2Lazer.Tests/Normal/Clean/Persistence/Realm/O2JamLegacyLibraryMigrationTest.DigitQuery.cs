@@ -9,26 +9,43 @@ namespace osu.Game.Rulesets.O2Lazer.Tests.Normal.Clean;
 
 public partial class O2JamLegacyLibraryMigrationTest
 {
-    [TestCase(1)]
-    [TestCase(2)]
-    [TestCase(9)]
-    [TestCase(10)]
-    public void NumericPathCandidatesKeepLiteralSuffixesAndExcludeWildcardNeighbours(int count) => runProjectionTest((realm, storage) =>
+    [TestCase(1, false)]
+    [TestCase(2, false)]
+    [TestCase(9, false)]
+    [TestCase(10, false)]
+    [TestCase(1, true)]
+    [TestCase(2, true)]
+    [TestCase(9, true)]
+    [TestCase(10, true)]
+    public void NumericPathCandidatesKeepLiteralSuffixesAndExcludeWildcardNeighbours(int count, bool legacy) => runProjectionTest((realm, storage) =>
     {
         var planner = new O2JamImportPlanner();
         var writer = new O2JamLibraryWriter(realm, storage);
+        var directory = legacy ? "nested" : string.Empty;
+        Directory.CreateDirectory(storage.GetFullPath(directory));
         var plans = Enumerable.Range(120, 10).Select(number =>
         {
-            var path = storage.GetFullPath($"o2ma{number}.ojn");
+            var path = storage.GetFullPath(Path.Combine(directory, $"o2ma{number}.ojn"));
             File.WriteAllBytes(path, recoverySource((uint)number));
             return planner.Create(path);
         }).ToArray();
         writer.WriteBatch(plans.Select(plan => new O2JamLibraryWriteRequest(plan)).ToArray());
-        var neighbour = storage.GetFullPath("o2ma12x.ojn");
+        var neighbour = storage.GetFullPath(Path.Combine(directory, "o2ma12x.ojn"));
         File.WriteAllBytes(neighbour, recoverySource(200));
         writer.Write(planner.Create(neighbour));
         var expected = writer.GetImportedSources();
-        realm.Write(database => database.Find<BeatmapSetInfo>(expected[plans[0].SourcePath].SetId)!.Beatmaps.Single().Metadata.AudioFile = "O2MA120.OJN");
+        realm.Write(database =>
+        {
+            if (legacy)
+                foreach (var plan in plans)
+                {
+                    var metadata = database.Find<BeatmapSetInfo>(expected[plan.SourcePath].SetId)!.Beatmaps.Single().Metadata;
+                    metadata.Source = storage.GetFullPath(string.Empty);
+                    metadata.AudioFile = Path.Combine(directory, plan.FileName);
+                }
+            var first = database.Find<BeatmapSetInfo>(expected[plans[0].SourcePath].SetId)!.Beatmaps.Single().Metadata;
+            first.AudioFile = first.AudioFile.ToUpperInvariant();
+        });
         realm.Run(database =>
         {
             var lookup = new O2JamLibraryLookup(database, plans.Take(count).Select(plan => new O2JamLibraryWriteRequest(plan)).ToArray());
